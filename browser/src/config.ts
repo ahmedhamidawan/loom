@@ -1,14 +1,15 @@
-/** The agent's config, assembled from the Charts incoming contract and dev env vars. */
-import { parseIncoming } from "./incoming";
+/** The agent's config, assembled from where the page was launched and dev env vars. */
 import { providerById } from "./agent/providers";
 import type { Credentials } from "./credentials";
 
-const PLUGIN_NAME = "olit";
+export interface Launched {
+  root: string;
+  datasetId?: string;
+  /** Galaxy's chat proxy for the plugin, which the "galaxy" provider talks to. */
+  galaxyChatUrl: string;
+}
 
-export function buildConfig(
-  incoming: ReturnType<typeof parseIncoming>,
-  creds?: Credentials | null,
-) {
+export function buildConfig(incoming: Launched, creds?: Credentials | null) {
   const picked = creds ? providerById(creds.provider) : undefined;
   const provider = creds?.provider || (process.env.llm_provider as string) || "galaxy";
   return {
@@ -19,7 +20,7 @@ export function buildConfig(
       (process.env.llm_base_url as string) ||
       creds?.baseUrl?.trim() ||
       picked?.baseUrl ||
-      (provider === "galaxy" ? `${incoming.root}api/plugins/${PLUGIN_NAME}` : undefined),
+      (provider === "galaxy" ? incoming.galaxyChatUrl : undefined),
     ai_provider: provider,
     ai_model: creds?.model || (process.env.llm_model as string) || undefined,
     ai_context_window: Number(process.env.llm_context_window) || undefined,

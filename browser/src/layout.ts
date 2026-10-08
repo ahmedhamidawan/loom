@@ -62,14 +62,16 @@ export interface Elements {
   send: HTMLButtonElement;
   abort: HTMLButtonElement;
   reset: HTMLButtonElement;
-  save: HTMLButtonElement;
+  /** Absent when nothing saves the conversation. */
+  save?: HTMLButtonElement;
   model: HTMLButtonElement;
   artifactContent: HTMLElement;
 }
 
 /** Write the layout into `container` and hand back the parts the shell drives. */
-export function mountLayout(container: HTMLElement): Elements {
+export function mountLayout(container: HTMLElement, { save = true } = {}): Elements {
   container.innerHTML = LAYOUT;
+  if (!save) container.querySelector("#save-btn")!.remove();
   const find = <T extends HTMLElement>(id: string) => container.querySelector<T>(id)!;
   return {
     messages: find("#messages"),
@@ -77,7 +79,7 @@ export function mountLayout(container: HTMLElement): Elements {
     send: find<HTMLButtonElement>("#send-btn"),
     abort: find<HTMLButtonElement>("#abort-btn"),
     reset: find<HTMLButtonElement>("#reset-btn"),
-    save: find<HTMLButtonElement>("#save-btn"),
+    save: container.querySelector<HTMLButtonElement>("#save-btn") ?? undefined,
     model: find<HTMLButtonElement>("#model-btn"),
     artifactContent: find("#artifact-content"),
   };

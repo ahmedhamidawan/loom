@@ -44,6 +44,11 @@ describe("the Galaxy transport", () => {
       .filter((rel) => !SKIPPED.some((s) => rel.startsWith(s)))
       .filter((rel) => /connectGalaxy\(/.test(readFileSync(join(ROOT, rel), "utf8")))
       .sort();
-    expect(building).toEqual(["agent/galaxy.ts", "agent/runtime.ts", "agent/worker.ts", "main.ts"]);
+    expect(building).toEqual([
+      "agent/galaxy.ts",
+      "agent/runtime.ts",
+      "agent/worker.ts",
+      "shell.ts",
+    ]);
   });
 });

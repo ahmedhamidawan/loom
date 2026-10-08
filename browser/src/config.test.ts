@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { buildConfig } from "./config";
 
-const incoming = (specs: Record<string, unknown>) => ({
+// The plugin's specs never reach the config: only these three fields are read.
+const incoming = (_specs: Record<string, unknown>) => ({
   root: "/",
   datasetId: "d1",
-  specs,
-  settings: {},
+  galaxyChatUrl: "/api/plugins/olit",
 });
 
 describe("buildConfig", () => {
