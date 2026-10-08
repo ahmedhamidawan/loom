@@ -15,6 +15,7 @@
     "paths": {
       "dompurify": ["node_modules/dompurify"],
       "marked": ["node_modules/marked"]
-    }
+    },
+    "noUncheckedSideEffectImports": true
   }
 }

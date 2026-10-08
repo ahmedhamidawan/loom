@@ -40,8 +40,8 @@ node e2e/galaxy-boot-drive.cjs
 BROWSER=firefox node e2e/python-isolation-drive.cjs   # chromium by default; also webkit
 ```
 
-Use the dev tier for fast iteration on `src/`, the built tier for anything that has to hold in
-a deployment. Drives that name a real provider call `offline.cjs` first, which aborts every
+Use the dev tier for fast iteration on `core/src/` and `olit/src/`, the built tier for anything
+that has to hold in a deployment. Drives that name a real provider call `offline.cjs` first, which aborts every
 request off 127.0.0.1.
 
 ## The stub

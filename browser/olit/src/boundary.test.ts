@@ -1,0 +1,81 @@
+/**
+ * Olit is a flavor of @galaxyproject/orbit-browser and will move to galaxy-visualizations, where
+ * the core is a published package. So it reaches the core only through the package's exports:
+ * never a relative path out of olit/, never Orbit's renderer, never a path inside the package.
+ */
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const OLIT = join(__dirname, "..");
+const CORE_PACKAGE = "@galaxyproject/orbit-browser";
+const EXPORTS = Object.keys(
+  JSON.parse(readFileSync(join(OLIT, "..", "core", "package.json"), "utf8")).exports,
+);
+
+function sources(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) {
+      return ["node_modules", "static", "skills", "__surface__"].includes(name)
+        ? []
+        : sources(path);
+    }
+    return /\.(ts|js)$/.test(name) ? [path] : [];
+  });
+}
+
+/** Every module a file names: imports, re-exports, dynamic imports, mocks, augmentations. */
+export function specifiers(text: string): string[] {
+  const found = text.matchAll(
+    /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bvi\.mock\(\s*|\bdeclare module\s+)["']([^"']+)["']/g,
+  );
+  return [...found].map((m) => m[1]);
+}
+
+/** Why `spec`, named by `file`, reaches past the core's public surface, or undefined. */
+export function trespass(file: string, spec: string, root = OLIT): string | undefined {
+  if (spec.includes("app/src/renderer")) {
+    return "Orbit's renderer belongs to the core";
+  }
+  if (spec.startsWith(".")) {
+    // Named outright as well as resolved: a path that means the core is wrong from anywhere.
+    if (/^(\.\.?\/)+core\//.test(spec)) {
+      return "a relative path to the core";
+    }
+    const target = relative(root, resolve(dirname(file), spec));
+    return target.startsWith("..") ? "a relative path out of olit/" : undefined;
+  }
+  if (spec === CORE_PACKAGE || spec.startsWith(`${CORE_PACKAGE}/`)) {
+    const entry = `.${spec.slice(CORE_PACKAGE.length)}`;
+    return EXPORTS.includes(entry) ? undefined : `${entry} is not one of the core's exports`;
+  }
+  return undefined;
+}
+
+describe("olit's way into the core", () => {
+  it("is the core package's exports and nothing else", () => {
+    const found = sources(OLIT).flatMap((file) =>
+      specifiers(readFileSync(file, "utf8")).flatMap((spec) => {
+        const why = trespass(file, spec);
+        return why ? [`${relative(OLIT, file)}: ${spec} (${why})`] : [];
+      }),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("catches each way of reaching past it", () => {
+    const file = join(OLIT, "src", "main.ts");
+    expect(trespass(file, "../../core/src/agent/tool")).toBeDefined();
+    expect(trespass(file, "../core/src/agent/tool")).toBeDefined();
+    expect(trespass(file, "../../app/src/renderer/theme")).toBeDefined();
+    expect(trespass(file, `${CORE_PACKAGE}/src/agent/tool`)).toBeDefined();
+    expect(trespass(file, `${CORE_PACKAGE}/agent`)).toBeUndefined();
+    expect(trespass(file, "./artifacts/kinds")).toBeUndefined();
+    expect(specifiers('declare module "a";\nimport("b");\nexport { c } from "c";')).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+});
