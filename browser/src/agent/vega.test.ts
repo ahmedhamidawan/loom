@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { toPage } from "../artifacts/kinds";
+import { registerArtifactKinds, toPage } from "../artifacts/kinds";
+import { OLIT_KINDS } from "../artifacts/olit-kinds";
 
 import * as vega from "./vega";
+
+registerArtifactKinds(OLIT_KINDS);
 
 const TABULAR = {
   id: "d1",

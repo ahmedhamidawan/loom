@@ -4,9 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { connectGalaxy, connectWeb } from "./galaxy";
 import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { editRecord } from "./record-write";
-import type { Artifact } from "../artifacts/kinds";
+import { registerArtifactKinds, type Artifact } from "../artifacts/kinds";
+import { OLIT_KINDS } from "../artifacts/olit-kinds";
 import { Outcome, type Context } from "./tool";
 import { olitTools } from "./tools";
+
+registerArtifactKinds(OLIT_KINDS);
 
 const ROOT = "http://galaxy.test/";
 const RECORD =

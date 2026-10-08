@@ -13,7 +13,8 @@ import {
   type Submission,
 } from "@earendil-works/pi-durable";
 
-import { artifactsOf, type Artifact } from "../artifacts/kinds";
+import { artifactsOf, registerArtifactKinds, type Artifact } from "../artifacts/kinds";
+import { OLIT_KINDS } from "../artifacts/olit-kinds";
 import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
@@ -132,6 +133,7 @@ export class Runtime {
   ) {}
 
   static async open({ storage, config, python, env = {}, ask, pollMs }: RuntimeOptions) {
+    registerArtifactKinds(OLIT_KINDS);
     const galaxyOptions = {
       root: config.galaxy_root,
       key: config.galaxy_key,

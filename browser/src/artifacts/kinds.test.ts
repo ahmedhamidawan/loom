@@ -2,8 +2,18 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it } from "vitest";
 
 import { pageContentProblem } from "../agent/page-edit";
-import { artifactsOf, PAGE, toPage, type Artifact, type ArtifactOf } from "./kinds";
+import {
+  artifactsOf,
+  pageWriter,
+  registerArtifactKinds,
+  toPage,
+  type Artifact,
+  type ArtifactOf,
+} from "./kinds";
+import { OLIT_KINDS } from "./olit-kinds";
 import { incoming } from "./visualization";
+
+registerArtifactKinds(OLIT_KINDS);
 
 const body = (markdown: string | undefined, label: string) =>
   JSON.parse(markdown!.slice(`\`\`\`${label}\n`.length, -"\n```".length));
@@ -15,7 +25,7 @@ describe("an artifact written into a page", () => {
   });
 
   it("gives a diagram no page form, since Galaxy renders no mermaid cell", () => {
-    expect(PAGE.mermaid).toBeNull();
+    expect(pageWriter("mermaid")).toBeNull();
     expect(toPage({ kind: "mermaid", title: "Lineage", diagram: "graph TD;" })).toBeUndefined();
   });
 

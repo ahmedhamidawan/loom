@@ -8,7 +8,9 @@ const renderMermaid = vi.fn();
 vi.mock("./vega", () => ({ renderVega: (...a: unknown[]) => renderVega(...a) }));
 vi.mock("./mermaid", () => ({ renderMermaid: (...a: unknown[]) => renderMermaid(...a) }));
 
-const { renderArtifact, paneArtifacts } = await import("./index");
+const { registerArtifactRenderers, renderArtifact, paneArtifacts } = await import("./index");
+const { OLIT_RENDERERS } = await import("./olit-renderers");
+registerArtifactRenderers(OLIT_RENDERERS);
 
 const galaxy = {
   root: "http://galaxy.test/",

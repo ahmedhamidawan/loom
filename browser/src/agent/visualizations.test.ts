@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { toPage, type Artifact } from "../artifacts/kinds";
+import { registerArtifactKinds, toPage, type Artifact } from "../artifacts/kinds";
+import { OLIT_KINDS } from "../artifacts/olit-kinds";
 import { connectWeb, type Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
@@ -10,6 +11,8 @@ import {
   visualizationTools,
 } from "./visualizations";
 import { resolveParameter } from "./visualization-inputs";
+
+registerArtifactKinds(OLIT_KINDS);
 
 type Json = Record<string, any>;
 

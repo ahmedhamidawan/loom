@@ -19,7 +19,15 @@ import { briefly, connectGalaxy } from "./agent/galaxy";
 import type { GalaxyStatus } from "./agent/prompt";
 import { WHAT } from "./agent/markers";
 import type { Settled } from "./agent/watch";
-import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
+import {
+  paneArtifacts,
+  registerArtifactRenderers,
+  renderArtifact,
+  type Artifact,
+} from "./artifacts";
+import { registerArtifactKinds } from "./artifacts/kinds";
+import { OLIT_KINDS } from "./artifacts/olit-kinds";
+import { OLIT_RENDERERS } from "./artifacts/olit-renderers";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
@@ -60,6 +68,8 @@ function autosize(input: HTMLTextAreaElement): void {
 }
 
 async function main() {
+  registerArtifactKinds(OLIT_KINDS);
+  registerArtifactRenderers(OLIT_RENDERERS);
   const scriptUrl = new URL(import.meta.url);
   const containerId = scriptUrl.searchParams.get("container") || "app";
   const container = document.getElementById(containerId)!;

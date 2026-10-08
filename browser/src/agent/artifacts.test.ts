@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { Artifact } from "../artifacts/kinds";
+import { registerArtifactKinds, type Artifact } from "../artifacts/kinds";
+import { OLIT_KINDS } from "../artifacts/olit-kinds";
 import { inventedEmbed, resolveArtifacts } from "./artifacts";
+
+registerArtifactKinds(OLIT_KINDS);
 
 const VEGA: Artifact = { kind: "vega-lite", title: "Glucose by BMI", spec: { mark: "point" } };
 const READS: Artifact = {

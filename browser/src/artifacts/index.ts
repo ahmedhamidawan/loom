@@ -1,24 +1,29 @@
 import type { Galaxy } from "../agent/galaxy";
 import { renderMermaid } from "./mermaid";
 import type { Artifact, ArtifactOf, Kind } from "./kinds";
-import { renderVega } from "./vega";
-import { renderVisualization } from "./visualization";
 
 export type { Artifact } from "./kinds";
 
-/** How each kind draws in the pane: kinds Olit makes itself, and Galaxy's own visualizations. */
-const PANE: {
-  [K in Kind]: (
-    body: HTMLElement,
-    artifact: ArtifactOf<K>,
-    root: string,
-    galaxy: Pick<Galaxy, "get" | "root">,
-  ) => unknown;
-} = {
-  "vega-lite": (body, a, root) => renderVega(body, a.spec, root),
-  mermaid: (body, a) => renderMermaid(body, a.diagram),
-  visualization: (body, a, _root, galaxy) => renderVisualization(body, a, galaxy),
-};
+/** How one kind draws in the pane. */
+export type ArtifactRenderer<K extends Kind = Kind> = (
+  body: HTMLElement,
+  artifact: ArtifactOf<K>,
+  root: string,
+  galaxy: Pick<Galaxy, "get" | "root">,
+) => unknown;
+
+export type ArtifactRenderers = { [K in Kind]?: ArtifactRenderer<K> };
+
+/** How each kind draws in the pane: kinds the core makes itself, and those a flavor registers. */
+const PANE = new Map<string, ArtifactRenderer<any>>([
+  ["mermaid", (body, a: ArtifactOf<"mermaid">) => renderMermaid(body, a.diagram)],
+]);
+
+export function registerArtifactRenderers(renderers: ArtifactRenderers): void {
+  for (const [kind, render] of Object.entries(renderers)) {
+    if (render) PANE.set(kind, render);
+  }
+}
 
 /** What the pane shows for a list: the newest, since a live turn clears the pane first. */
 export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
@@ -50,7 +55,5 @@ export async function renderArtifact(
   card.appendChild(body);
   content.appendChild(card);
 
-  await (
-    PANE[artifact.kind] as (b: HTMLElement, a: Artifact, r: string, g: typeof galaxy) => unknown
-  )(body, artifact, root, galaxy);
+  await PANE.get(artifact.kind)?.(body, artifact, root, galaxy);
 }

@@ -1,4 +1,4 @@
-import { isKind, PAGE } from "../../artifacts/kinds";
+import { isKind, pageWriter } from "../../artifacts/kinds";
 import { quote } from "../quote";
 import { claim, Outcome, type Capability, type OlitTool } from "../tool";
 import { lineageReport } from "./lineage-report";
@@ -23,7 +23,7 @@ export const PANE_ONLY_HINT =
 
 const hintFor = (state: unknown) => {
   const kind = (state as { artifact?: { kind?: string } } | undefined)?.artifact?.kind;
-  return kind && isKind(kind) && PAGE[kind] === null ? PANE_ONLY_HINT : ARTIFACT_HINT;
+  return kind && isKind(kind) && pageWriter(kind) === null ? PANE_ONLY_HINT : ARTIFACT_HINT;
 };
 
 const STRENGTH: Capability[] = ["llm", "local", "read", "write"];
