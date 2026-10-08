@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { registerArtifactKinds, toPage } from "../artifacts/kinds";
-import { OLIT_KINDS } from "../artifacts/olit-kinds";
+import { registerArtifactKinds, toPage } from "@galaxyproject/orbit-browser/artifacts";
+import { OLIT_KINDS } from "../artifacts/kinds";
 
 import * as vega from "./vega";
 

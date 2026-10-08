@@ -4,7 +4,7 @@
  * judgements, and a turn spent on them would cost tokens and a step to say what Galaxy knows.
  */
 
-import { segment, type Galaxy } from "./agent/galaxy";
+import { segment, type Galaxy } from "@galaxyproject/orbit-browser";
 
 export interface SeedDataset {
   name: string;

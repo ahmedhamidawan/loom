@@ -2,15 +2,14 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const renderVega = vi.fn();
 const renderMermaid = vi.fn();
+const renderOther = vi.fn();
 
-vi.mock("./vega", () => ({ renderVega: (...a: unknown[]) => renderVega(...a) }));
 vi.mock("./mermaid", () => ({ renderMermaid: (...a: unknown[]) => renderMermaid(...a) }));
 
 const { registerArtifactRenderers, renderArtifact, paneArtifacts } = await import("./index");
-const { OLIT_RENDERERS } = await import("./olit-renderers");
-registerArtifactRenderers(OLIT_RENDERERS);
+// A flavor's own kind; "other" stands in for one.
+registerArtifactRenderers({ other: renderOther } as never);
 
 const galaxy = {
   root: "http://galaxy.test/",
@@ -24,29 +23,18 @@ describe("renderArtifact", () => {
   let content: HTMLElement;
 
   beforeEach(() => {
-    renderVega.mockClear();
+    renderOther.mockClear();
     renderMermaid.mockClear();
     content = document.body.appendChild(document.createElement("div"));
     (window as any).happyDOM.settings.handleDisabledFileLoadingAsSuccess = true;
   });
 
-  it("routes a vega-lite artifact to the vega renderer with its spec", async () => {
-    const spec = { mark: "point" };
-    await renderArtifact(content, { kind: "vega-lite", title: "Chart", spec }, "/", galaxy);
-
-    expect(renderVega).toHaveBeenCalledTimes(1);
-    expect(renderVega.mock.calls[0][1]).toBe(spec);
+  it("routes a kind a flavor registered to that flavor's renderer", async () => {
+    const other = { kind: "other", title: "Other", spec: {} } as never;
+    await renderArtifact(content, other, "/galaxy/", galaxy);
+    expect(renderOther).toHaveBeenCalledTimes(1);
+    expect(renderOther.mock.calls[0].slice(1)).toEqual([other, "/galaxy/", galaxy]);
     expect(renderMermaid).not.toHaveBeenCalled();
-  });
-
-  it("hands the chart renderer Galaxy's root path", async () => {
-    await renderArtifact(
-      content,
-      { kind: "vega-lite", title: "Chart", spec: {} },
-      "/galaxy/",
-      galaxy,
-    );
-    expect(renderVega.mock.calls[0][2]).toBe("/galaxy/");
   });
 
   it("routes a mermaid artifact to the mermaid renderer with its diagram", async () => {
@@ -60,7 +48,7 @@ describe("renderArtifact", () => {
 
     expect(renderMermaid).toHaveBeenCalledTimes(1);
     expect(renderMermaid.mock.calls[0][1]).toBe(diagram);
-    expect(renderVega).not.toHaveBeenCalled();
+    expect(renderOther).not.toHaveBeenCalled();
   });
 
   it("renders the title as the card heading", async () => {
@@ -72,30 +60,11 @@ describe("renderArtifact", () => {
     );
     expect(content.querySelector(".artifact-card-title")?.textContent).toBe("Dataset lineage");
   });
-
-  it("mounts a Galaxy visualization from the config it carries", async () => {
-    const tracks = [{ y: "1" }];
-    await renderArtifact(
-      content,
-      { kind: "visualization", title: "Structure", visualization: "ngl", dataset_id: "d1", tracks },
-      "/",
-      galaxy,
-    );
-
-    expect(renderVega).not.toHaveBeenCalled();
-    expect(renderMermaid).not.toHaveBeenCalled();
-    const doc = content.querySelector("iframe")!.contentDocument!;
-    const handed = JSON.parse(doc.getElementById("app")!.getAttribute("data-incoming")!);
-    expect(handed.visualization_config).toEqual({ dataset_id: "d1", tracks });
-    expect(doc.querySelector("script")!.getAttribute("src")).toBe(
-      "http://galaxy.test/static/ngl/main.js",
-    );
-  });
 });
 
 describe("paneArtifacts", () => {
-  const scatter = { kind: "vega-lite", title: "Scatter Plot", spec: {} } as any;
-  const regression = { kind: "vega-lite", title: "Linear Regression", spec: {} } as any;
+  const scatter = { kind: "mermaid", title: "Scatter Plot", diagram: "" } as any;
+  const regression = { kind: "mermaid", title: "Linear Regression", diagram: "" } as any;
 
   it("shows the newest artifact, not the first one the session produced", () => {
     // A reopened session was showing the scatter it started with instead of the

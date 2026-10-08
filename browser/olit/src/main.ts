@@ -1,8 +1,13 @@
 /** Olit: Orbit's browser shell as a Galaxy visualization plugin, launched on a dataset. */
-import { cannotStart, currentHistoryLaunch, mountOrbitBrowser, type LaunchContext } from "./shell";
-import type { Galaxy } from "./agent/galaxy";
-import { OLIT_KINDS } from "./artifacts/olit-kinds";
-import { OLIT_RENDERERS } from "./artifacts/olit-renderers";
+import {
+  cannotStart,
+  currentHistoryLaunch,
+  mountOrbitBrowser,
+  type Galaxy,
+  type LaunchContext,
+} from "@galaxyproject/orbit-browser";
+import { OLIT_KINDS } from "./artifacts/kinds";
+import { OLIT_RENDERERS } from "./artifacts/renderers";
 import { parseIncoming } from "./incoming";
 import { NotYours, reportSavedState, savedSessions, type SavedSessions } from "./saved-session";
 import { resolveLaunch, summarize } from "./seed-dataset";

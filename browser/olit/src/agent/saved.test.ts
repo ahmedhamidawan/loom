@@ -8,14 +8,14 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { savedSessions } from "../saved-session";
-import { Binding } from "./documents";
-import { json, text, visualizationStore } from "./fake-model";
+import { Binding, json, text } from "@galaxyproject/orbit-browser/agent";
+import { visualizationStore } from "./fake-visualizations";
 import { olitFlavor } from "./flavor";
-import { connectGalaxy } from "./galaxy";
-import { artifactsOf } from "../artifacts/kinds";
-import { artifactsIn, context, Runtime } from "./runtime";
-import { title, usageTotals, type SessionDocument } from "./saved";
-import type { Python } from "./tool";
+import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
+import { artifactsOf } from "@galaxyproject/orbit-browser/artifacts";
+import { artifactsIn, context, Runtime } from "@galaxyproject/orbit-browser/agent";
+import { title, usageTotals, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import type { Python } from "@galaxyproject/orbit-browser/agent";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";

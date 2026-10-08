@@ -1,6 +1,4 @@
-import { quote } from "./quote";
-import { segment } from "./galaxy";
-import * as tables from "./tables";
+import { quote, segment, tables } from "@galaxyproject/orbit-browser/agent";
 import { compile } from "vega-lite";
 
 type Json = Record<string, any>;

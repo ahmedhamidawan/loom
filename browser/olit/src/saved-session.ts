@@ -4,8 +4,13 @@
  * save the user asked for rather than a conversation turn.
  */
 
-import { segment, type Galaxy } from "./agent/galaxy";
-import { isSessionDocument, title, type SessionDocument } from "./agent/saved";
+import {
+  isSessionDocument,
+  segment,
+  title,
+  type Galaxy,
+  type SessionDocument,
+} from "@galaxyproject/orbit-browser";
 
 export const PLUGIN_TYPE = "olit";
 

@@ -1,5 +1,5 @@
 /** How Olit's own kinds draw in the artifact pane. */
-import type { ArtifactRenderers } from "./index";
+import type { ArtifactRenderers } from "@galaxyproject/orbit-browser";
 import { renderVega } from "./vega";
 import { renderVisualization } from "./visualization";
 

@@ -1,4 +1,4 @@
-import { quote } from "./quote";
+import { quote } from "@galaxyproject/orbit-browser/agent";
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";
 import {
   getOptions,
@@ -7,11 +7,16 @@ import {
   type ValueIssueType,
 } from "galaxy-charts/runtime";
 
-import { query, segment, type Galaxy, type Web } from "./galaxy";
-import type { ArtifactOf } from "../artifacts/kinds";
-import { fail, type Artifact, type Context, type OlitTool } from "./tool";
+import { query, segment, type Galaxy, type Web } from "@galaxyproject/orbit-browser/agent";
+import type { ArtifactOf } from "@galaxyproject/orbit-browser/artifacts";
+import {
+  fail,
+  type Artifact,
+  type Context,
+  type OlitTool,
+} from "@galaxyproject/orbit-browser/agent";
 import * as vega from "./vega";
-import * as tables from "./tables";
+import { tables } from "@galaxyproject/orbit-browser/agent";
 import {
   buildVisualizationTemplate,
   declaredPaths,

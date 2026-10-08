@@ -10,9 +10,7 @@ import {
   PREVIEW_LINES,
   annotating,
 } from "./galaxy-tools";
-import { olitFlavor } from "./flavor";
 import { ELIDED } from "./notebook";
-import { flavoredSkills } from "./skills";
 import { olitTools } from "./tools";
 import { Outcome, submittedBy, traitsOf, type Context, type Python } from "./tool";
 
@@ -62,15 +60,9 @@ describe("tool surface", () => {
   });
 
   it("reads what each tool says of itself off galaxy-ops, Olit's policy and its own tools", () => {
-    const tools = new Map(
-      olitTools(flavoredSkills(olitFlavor), olitFlavor).map((t) => [t.name, traitsOf(t)]),
-    );
+    const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
     const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
-    expect(settledOnes.sort()).toEqual([
-      "get_visualization_details",
-      "search_tools_by_keywords",
-      "search_tools_by_name",
-    ]);
+    expect(settledOnes.sort()).toEqual(["search_tools_by_keywords", "search_tools_by_name"]);
     expect(tools.get("get_job_details")?.polls).toBe("dataset_id");
     expect(tools.get("get_dataset_details")?.polls).toBe("dataset_id");
     expect(tools.get("get_invocations")?.polls).toBe("invocation_id");
@@ -566,11 +558,18 @@ describe("recommend_biocontainer", () => {
 });
 
 describe("annotate", () => {
-  const annotate = annotating(olitFlavor.annotators);
-  it("prefers a catalog miss and falls back to fetch-failure triage", async () => {
-    const ctx = context({ get: async () => [{ name: "plotly" }] });
-    expect(await annotate("search_tools_by_name", { query: "plotly" }, [], ctx)).toContain(
-      "No Galaxy tool matched 'plotly'",
+  // A flavor's note, such as Olit's for a search that named a visualization.
+  const annotate = annotating([
+    async (name, args) =>
+      name === "search_tools_by_name" ? `flavor note for ${args.query}` : undefined,
+  ]);
+  it("tries a flavor's notes and falls back to fetch-failure triage", async () => {
+    const ctx = context({});
+    expect(await annotate("search_tools_by_name", { query: "plotly" }, [], ctx)).toBe(
+      "flavor note for plotly",
+    );
+    expect(await annotate("recommend_iwc_workflows", { query: "x" }, [], ctx)).toContain(
+      "ranked by word overlap",
     );
     const failure = {
       state: "error",

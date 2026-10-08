@@ -4,6 +4,7 @@
   "type": "module",
   "license": "MIT",
   "workspaces": [
+    "core",
     "olit"
   ],
   "scripts": {
@@ -11,9 +12,9 @@
     "build:pyodide": "node scripts/install_pyodide.js",
     "build:skills": "node scripts/install_skills.js",
     "dev": "npm run build && npm run dev -w @galaxyproject/olit",
-    "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' 'olit/*.{js,ts,json}' 'olit/src/**/*.{js,ts,json,css}'",
+    "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' '{core,olit}/*.{js,ts,json}' '{core,olit}/src/**/*.{js,ts,json,css}'",
     "lint:scripts": "python3 -m black --check --line-length 120 scripts && ruff check --line-length 120 scripts",
-    "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'olit/*.{js,ts,json}' 'olit/src/**/*.{js,ts,json,css}'",
+    "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' '{core,olit}/*.{js,ts,json}' '{core,olit}/src/**/*.{js,ts,json,css}'",
     "stale": "node scripts/check_stale.js",
     "test": "npm run test:unit && npm run lint:scripts && npm run lint:js && npm run typecheck && npm run vendored && npm run test:e2e",
     "test:e2e": "bash e2e/run-all.sh",

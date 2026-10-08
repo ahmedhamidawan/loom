@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["src/**/*.ts", "src/**/*.js"],
+  "include": ["src/**/*.ts", "src/**/*.js", "vite.config.ts", "vite.config.session.ts"],
   "exclude": ["node_modules", "static"]
 }

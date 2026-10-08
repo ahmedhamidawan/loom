@@ -7,12 +7,12 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 
 import { olitFlavor } from "./flavor";
-import { annotating } from "./galaxy-tools";
-import type { Galaxy } from "./galaxy";
-import { Headless, type HeadlessConfig } from "./headless";
-import { flavoredSkills } from "./skills";
-import type { Context, Python } from "./tool";
-import { olitTools } from "./tools";
+import { annotating } from "@galaxyproject/orbit-browser/agent";
+import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
+import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
+import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
+import type { Context, Python } from "@galaxyproject/orbit-browser/agent";
+import { olitTools } from "@galaxyproject/orbit-browser/agent";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";

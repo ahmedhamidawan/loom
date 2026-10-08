@@ -32,7 +32,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO = process.env.GALAXY_SKILLS_REPO || "galaxyproject/galaxy-skills";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const DEST = join(ROOT, "olit", "src", "agent", "skills", "galaxy-skills");
+const DEST = join(ROOT, "core", "src", "agent", "skills", "galaxy-skills");
 const STAMP = join(DEST, "VENDORED.json");
 const LOCK = join(ROOT, "skills.lock.json");
 

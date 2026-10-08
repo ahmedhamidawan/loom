@@ -1,4 +1,4 @@
-import { quote } from "./quote";
+import { quote } from "@galaxyproject/orbit-browser/agent";
 import { describe, expect, it } from "vitest";
 
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";

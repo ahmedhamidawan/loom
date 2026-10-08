@@ -1,5 +1,5 @@
-import { segment, type Galaxy } from "../agent/galaxy";
-import type { ArtifactOf } from "./kinds";
+import { segment, type Galaxy } from "@galaxyproject/orbit-browser";
+import type { ArtifactOf } from "@galaxyproject/orbit-browser/artifacts";
 
 /** What Galaxy's VisualizationFrame hands a plugin in `data-incoming`, built from the artifact. */
 export function incoming(a: ArtifactOf<"visualization">, plugin: unknown, root: string) {

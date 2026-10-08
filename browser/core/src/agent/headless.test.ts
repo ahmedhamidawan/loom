@@ -3,7 +3,6 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Binding } from "./documents";
-import { olitFlavor } from "./flavor";
 import { Headless, type HeadlessConfig } from "./headless";
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./markers";
 import { pageContentProblem } from "./page-edit";
@@ -98,7 +97,6 @@ async function open(over: Partial<HeadlessConfig> = {}, env?: Record<string, str
     python,
     env,
     pollMs: 10,
-    flavor: olitFlavor,
   });
   opened.push(session);
   return session;
@@ -235,7 +233,7 @@ describe("a turn", () => {
           { name: "run_tool", args: { history_id: "h1", tool_id: "lineage_report", inputs: {} } },
         ],
       },
-      { calls: [{ name: "search_tools_by_name", args: { query: "vega_dataset" } }] },
+      { calls: [{ name: "search_tools_by_name", args: { query: "lineage_report" } }] },
       { text: "ok" },
     ]);
     const [first, second] = results(result.entries).map((m) => contentText(m.content));

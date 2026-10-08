@@ -1,7 +1,7 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it } from "vitest";
 
-import { pageContentProblem } from "../agent/page-edit";
+import { pageContentProblem } from "@galaxyproject/orbit-browser/agent";
 import {
   artifactsOf,
   pageWriter,
@@ -9,8 +9,8 @@ import {
   toPage,
   type Artifact,
   type ArtifactOf,
-} from "./kinds";
-import { OLIT_KINDS } from "./olit-kinds";
+} from "@galaxyproject/orbit-browser/artifacts";
+import { OLIT_KINDS } from "./kinds";
 import { incoming } from "./visualization";
 
 registerArtifactKinds(OLIT_KINDS);

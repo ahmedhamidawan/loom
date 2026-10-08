@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { registerArtifactKinds, toPage, type Artifact } from "../artifacts/kinds";
-import { OLIT_KINDS } from "../artifacts/olit-kinds";
-import { connectWeb, type Galaxy } from "./galaxy";
-import { claim, type Context, Outcome, rendered } from "./tool";
+import {
+  registerArtifactKinds,
+  toPage,
+  type Artifact,
+} from "@galaxyproject/orbit-browser/artifacts";
+import { OLIT_KINDS } from "../artifacts/kinds";
+import { connectWeb, type Galaxy } from "@galaxyproject/orbit-browser/agent";
+import { claim, type Context, Outcome, rendered } from "@galaxyproject/orbit-browser/agent";
 import {
   chartOptions,
   checkLevel,

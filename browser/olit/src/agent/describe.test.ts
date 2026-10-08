@@ -2,12 +2,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { describe as describeOlit } from "./describe";
+import { describe as describeOlit } from "@galaxyproject/orbit-browser/node";
 import { olitFlavor, olitLayout } from "./flavor";
-import { PROVIDERS } from "./providers";
-import { flavoredSkills } from "./skills";
-import { olitTools } from "./tools";
-import { GUARDS } from "./tool";
+import { PROVIDERS } from "@galaxyproject/orbit-browser/agent";
+import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
+import { olitTools } from "@galaxyproject/orbit-browser/agent";
+import { GUARDS } from "@galaxyproject/orbit-browser/agent";
 
 // The workspace root, whichever directory vitest runs from.
 const ROOT = join(__dirname, "..", "..", "..");
@@ -108,7 +108,8 @@ describe("the guard inventory", () => {
   // The Guard type is derived from GUARDS, so the compiler already refuses a guard the policy
   // does not publish. The reverse needs a look at the source.
   it("publishes no guard the code never sets", () => {
-    const code = sources(join(ROOT, "olit/src/agent"))
+    const code = olitLayout(ROOT)
+      .sources.flatMap((source) => sources(join(source, "src/agent")))
       .filter((path) => !path.endsWith("/tool.ts"))
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");

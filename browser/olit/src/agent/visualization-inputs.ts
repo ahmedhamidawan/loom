@@ -1,5 +1,5 @@
 import { parseValues, selectCase, type InputElementType } from "galaxy-charts/runtime";
-import { quote } from "./quote";
+import { quote } from "@galaxyproject/orbit-browser/agent";
 type Json = Record<string, any>;
 
 export type Types = Record<string, Json>;

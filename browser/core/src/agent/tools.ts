@@ -52,7 +52,7 @@ function placingArtifacts(tool: OlitTool): OlitTool {
 /** Every tool Olit can offer, before a session filters them by capability. */
 export function olitTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): OlitTool[] {
   const python = pythonTool();
-  const visualizations = flavor.tools?.() ?? [];
+  const flavored = flavor.tools?.() ?? [];
   const rest = [
     ...notebookTools(),
     ...gtnTools(),
@@ -60,11 +60,11 @@ export function olitTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): 
     skillsTool(skills),
     ...processTools(),
   ];
-  const own = new Set([python, ...visualizations, ...rest].map((t) => t.name));
+  const own = new Set([python, ...flavored, ...rest].map((t) => t.name));
   const galaxy = [...opsTools(annotating(flavor.annotators), OPS_POLICY), ...galaxyTools()].map(
     (t) => misrouted(t, own),
   );
-  return [python, ...[...galaxy, ...visualizations].map(placingArtifacts), ...rest];
+  return [python, ...[...galaxy, ...flavored].map(placingArtifacts), ...rest];
 }
 
 /**
