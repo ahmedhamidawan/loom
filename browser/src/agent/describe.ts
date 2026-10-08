@@ -14,11 +14,29 @@ import { LOOP } from "./runtime";
 import { opsTools } from "./ops";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { GUARDS } from "./tool";
-import { olitTools } from "./tools";
+import { olitTools, type AgentFlavor } from "./tools";
+import { flavoredSkills } from "./skills";
 
 const SCHEMA = 1;
 const SOURCE = "src/agent";
 const SKIPPED = ["skills/"];
+
+/**
+ * Where the agent's pieces sit on disk. Each source is a package root whose `src/agent` modules
+ * are keyed as `src/agent/<path>`, whichever package holds them, so the description reads the
+ * same however the agent is split.
+ */
+export interface DescribeLayout {
+  sources: string[];
+  /** The plugin manifest holding the identity prompt. */
+  manifest: string;
+  /** skills.lock.json. */
+  lock: string;
+  /** The vendored galaxy-skills corpus. */
+  skills: string;
+  /** prompt.ts. */
+  prompt: string;
+}
 
 /** Whitespace-normalised hash: reflowing a paragraph is not a semantic change. */
 export const fingerprint = (text: string) =>
@@ -38,42 +56,50 @@ function walk(dir: string): string[] {
 const GALAXY_OPS = "@galaxyproject/galaxy-ops/browser";
 
 /** Every name a module exports, by module. */
-function symbols(root: string): Record<string, string[]> {
-  const base = join(root, SOURCE);
+function symbols(sources: string[]): Record<string, string[]> {
+  const found = new Map<string, Set<string>>();
+  for (const source of sources) {
+    const base = join(source, SOURCE);
+    for (const file of walk(base)) {
+      const rel = relative(base, file);
+      if (
+        !file.endsWith(".ts") ||
+        file.endsWith(".test.ts") ||
+        SKIPPED.some((s) => rel.startsWith(s))
+      ) {
+        continue;
+      }
+      const names = [
+        ...readFileSync(file, "utf8").matchAll(
+          /^export (?:async )?(?:const|function|class|interface|type) (\w+)/gm,
+        ),
+      ];
+      if (names.length) {
+        const known = found.get(rel) ?? new Set<string>();
+        names.forEach((m) => known.add(m[1]));
+        found.set(rel, known);
+      }
+    }
+  }
   const out: Record<string, string[]> = {};
-  for (const file of walk(base).sort()) {
-    const rel = relative(base, file);
-    if (
-      !file.endsWith(".ts") ||
-      file.endsWith(".test.ts") ||
-      SKIPPED.some((s) => rel.startsWith(s))
-    ) {
-      continue;
-    }
-    const names = [
-      ...readFileSync(file, "utf8").matchAll(
-        /^export (?:async )?(?:const|function|class|interface|type) (\w+)/gm,
-      ),
-    ];
-    if (names.length) {
-      out[`${SOURCE}/${rel}`] = [...new Set(names.map((m) => m[1]))].sort();
-    }
+  for (const rel of [...found.keys()].sort()) {
+    out[`${SOURCE}/${rel}`] = [...found.get(rel)!].sort();
   }
   // What Olit links against in galaxy-ops, so a seam can name where moved behaviour lives now.
   out[GALAXY_OPS] = Object.keys(galaxyOps).sort();
   return out;
 }
 
-function promptBlocks(root: string): string[] {
-  const text = readFileSync(join(root, SOURCE, "prompt.ts"), "utf8");
+function promptBlocks(prompt: string): string[] {
+  const text = readFileSync(prompt, "utf8");
   const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = `/gm)].map((m) => m[1]);
   const builders = [...text.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
   return [...new Set([...blocks, ...builders])].sort();
 }
 
-function identityPrompt(root: string) {
+function identityPrompt(manifest: string) {
   const found = /<ai_prompt>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ai_prompt>/.exec(
-    readFileSync(join(root, "public/olit.xml"), "utf8"),
+    readFileSync(manifest, "utf8"),
   );
   // The text too: a harness seeds a run with the prompt the page seeds a conversation with.
   return found ? { fingerprint: fingerprint(found[1]), text: found[1].trim() } : {};
@@ -91,12 +117,12 @@ function typeOf(spec: Record<string, any>): string {
   return kind + enumerated + fallback;
 }
 
-function tools() {
+function tools(flavor: AgentFlavor) {
   const delegated = new Set(opsTools().map((t) => t.name));
   // The result shape galaxy-ops declares for each operation and reads back in its own tests.
   const declared = new Map(allOperations.map((op) => [op.name, op.result ?? null]));
   const out: Record<string, unknown> = {};
-  for (const tool of olitTools()) {
+  for (const tool of olitTools(flavoredSkills(flavor), flavor)) {
     const params = tool.parameters as { properties?: Record<string, any>; required?: string[] };
     const properties = params.properties ?? {};
     const required = new Set(params.required ?? []);
@@ -167,8 +193,7 @@ function followUps() {
   return { max_auto_follow_ups: MAX_AUTO_FOLLOW_UPS, settled_by: "runtime" };
 }
 
-function skills(root: string) {
-  const base = join(root, SOURCE, "skills/galaxy-skills");
+function skills(base: string, lockFile: string) {
   const files = existsSync(base)
     ? Object.fromEntries(
         walk(base)
@@ -180,7 +205,7 @@ function skills(root: string) {
           ]),
       )
     : {};
-  const lock = JSON.parse(readFileSync(join(root, "skills.lock.json"), "utf8"));
+  const lock = JSON.parse(readFileSync(lockFile, "utf8"));
   return {
     vendored: Object.keys(files).length > 0,
     files,
@@ -204,18 +229,18 @@ async function providers() {
 }
 
 /** The surface Olit exposes, as data, for an evaluator that does not read its source. */
-export async function describe(root: string) {
+export async function describe(layout: DescribeLayout, flavor: AgentFlavor) {
   return {
     schema: SCHEMA,
     agent: "olit",
-    identity_prompt: identityPrompt(root),
-    symbols: symbols(root),
-    prompt_blocks: promptBlocks(root),
-    tools: tools(),
+    identity_prompt: identityPrompt(layout.manifest),
+    symbols: symbols(layout.sources),
+    prompt_blocks: promptBlocks(layout.prompt),
+    tools: tools(flavor),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
     providers: await providers(),
     follow_ups: followUps(),
-    skills: skills(root),
+    skills: skills(layout.skills, layout.lock),
     record: { starter: STARTER, resume_tool: "notebook_resume" },
   };
 }

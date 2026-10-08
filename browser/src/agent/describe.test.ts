@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { describe as describeOlit } from "./describe";
+import { olitFlavor, olitLayout } from "./flavor";
 import { PROVIDERS } from "./providers";
+import { flavoredSkills } from "./skills";
 import { olitTools } from "./tools";
 import { GUARDS } from "./tool";
 
@@ -12,7 +14,7 @@ type Description = Awaited<ReturnType<typeof describeOlit>>;
 let doc: Description;
 
 beforeAll(async () => {
-  doc = await describeOlit(ROOT);
+  doc = await describeOlit(olitLayout(ROOT), olitFlavor);
 });
 
 function sources(dir: string): string[] {
@@ -34,7 +36,7 @@ describe("the description Olit publishes about itself", () => {
 
   it("describes every tool the model is shown", () => {
     expect(Object.keys(doc.tools).sort()).toEqual(
-      olitTools()
+      olitTools(flavoredSkills(olitFlavor), olitFlavor)
         .map((t) => t.name)
         .sort(),
     );
@@ -97,7 +99,7 @@ describe("the description Olit publishes about itself", () => {
   });
 
   it("gives the same answer twice", async () => {
-    expect(await describeOlit(ROOT)).toEqual(doc);
+    expect(await describeOlit(olitLayout(ROOT), olitFlavor)).toEqual(doc);
   });
 });
 

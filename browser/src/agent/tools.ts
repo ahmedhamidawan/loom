@@ -1,17 +1,34 @@
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
+import type { ArtifactKind } from "../artifacts/kinds";
 import { resolveArtifacts } from "./artifacts";
 import { enaTools } from "./ena";
 import { galaxyFetch, type GalaxyOptions } from "./galaxy";
-import { annotate, galaxyTools, OPS_POLICY } from "./galaxy-tools";
+import { annotating, galaxyTools, OPS_POLICY } from "./galaxy-tools";
 import { gtnTools } from "./gtn";
 import { notebookTools } from "./notebook";
-import { opsTools } from "./ops";
+import { opsTools, type Annotate } from "./ops";
 import { processTools } from "./processes";
 import { pythonTool } from "./python";
-import { skillRegistry, skillsTool } from "./skills";
+import { flavoredSkills, skillsTool } from "./skills";
 import { fail, type Context, type OlitTool } from "./tool";
-import { visualizationTools } from "./visualizations";
+
+/**
+ * What a flavor adds to the agent: Olit's own seam until the agent runs on Orbit's extensions,
+ * where each field has a counterpart.
+ */
+export interface AgentFlavor {
+  /** Placed right after Galaxy's tools: {{artifact}} placement, counted in misrouted()'s own set. */
+  tools?: () => OlitTool[];
+  /** Raw files keyed "./skills/<repo>/<path>", merged over the packaged corpus. */
+  skills?: Record<string, string>;
+  /** Galaxy-op result notes, tried after IWC's and before invocation-outcome and fetch-failure. */
+  annotators?: Annotate[];
+  /** Appended after the skills router text. */
+  promptSections?: (input: { model?: string; provider?: string; datasetId?: string }) => string[];
+  /** Registered in whichever realm the runtime runs in. */
+  artifactKinds?: readonly ArtifactKind<any>[];
+}
 
 /** A tool whose string arguments may carry `{{artifact}}` tokens, resolved before it runs. */
 function placingArtifacts(tool: OlitTool): OlitTool {
@@ -33,9 +50,9 @@ function placingArtifacts(tool: OlitTool): OlitTool {
 }
 
 /** Every tool Olit can offer, before a session filters them by capability. */
-export function olitTools(skills = skillRegistry()): OlitTool[] {
+export function olitTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): OlitTool[] {
   const python = pythonTool();
-  const visualizations = visualizationTools();
+  const visualizations = flavor.tools?.() ?? [];
   const rest = [
     ...notebookTools(),
     ...gtnTools(),
@@ -44,8 +61,8 @@ export function olitTools(skills = skillRegistry()): OlitTool[] {
     ...processTools(),
   ];
   const own = new Set([python, ...visualizations, ...rest].map((t) => t.name));
-  const galaxy = [...opsTools(annotate, OPS_POLICY), ...galaxyTools()].map((t) =>
-    misrouted(t, own),
+  const galaxy = [...opsTools(annotating(flavor.annotators), OPS_POLICY), ...galaxyTools()].map(
+    (t) => misrouted(t, own),
   );
   return [python, ...[...galaxy, ...visualizations].map(placingArtifacts), ...rest];
 }

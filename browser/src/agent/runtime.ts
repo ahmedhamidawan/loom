@@ -14,7 +14,6 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { artifactsOf, registerArtifactKinds, type Artifact } from "../artifacts/kinds";
-import { OLIT_KINDS } from "../artifacts/olit-kinds";
 import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
@@ -25,9 +24,9 @@ import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from 
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
 import { modelsOf, SCHEMA, thisBuild, usageTotals, type SessionDocument } from "./saved";
-import { skillRegistry } from "./skills";
+import { flavoredSkills } from "./skills";
 import type { Capability, Python } from "./tool";
-import { galaxyOps, olitTools } from "./tools";
+import { galaxyOps, olitTools, type AgentFlavor } from "./tools";
 import { galaxyWatch, WATCH_TASK, type Watched } from "./watch";
 
 export const context = BACKGROUND_CONTEXT;
@@ -83,6 +82,8 @@ export interface RuntimeOptions {
   ask?: AskFor;
   /** Galaxy work is polled this often. */
   pollMs?: number;
+  /** What a flavor adds: tools, skills, result notes, prompt sections and artifact kinds. */
+  flavor?: AgentFlavor;
 }
 
 /** Where a new conversation works, as the page or the harness knows it. */
@@ -132,8 +133,8 @@ export class Runtime {
     private readonly env: Record<string, string | undefined>,
   ) {}
 
-  static async open({ storage, config, python, env = {}, ask, pollMs }: RuntimeOptions) {
-    registerArtifactKinds(OLIT_KINDS);
+  static async open({ storage, config, python, env = {}, ask, pollMs, flavor }: RuntimeOptions) {
+    registerArtifactKinds(flavor?.artifactKinds ?? []);
     const galaxyOptions = {
       root: config.galaxy_root,
       key: config.galaxy_key,
@@ -152,7 +153,7 @@ export class Runtime {
         galaxyProblem = String((e as Error)?.message ?? e);
         return GALAXY_UNREACHABLE;
       });
-    const skills = skillRegistry();
+    const skills = flavoredSkills(flavor);
     const capabilities = config.capabilities ?? DEFAULT_CAPABILITIES;
     let harness: Harness | undefined;
     const watch = galaxyWatch({
@@ -176,7 +177,7 @@ export class Runtime {
         return conversation ? artifactsIn(conversation, ctx) : [];
       },
       watched: (id, ctx) => watchedBy(harness!, id, ctx),
-      tools: olitTools(skills),
+      tools: olitTools(skills, flavor),
       capabilities,
       secrets: () =>
         [current.apiKey, config.galaxy_key].filter((s): s is string => typeof s === "string"),
@@ -190,6 +191,7 @@ export class Runtime {
             galaxyRoot: galaxy.root,
           }),
           skills.routerText(),
+          ...(flavor?.promptSections?.({ model, provider, datasetId }) ?? []),
         ]
           .filter(Boolean)
           .join("\n\n"),

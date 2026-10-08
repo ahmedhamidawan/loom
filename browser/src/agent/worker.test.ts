@@ -51,7 +51,7 @@ beforeAll(async () => {
   vi.spyOn(self, "postMessage").mockImplementation(((message: WorkerMessage) => {
     posted.push(message);
   }) as typeof self.postMessage);
-  await import("./worker");
+  (await import("./worker")).startAgentWorker({});
   send({
     type: "open",
     request: {

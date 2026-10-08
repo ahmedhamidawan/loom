@@ -10,6 +10,7 @@ import {
   type TaskId,
 } from "@earendil-works/pi-durable";
 
+import { registerArtifactKinds } from "../artifacts/kinds";
 import { Binding, FollowUps, heldBy } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import type { GalaxyStatus } from "./prompt";
@@ -18,6 +19,7 @@ import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime"
 import type { SessionDocument } from "./saved";
 import type { RecordSummary } from "./notebook";
 import { holdStorage, openStorage } from "./storage";
+import type { AgentFlavor } from "./tools";
 import { WATCH_TASK, type Settled } from "./watch";
 
 export interface OpenRequest {
@@ -84,6 +86,7 @@ let detach: (() => Promise<unknown>) | undefined;
 let held: Waiting;
 /** A launch waiting for the user to choose among the history's records. */
 let choosing: { placement: Placement; records: RecordSummary[]; unkept?: string } | undefined;
+let flavor: AgentFlavor = {};
 
 function ask(title: string, message: string, conversation: ConversationId): Promise<boolean> {
   return new Promise((resolve) => {
@@ -191,6 +194,7 @@ async function open(request: OpenRequest) {
     config: request.config,
     python: browserPython(request.pyodideURL),
     ask,
+    flavor,
   });
   if (request.saved) {
     return begin(await runtime.open(request.saved.document, request.saved.id), unkept);
@@ -252,7 +256,14 @@ function inOrder(work: () => Promise<unknown>) {
   queue = queue.then(work).catch(failed);
 }
 
-self.onmessage = ({ data }: MessageEvent<PageMessage>) => {
+/** Run this worker as the agent, with what `agentFlavor` adds to it. */
+export function startAgentWorker(agentFlavor: AgentFlavor): void {
+  flavor = agentFlavor;
+  registerArtifactKinds(flavor.artifactKinds ?? []);
+  self.onmessage = onMessage;
+}
+
+function onMessage({ data }: MessageEvent<PageMessage>) {
   if (data.type === "open") {
     // Outside the order: it may wait for another tab's lock, and "Use it here" opens again.
     open(data.request).catch(failed);
@@ -269,7 +280,7 @@ self.onmessage = ({ data }: MessageEvent<PageMessage>) => {
   } else {
     inOrder(() => handle(data));
   }
-};
+}
 
 async function handle(data: PageMessage) {
   if (data.type === "submit") {

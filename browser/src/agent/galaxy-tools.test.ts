@@ -3,14 +3,16 @@ import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { connectWeb, HttpError, type Galaxy } from "./galaxy";
 import {
-  annotate,
   OPS_POLICY,
   galaxyTools,
   hdaInputs,
   MAX_DOWNLOAD_BYTES,
   PREVIEW_LINES,
+  annotating,
 } from "./galaxy-tools";
+import { olitFlavor } from "./flavor";
 import { ELIDED } from "./notebook";
+import { flavoredSkills } from "./skills";
 import { olitTools } from "./tools";
 import { Outcome, submittedBy, traitsOf, type Context, type Python } from "./tool";
 
@@ -60,7 +62,9 @@ describe("tool surface", () => {
   });
 
   it("reads what each tool says of itself off galaxy-ops, Olit's policy and its own tools", () => {
-    const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+    const tools = new Map(
+      olitTools(flavoredSkills(olitFlavor), olitFlavor).map((t) => [t.name, traitsOf(t)]),
+    );
     const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
     expect(settledOnes.sort()).toEqual([
       "get_visualization_details",
@@ -562,6 +566,7 @@ describe("recommend_biocontainer", () => {
 });
 
 describe("annotate", () => {
+  const annotate = annotating(olitFlavor.annotators);
   it("prefers a catalog miss and falls back to fetch-failure triage", async () => {
     const ctx = context({ get: async () => [{ name: "plotly" }] });
     expect(await annotate("search_tools_by_name", { query: "plotly" }, [], ctx)).toContain(

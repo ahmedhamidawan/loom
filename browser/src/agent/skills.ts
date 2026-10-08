@@ -1,13 +1,14 @@
 import { parse } from "yaml";
 
 import { fail, type OlitTool } from "./tool";
+import type { AgentFlavor } from "./tools";
 
 /** Orbit's own surface tag, so the corpus offers the same skills it offers Orbit. */
 export const SURFACE_ID = "loom";
 /** Sorted first, so `skills_fetch` without a repo lands on olit's own skills. */
 export const DEFAULT_REPO = "olit-skills";
 
-const PACKAGED = import.meta.glob("./skills/**/*", {
+export const PACKAGED_SKILLS = import.meta.glob("./skills/**/*", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -200,7 +201,7 @@ export class SkillRegistry {
 }
 
 /** Every vendored corpus under `skills/`, olit's own first. */
-export function skillRegistry(files: Record<string, string> = PACKAGED): SkillRegistry {
+export function skillRegistry(files: Record<string, string> = PACKAGED_SKILLS): SkillRegistry {
   const corpora = new Map<string, Record<string, string>>();
   for (const [key, text] of Object.entries(files)) {
     const [repo, ...rest] = key.replace(/^\.\/skills\//, "").split("/");
@@ -217,6 +218,10 @@ export function skillRegistry(files: Record<string, string> = PACKAGED): SkillRe
     .forEach((name) => registry.register(name, corpora.get(name)!));
   return registry;
 }
+
+/** The packaged corpora with a flavor's own files merged over them. */
+export const flavoredSkills = (flavor?: AgentFlavor) =>
+  skillRegistry({ ...PACKAGED_SKILLS, ...flavor?.skills });
 
 /** A path from the default repo, so the example is a call that works as written. */
 function examplePath(skills: SkillRegistry): string {

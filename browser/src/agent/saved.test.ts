@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
 import { json, text, visualizationStore } from "./fake-model";
+import { olitFlavor } from "./flavor";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
 import { artifactsIn, context, Runtime } from "./runtime";
@@ -58,6 +59,7 @@ async function machine(storage: Storage = new MemoryStorage()) {
     storage,
     config: { galaxy_root: ROOT, ai_base_url: LLM, ai_model: "m", ai_api_key: KEY },
     python,
+    flavor: olitFlavor,
   });
   opened.push(runtime);
   return runtime;

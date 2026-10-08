@@ -5,12 +5,7 @@ import { inventedEmbed } from "./artifacts";
 import * as biocontainers from "./biocontainers";
 import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
 import * as tables from "./tables";
-import {
-  catalogMissHint,
-  fetchFailureHint,
-  invocationOutcomeHint,
-  iwcCandidatesHint,
-} from "./hints";
+import { fetchFailureHint, invocationOutcomeHint, iwcCandidatesHint } from "./hints";
 import { ELIDED } from "./notebook";
 import { pageBody, pageContentProblem } from "./page-edit";
 import { type Annotate, type OpPolicy } from "./ops";
@@ -155,15 +150,29 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   },
 };
 
+/** The first note one of `annotators` has for this result, in order. */
+async function firstOf(
+  annotators: Annotate[],
+  ...input: Parameters<Annotate>
+): Promise<string | undefined> {
+  for (const annotate of annotators) {
+    const note = await annotate(...input);
+    if (note !== undefined) return note;
+  }
+  return undefined;
+}
+
 /**
- * What Olit adds to a galaxy-ops result: where a missed search lives, what listed invocations'
- * jobs make of them, or fetch-failure triage.
+ * What Olit adds to a galaxy-ops result: IWC triage, then whatever a flavor knows (where a
+ * missed search lives), what listed invocations' jobs make of them, or fetch-failure triage.
  */
-export const annotate: Annotate = async (name, args, data, ctx) =>
-  iwcCandidatesHint(name) ??
-  (await catalogMissHint(ctx.galaxy, name, args, data)) ??
-  (await invocationOutcomeHint(ctx.galaxy, name, data)) ??
-  fetchFailureHint(data);
+export const annotating =
+  (extra: Annotate[] = []): Annotate =>
+  async (name, args, data, ctx) =>
+    iwcCandidatesHint(name) ??
+    (await firstOf(extra, name, args, data, ctx)) ??
+    (await invocationOutcomeHint(ctx.galaxy, name, data)) ??
+    fetchFailureHint(data);
 
 type Row = Record<string, any>;
 

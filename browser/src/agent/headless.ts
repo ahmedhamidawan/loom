@@ -10,6 +10,7 @@ import { Binding } from "./documents";
 import type { RecordSummary } from "./notebook";
 import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
 import type { Python } from "./tool";
+import type { AgentFlavor } from "./tools";
 import { WATCH_TASK, type Settled } from "./watch";
 
 export interface HeadlessConfig extends RuntimeConfig {
@@ -45,6 +46,7 @@ export class Headless {
       env?: Record<string, string | undefined>;
       storage?: Storage;
       pollMs?: number;
+      flavor?: AgentFlavor;
     },
   ) {
     const runtime = await Runtime.open({
@@ -53,6 +55,7 @@ export class Headless {
       python: options.python,
       env: options.env,
       pollMs: options.pollMs,
+      flavor: options.flavor,
     });
     const conversation = await runtime.create({
       historyId: config.history_id,

@@ -276,125 +276,128 @@ async function main() {
   /** Said once ready, when the user chose to continue a record whose conversation is gone. */
   let continuing: string | undefined;
 
-  const agent = new AgentClient((message) => {
-    if (message.type === "events") {
-      view.apply(message.events);
-      if (afterReset && message.events.some((e) => e.type === "snapshot")) {
-        info(afterReset);
-        afterReset = undefined;
-      }
-      refreshControls();
-    } else if (message.type === "settled") {
-      settledOne(message.settled);
-    } else if (message.type === "held") {
-      if (message.held) {
+  const agent = new AgentClient(
+    (message) => {
+      if (message.type === "events") {
+        view.apply(message.events);
+        if (afterReset && message.events.some((e) => e.type === "snapshot")) {
+          info(afterReset);
+          afterReset = undefined;
+        }
+        refreshControls();
+      } else if (message.type === "settled") {
+        settledOne(message.settled);
+      } else if (message.type === "held") {
+        if (message.held) {
+          info(
+            message.held === "paused"
+              ? "Galaxy results are waiting -- automatic follow-up is paused. Say continue when you're ready."
+              : "Galaxy results are waiting -- automatic follow-up paused after several automatic turns. Say continue to resume.",
+          );
+        }
+      } else if (message.type === "confirm") {
+        confirm.show(String(message.id), message);
+      } else if (message.type === "withdrawn") {
+        confirm.dismiss(String(message.id));
+      } else if (message.type === "ready") {
+        ready = true;
+        galaxyStatus = message.galaxy;
+        refreshControls();
+        if (message.unkept) {
+          chat.addErrorMessage(
+            `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
+              "the page closes. Save it to Galaxy to keep it.",
+          );
+        }
+        if (message.galaxyProblem) {
+          chat.addErrorMessage(
+            `Galaxy did not answer when Olit opened (${message.galaxyProblem}), so no Galaxy tool ` +
+              "can run in this session. Reload once Galaxy is back.",
+          );
+        }
+        if (message.recordsProblem) {
+          chat.addErrorMessage(
+            `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
+              "so this is a new session.",
+          );
+        }
+        if (savedProblem) {
+          chat.addErrorMessage(
+            `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
+              "the history's own conversation instead, and Save stores it as a new session.",
+          );
+        }
+        if (fromGalaxy) {
+          info("Opened a saved Olit session.");
+        }
+        if (continuing) {
+          info(continuing);
+        }
         info(
-          message.held === "paused"
-            ? "Galaxy results are waiting -- automatic follow-up is paused. Say continue when you're ready."
-            : "Galaxy results are waiting -- automatic follow-up paused after several automatic turns. Say continue to resume.",
+          fromGalaxy
+            ? "Olit ready."
+            : view.turns
+              ? "Resumed this history's conversation. Olit ready."
+              : "Olit ready. Ask me to run something.",
         );
-      }
-    } else if (message.type === "confirm") {
-      confirm.show(String(message.id), message);
-    } else if (message.type === "withdrawn") {
-      confirm.dismiss(String(message.id));
-    } else if (message.type === "ready") {
-      ready = true;
-      galaxyStatus = message.galaxy;
-      refreshControls();
-      if (message.unkept) {
-        chat.addErrorMessage(
-          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
-            "the page closes. Save it to Galaxy to keep it.",
+        if (launch.dataset) {
+          info(summarize(launch.dataset));
+        }
+      } else if (message.type === "recoverable") {
+        // The browser kept nothing of a session here; the user says which, if any, this is.
+        const line = info(
+          "This browser keeps no Olit conversation for this history. Continue one of its records, " +
+            "or start new. A conversation saved with Save opens from Galaxy's visualizations.",
         );
-      }
-      if (message.galaxyProblem) {
-        chat.addErrorMessage(
-          `Galaxy did not answer when Olit opened (${message.galaxyProblem}), so no Galaxy tool ` +
-            "can run in this session. Reload once Galaxy is back.",
-        );
-      }
-      if (message.recordsProblem) {
-        chat.addErrorMessage(
-          `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
-            "so this is a new session.",
-        );
-      }
-      if (savedProblem) {
-        chat.addErrorMessage(
-          `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
-            "the history's own conversation instead, and Save stores it as a new session.",
-        );
-      }
-      if (fromGalaxy) {
-        info("Opened a saved Olit session.");
-      }
-      if (continuing) {
-        info(continuing);
-      }
-      info(
-        fromGalaxy
-          ? "Olit ready."
-          : view.turns
-            ? "Resumed this history's conversation. Olit ready."
-            : "Olit ready. Ask me to run something.",
-      );
-      if (launch.dataset) {
-        info(summarize(launch.dataset));
-      }
-    } else if (message.type === "recoverable") {
-      // The browser kept nothing of a session here; the user says which, if any, this is.
-      const line = info(
-        "This browser keeps no Olit conversation for this history. Continue one of its records, " +
-          "or start new. A conversation saved with Save opens from Galaxy's visualizations.",
-      );
-      const choices = document.createElement("div");
-      choices.className = "olit-choices";
-      line.append(choices);
-      const choose = (pageId?: string) => {
-        choices.querySelectorAll("button").forEach((b) => (b.disabled = true));
-        agent.recover(pageId);
-      };
-      for (const record of message.records) {
-        const button = document.createElement("button");
-        button.className = "plan-btn";
-        button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
-        button.addEventListener("click", () => {
-          continuing =
-            `Continuing the record ${record.title}: new entries go to that page. Its ` +
-            "conversation is not in this browser, so this chat starts empty.";
-          choose(record.pageId);
+        const choices = document.createElement("div");
+        choices.className = "olit-choices";
+        line.append(choices);
+        const choose = (pageId?: string) => {
+          choices.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          agent.recover(pageId);
+        };
+        for (const record of message.records) {
+          const button = document.createElement("button");
+          button.className = "plan-btn";
+          button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
+          button.addEventListener("click", () => {
+            continuing =
+              `Continuing the record ${record.title}: new entries go to that page. Its ` +
+              "conversation is not in this browser, so this chat starts empty.";
+            choose(record.pageId);
+          });
+          choices.append(button);
+        }
+        const fresh = document.createElement("button");
+        fresh.className = "plan-btn";
+        fresh.textContent = "Start new";
+        fresh.addEventListener("click", () => choose());
+        choices.append(fresh);
+      } else if (message.type === "waiting") {
+        const line = info("Olit is open in another tab. ");
+        const take = document.createElement("button");
+        take.className = "plan-btn";
+        take.textContent = "Use it here";
+        take.addEventListener("click", () => {
+          take.disabled = true;
+          agent.open({ ...opening, steal: true });
         });
-        choices.append(button);
+        line.append(take);
+      } else if (message.type === "lost") {
+        ready = false;
+        el.input.disabled = true;
+        el.send.disabled = true;
+        refreshControls();
+        chat.addErrorMessage("Olit was opened in another tab, which has it now.");
+      } else if (message.type === "failed") {
+        console.error("[olit] worker failed", message.message);
+        chat.hideThinking();
+        setBusy(false);
+        chat.addErrorMessage(briefly(message.message));
       }
-      const fresh = document.createElement("button");
-      fresh.className = "plan-btn";
-      fresh.textContent = "Start new";
-      fresh.addEventListener("click", () => choose());
-      choices.append(fresh);
-    } else if (message.type === "waiting") {
-      const line = info("Olit is open in another tab. ");
-      const take = document.createElement("button");
-      take.className = "plan-btn";
-      take.textContent = "Use it here";
-      take.addEventListener("click", () => {
-        take.disabled = true;
-        agent.open({ ...opening, steal: true });
-      });
-      line.append(take);
-    } else if (message.type === "lost") {
-      ready = false;
-      el.input.disabled = true;
-      el.send.disabled = true;
-      refreshControls();
-      chat.addErrorMessage("Olit was opened in another tab, which has it now.");
-    } else if (message.type === "failed") {
-      console.error("[olit] worker failed", message.message);
-      chat.hideThinking();
-      setBusy(false);
-      chat.addErrorMessage(briefly(message.message));
-    }
-  });
+    },
+    () => new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
+  );
   agent.open(opening);
 
   el.model.addEventListener("click", async () => {

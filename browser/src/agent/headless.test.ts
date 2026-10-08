@@ -3,6 +3,7 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Binding } from "./documents";
+import { olitFlavor } from "./flavor";
 import { Headless, type HeadlessConfig } from "./headless";
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./markers";
 import { pageContentProblem } from "./page-edit";
@@ -93,7 +94,12 @@ const config = (over: Partial<HeadlessConfig> = {}): HeadlessConfig => ({
 const opened: Headless[] = [];
 
 async function open(over: Partial<HeadlessConfig> = {}, env?: Record<string, string>) {
-  const session = await Headless.open(config(over), { python, env, pollMs: 10 });
+  const session = await Headless.open(config(over), {
+    python,
+    env,
+    pollMs: 10,
+    flavor: olitFlavor,
+  });
   opened.push(session);
   return session;
 }

@@ -6,10 +6,11 @@ import { contentText, type Message } from "@earendil-works/pi-ai";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 
-import { annotate } from "./galaxy-tools";
+import { olitFlavor } from "./flavor";
+import { annotating } from "./galaxy-tools";
 import type { Galaxy } from "./galaxy";
 import { Headless, type HeadlessConfig } from "./headless";
-import { skillRegistry } from "./skills";
+import { flavoredSkills } from "./skills";
 import type { Context, Python } from "./tool";
 import { olitTools } from "./tools";
 
@@ -77,7 +78,7 @@ async function turn(replies: Reply[], over: Partial<HeadlessConfig> = {}) {
   const requests = server(replies);
   const session = await Headless.open(
     { galaxy_root: ROOT, ai_base_url: LLM, ai_model: "test-model", ai_api_key: "sk-x", ...over },
-    { python, pollMs: 10 },
+    { python, pollMs: 10, flavor: olitFlavor },
   );
   opened.push(session);
   const result = await session.turn("hi");
@@ -127,8 +128,8 @@ describe("the first request a launch sends", () => {
 
 describe("the skills the agent is offered", () => {
   it("routes to the same corpus", async () => {
-    const skills = skillRegistry();
-    const fetch = olitTools(skills).find((t) => t.name === "skills_fetch")!;
+    const skills = flavoredSkills(olitFlavor);
+    const fetch = olitTools(skills, olitFlavor).find((t) => t.name === "skills_fetch")!;
     await expect(
       pretty({
         router: skills.routerText(),
@@ -141,7 +142,7 @@ describe("the skills the agent is offered", () => {
 
 describe("the composed tools", () => {
   it("keep their order, capabilities and traits", async () => {
-    const traits = olitTools().map((t) => ({
+    const traits = olitTools(flavoredSkills(olitFlavor), olitFlavor).map((t) => ({
       name: t.name,
       capability: t.capability ?? null,
       requires: t.requires ?? null,
@@ -191,6 +192,7 @@ describe("what a galaxy-ops result is annotated with", () => {
     },
   } as unknown as Galaxy;
   const ctx = { galaxy } as unknown as Context;
+  const annotate = annotating(olitFlavor.annotators);
 
   const CASES: Array<[string, Record<string, unknown>, unknown]> = [
     ["search_tools_by_name", { query: "structure viewer" }, []],

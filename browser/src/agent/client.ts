@@ -2,14 +2,19 @@ import type { OpenRequest, PageMessage, WorkerMessage } from "./worker";
 
 /** The agent worker as the page sees it: requests in, the conversation's state and events out. */
 export class AgentClient {
-  private worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+  private worker: Worker;
   private replies = new Map<
     number,
     { resolve: (v: unknown) => void; reject: (e: Error) => void }
   >();
   private nextId = 0;
 
-  constructor(listen: (message: WorkerMessage) => void) {
+  /**
+   * `createWorker` belongs to the flavor: the worker entry it names is what decides which tools
+   * the agent has, and a `new Worker(new URL(...))` here would bundle a second one without them.
+   */
+  constructor(listen: (message: WorkerMessage) => void, createWorker: () => Worker) {
+    this.worker = createWorker();
     this.worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
       if (data.type === "reply") {
         const waiting = this.replies.get(data.id);
