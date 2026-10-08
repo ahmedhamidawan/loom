@@ -9,7 +9,8 @@ import { flavoredSkills } from "./skills";
 import { olitTools } from "./tools";
 import { GUARDS } from "./tool";
 
-const ROOT = process.cwd();
+// The workspace root, whichever directory vitest runs from.
+const ROOT = join(__dirname, "..", "..", "..");
 type Description = Awaited<ReturnType<typeof describeOlit>>;
 let doc: Description;
 
@@ -107,7 +108,7 @@ describe("the guard inventory", () => {
   // The Guard type is derived from GUARDS, so the compiler already refuses a guard the policy
   // does not publish. The reverse needs a look at the source.
   it("publishes no guard the code never sets", () => {
-    const code = sources(join(ROOT, "src/agent"))
+    const code = sources(join(ROOT, "olit/src/agent"))
       .filter((path) => !path.endsWith("/tool.ts"))
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");

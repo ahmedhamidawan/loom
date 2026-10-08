@@ -13,7 +13,8 @@ function buildCommit(): string {
 export default defineConfig({
   build: {
     ssr: "src/agent/node.ts",
-    outDir: "dist",
+    // browser/dist/session.mjs, where the agents repo looks for it.
+    outDir: "../dist",
     emptyOutDir: false,
     target: "node22",
     // One file: a lazy chunk importing back from an entry that is still in its top-level

@@ -2,13 +2,13 @@
  * Orbit's browser shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. A
  * flavor mounts it with its own worker, artifact kinds, launch context and session store.
  */
-import "../../app/src/renderer/styles.css";
+import "../../../app/src/renderer/styles.css";
 import "./olit.css";
 import { useChatMarkdown } from "./chat-markdown";
 import { settlePlanDrafts } from "./plan-drafts";
 
-import { ChatPanel } from "../../app/src/renderer/chat/chat-panel";
-import { applyOrbitTheme } from "../../app/src/renderer/theme";
+import { ChatPanel } from "../../../app/src/renderer/chat/chat-panel";
+import { applyOrbitTheme } from "../../../app/src/renderer/theme";
 
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";

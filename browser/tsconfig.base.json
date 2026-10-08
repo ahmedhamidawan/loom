@@ -16,7 +16,5 @@
       "dompurify": ["node_modules/dompurify"],
       "marked": ["node_modules/marked"]
     }
-  },
-  "include": ["src/**/*.ts", "src/**/*.js"],
-  "exclude": ["node_modules", "static"]
+  }
 }

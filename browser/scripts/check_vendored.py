@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 # The skills corpus is gitignored and fetched by scripts/install_skills.js, which stamps each
 # file's git blob id. Recomputing them catches an edit made after vendoring.
-SKILLS = ROOT / "src" / "agent" / "skills" / "galaxy-skills"
+SKILLS = ROOT / "olit" / "src" / "agent" / "skills" / "galaxy-skills"
 SKILLS_STAMP = SKILLS / "VENDORED.json"
 
 

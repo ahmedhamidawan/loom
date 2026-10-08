@@ -14,11 +14,11 @@ export const olitFlavor: AgentFlavor = {
 // Not node:path: the worker imports this module too, and a browser bundle has no node:path.
 const under = (root: string, path: string) => `${root.replace(/\/+$/, "")}/${path}`;
 
-/** Where `--describe --root <root>` finds Olit's sources, manifest and vendored corpus. */
+/** Where `--describe --root <workspace>` finds Olit's sources, manifest and vendored corpus. */
 export const olitLayout = (root: string): DescribeLayout => ({
-  sources: [root],
-  manifest: under(root, "public/olit.xml"),
+  sources: [under(root, "olit")],
+  manifest: under(root, "olit/public/olit.xml"),
   lock: under(root, "skills.lock.json"),
-  skills: under(root, "src/agent/skills/galaxy-skills"),
-  prompt: under(root, "src/agent/prompt.ts"),
+  skills: under(root, "olit/src/agent/skills/galaxy-skills"),
+  prompt: under(root, "olit/src/agent/prompt.ts"),
 });

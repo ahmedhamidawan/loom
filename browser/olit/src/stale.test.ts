@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error a plain node script, without types
-import { pinned } from "../scripts/check_stale.js";
+import { pinned } from "../../scripts/check_stale.js";
 
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
 

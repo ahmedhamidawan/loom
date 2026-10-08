@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 
 import { defaultEndpoint, PROVIDERS } from "./src/agent/providers";
 
@@ -119,8 +120,15 @@ export const viteConfigCharts = defineConfig({
     dedupe: ["dompurify", "marked"],
   },
   server: {
-    // The chat UI and the shared contracts it imports live outside browser/.
-    fs: { allow: [".", "../app/src/renderer", "../shared"] },
+    // The workspace, whose node_modules is hoisted above this package, and the chat UI and the
+    // shared contracts it imports, which live outside browser/.
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(fileURLToPath(new URL(".", import.meta.url))),
+        fileURLToPath(new URL("../../app/src/renderer", import.meta.url)),
+        fileURLToPath(new URL("../../shared", import.meta.url)),
+      ],
+    },
     proxy: {
       "/api": proxyGalaxy(),
       // Galaxy serves its OpenAPI spec here; the scoped catalog fetches it.

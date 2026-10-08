@@ -1,8 +1,16 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 import { defines, viteConfigCharts } from "./vite.config.charts";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+// Wherever the workspace hoisted it; scripts/install_pyodide.js puts the wheels in temp/ beside
+// that node_modules.
+const PYODIDE = path.dirname(createRequire(import.meta.url).resolve("pyodide/package.json"));
+const WHEELS = path.join(PYODIDE, "..", "..", "temp", "pyodide");
 
 /** Pyodide and the wheels Olit loads beside it, copied next to the bundle Galaxy serves. */
 const copyPyodide = {
@@ -10,9 +18,9 @@ const copyPyodide = {
   writeBundle(options) {
     const dest = path.join(options.dir, "pyodide");
     fs.mkdirSync(dest, { recursive: true });
-    fs.cpSync("node_modules/pyodide", dest, { recursive: true });
-    for (const wheel of fs.readdirSync("temp/pyodide").filter((f) => f.endsWith(".whl"))) {
-      fs.copyFileSync(path.join("temp/pyodide", wheel), path.join(dest, wheel));
+    fs.cpSync(PYODIDE, dest, { recursive: true });
+    for (const wheel of fs.readdirSync(WHEELS).filter((f) => f.endsWith(".whl"))) {
+      fs.copyFileSync(path.join(WHEELS, wheel), path.join(dest, wheel));
     }
   },
 };
@@ -21,7 +29,7 @@ const copyPyodide = {
 const servePyodide = {
   name: "olit-pyodide",
   configureServer(server) {
-    const root = path.resolve("static/pyodide");
+    const root = path.resolve(HERE, "static/pyodide");
     server.middlewares.use("/static/pyodide", (req, res, next) => {
       const file = path.join(root, decodeURIComponent((req.url || "").split("?")[0]));
       if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {

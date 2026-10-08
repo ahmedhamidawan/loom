@@ -17,7 +17,7 @@ temp/
 # Vendored skills corpus: a build artifact fetched by scripts/install_skills.js. The exact
 # revision is pinned in the committed skills.lock.json, so builds stay reproducible
 # without carrying 860 KB of third-party content in this repo.
-src/agent/skills/galaxy-skills/
+olit/src/agent/skills/galaxy-skills/
 
 # Eval output
 evals/*.json
