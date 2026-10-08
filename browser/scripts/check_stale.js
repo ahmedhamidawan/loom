@@ -52,7 +52,7 @@ async function npmLatest(pkg) {
 const ARTIFACT = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
 async function galaxyOps() {
-  const spec = pinned(read("package.json"), "@galaxyproject/galaxy-ops");
+  const spec = pinned(read("core/package.json"), "@galaxyproject/galaxy-ops");
   const latest = await npmLatest("@galaxyproject/galaxy-ops");
   const artifact = ARTIFACT.exec(spec);
   if (artifact) {
@@ -60,7 +60,7 @@ async function galaxyOps() {
       read("package-lock.json").packages["node_modules/@galaxyproject/galaxy-ops"].version;
     return (
       `galaxy-ops TEMPORARY: pinned to candidate ${built} (${artifact[1]} release ${artifact[2]}); npm has ${latest}\n` +
-      `           replace it with the first npm release that contains it: npm install @galaxyproject/galaxy-ops@<version>, then npm test`
+      `           replace it with the first npm release that contains it: npm install -w @galaxyproject/orbit-browser @galaxyproject/galaxy-ops@<version>, then npm test`
     );
   }
   const version = spec.replace(/^[\^~]/, "");
@@ -71,7 +71,7 @@ async function galaxyOps() {
 }
 
 async function galaxyCharts() {
-  const version = pinned(read("package.json"), "galaxy-charts").replace(/^[\^~]/, "");
+  const version = pinned(read("olit/package.json"), "galaxy-charts").replace(/^[\^~]/, "");
   const latest = await npmLatest("galaxy-charts");
   return version === latest
     ? `charts     up to date at ${version}`
