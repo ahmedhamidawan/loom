@@ -37,6 +37,11 @@ export async function renderArtifact(
   root: string,
   galaxy: Pick<Galaxy, "get" | "root">,
 ): Promise<void> {
+  const render = PANE.get(artifact.kind);
+  if (!render) {
+    // A flavor that registered the kind but not its renderer; an empty card would hide that.
+    throw new Error(`No renderer is registered for artifact kind '${artifact.kind}'.`);
+  }
   const card = document.createElement("div");
   card.className = "artifact-card";
   card.style.cssText =
@@ -55,5 +60,5 @@ export async function renderArtifact(
   card.appendChild(body);
   content.appendChild(card);
 
-  await PANE.get(artifact.kind)?.(body, artifact, root, galaxy);
+  await render(body, artifact, root, galaxy);
 }

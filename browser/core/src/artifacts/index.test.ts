@@ -62,6 +62,17 @@ describe("renderArtifact", () => {
   });
 });
 
+describe("an artifact kind with no renderer", () => {
+  it("is refused instead of leaving an empty card", async () => {
+    const content = document.createElement("div");
+    const stray = { kind: "unrendered", title: "Stray" } as never;
+    await expect(renderArtifact(content, stray, "/galaxy/", galaxy)).rejects.toThrow(
+      "No renderer is registered for artifact kind 'unrendered'.",
+    );
+    expect(content.children).toHaveLength(0);
+  });
+});
+
 describe("paneArtifacts", () => {
   const scatter = { kind: "mermaid", title: "Scatter Plot", diagram: "" } as any;
   const regression = { kind: "mermaid", title: "Linear Regression", diagram: "" } as any;
