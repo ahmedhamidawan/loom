@@ -7,6 +7,9 @@
  */
 import type { EntryRecord } from "@earendil-works/pi-durable";
 
+// What a kind's fields may hold, so a flavor declares them without naming pi-durable itself.
+export type { JsonObject } from "@earendil-works/pi-durable";
+
 export interface ArtifactKinds {
   mermaid: { diagram: string };
 }

@@ -1,7 +1,5 @@
 /** The artifacts only a Galaxy visualization makes: a Vega-Lite chart, and a Galaxy visualization. */
-import type { JsonObject } from "@earendil-works/pi-durable";
-
-import { fenced, type ArtifactKind } from "@galaxyproject/orbit-browser/artifacts";
+import { fenced, type ArtifactKind, type JsonObject } from "@galaxyproject/orbit-browser/artifacts";
 
 declare module "@galaxyproject/orbit-browser/artifacts" {
   interface ArtifactKinds {
