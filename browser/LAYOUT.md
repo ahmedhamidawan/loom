@@ -93,6 +93,29 @@ The core ships as TypeScript source, so a flavor builds it with Vite: `?raw` and
 assume that. Vite externalizes bare imports when it bundles a config file, which would hand the
 linked `vite.ts` to Node as is, so olit's scripts load their config with `--configLoader runner`.
 
+## Not split yet
+
+What still ties the two packages to this workspace, and why each waits:
+
+- **Publishing the core.** It imports Orbit's chat UI from `app/src/renderer` and ships TypeScript
+  source, so it stays `private`. Publishing it needs the renderer as a package of its own (copying
+  it in would bring back the drift that importing it removed) and exports that point at built
+  output.
+- **Olit's name inside the core.** The prompt's identity line, describe's `agent: "olit"`,
+  `OlitTool` and `olitTools`, and a few shell messages still say Olit. The prompt and describe's
+  output are frozen while this split must not change the agent, and the agents repo reads those
+  names; they move with a brand option on `mountOrbitBrowser`. The `olit_session` key stays for
+  good, since saved sessions are stored under it.
+- **Two mentions of Olit's tools in the core's prose:** the notebook skill's aside about
+  `get_visualization_details`, and the system prompt's Galaxy terminology, which sends a request to
+  view a dataset to `list_visualizations`. Their text is frozen for the same reason; olit's
+  boundary test lists them as the known cases. The terminology line moves with a prompt section a
+  flavor can add to that list.
+- **End-to-end drives.** Every drive in `e2e/` mounts the Olit plugin, so they move to olit/ when
+  it leaves. A drive of the core alone needs a minimal test flavor first.
+- **Shared config.** Both packages extend `tsconfig.base.json` and use the root's Prettier config;
+  a flavor that leaves takes a copy.
+
 ## Where tooling belongs
 
 Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls` groups the
