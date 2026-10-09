@@ -98,9 +98,14 @@ linked `vite.ts` to Node as is, so olit's scripts load their config with `--conf
 What still ties the two packages to this workspace, and why each waits:
 
 - **Publishing the core.** It imports Orbit's chat UI from `app/src/renderer` and ships TypeScript
-  source, so it stays `private`. Publishing it needs the renderer as a package of its own (copying
-  it in would bring back the drift that importing it removed) and exports that point at built
-  output.
+  source, so it stays `private` for now. The plan is to publish it as a pre-built bundle that
+  inlines the chat UI at build time, rather than publishing the renderer as a package of its own:
+  the renderer is built for Orbit's shells, not as a reusable component, and a package would make
+  its internals a public API. That means Vite library mode with one entry per export plus a
+  `style.css`, and export conditions so this workspace keeps resolving TypeScript source while
+  npm consumers get `dist/`. The one fiddly part is types: `OrbitBrowserHandle` exposes the
+  renderer's `ChatPanel`, so either the declarations get bundled or the handle stops exposing
+  renderer types. Narrowing the handle is the better of the two.
 - **Olit's name inside the core.** The prompt's identity line, describe's `agent: "olit"`,
   `OlitTool` and `olitTools`, and a few shell messages still say Olit. The prompt and describe's
   output are frozen while this split must not change the agent, and the agents repo reads those
