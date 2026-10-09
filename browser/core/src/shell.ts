@@ -65,6 +65,8 @@ export interface SessionStore {
   savedState(saved: boolean): void;
   /** Said once a save succeeds. */
   savedNote: string;
+  /** The Save button's tooltip, saying where a save goes. */
+  label?: string;
 }
 
 export interface OrbitBrowserOptions {
@@ -130,6 +132,7 @@ export async function mountOrbitBrowser(
   applyOrbitTheme("light", document.documentElement);
 
   const el = mountLayout(container, { save: !!sessions });
+  if (el.save && sessions?.label) el.save.title = sessions.label;
   const artifactPane = mountArtifactPane(container);
   useChatMarkdown();
   const chat = new ChatPanel(el.messages);

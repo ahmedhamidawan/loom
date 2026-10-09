@@ -1,10 +1,11 @@
 /**
- * A conversation as one self-contained document, stored whole in a saved Visualization's config
- * and opened anywhere into a conversation of its own. The prompt is regenerated, never stored, so
- * a prompt correction reaches a reopened conversation.
+ * A conversation as one self-contained document, which a flavor's session store keeps whole and
+ * opens anywhere into a conversation of its own. The prompt is regenerated, never stored, so a
+ * prompt correction reaches a reopened conversation.
  *
- * Fields the Charts contract already reads (`history_id`, `dataset_id`) stay at the top level,
- * because `parseIncoming` looks for them there when Galaxy reopens a saved session.
+ * Where the conversation was opened (`history_id`, `dataset_id`) stays at the top level, so a
+ * store can read it without the conversation. The `olit_session` key predates the split and stays,
+ * because documents already saved under it must keep opening.
  */
 import type { ExportedEntry } from "@earendil-works/pi-durable";
 
@@ -99,12 +100,6 @@ export function isSessionDocument(value: unknown): value is SessionDocument {
         (e.head === undefined || e.head === "self" || startsEarlier(e.head, i)),
     )
   );
-}
-
-/** Galaxy requires at least three characters and shows this in the user's visualization list. */
-export function title(document: SessionDocument): string {
-  const given = (document.session.title || "").trim();
-  return given.length >= 3 ? given : `Olit Session (${document.session.id.slice(0, 8)})`;
 }
 
 /** A conversation's usage across its models; no cost when no model reported one, not zero. */

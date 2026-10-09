@@ -13,7 +13,7 @@ export { pageContentProblem } from "./page-edit";
 export { PROVIDERS } from "./providers";
 export { quote } from "./quote";
 export { artifactsIn, context, Runtime, type RuntimeConfig, type RuntimeOptions } from "./runtime";
-export { isSessionDocument, SCHEMA, title, usageTotals, type SessionDocument } from "./saved";
+export { isSessionDocument, SCHEMA, usageTotals, type SessionDocument } from "./saved";
 export { flavoredSkills, PACKAGED_SKILLS, skillRegistry } from "./skills";
 export * as tables from "./tables";
 export {

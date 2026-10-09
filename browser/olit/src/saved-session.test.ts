@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { visualizationStore } from "./agent/fake-visualizations";
 import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
-import { SCHEMA, title, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
-import { NotYours, PLUGIN_TYPE, reportSavedState, savedSessions } from "./saved-session";
+import { SCHEMA, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import { NotYours, PLUGIN_TYPE, reportSavedState, savedSessions, title } from "./saved-session";
 
 const document = (over: Partial<SessionDocument["session"]> = {}): SessionDocument => ({
   olit_session: SCHEMA,

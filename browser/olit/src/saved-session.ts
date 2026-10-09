@@ -7,7 +7,6 @@
 import {
   isSessionDocument,
   segment,
-  title,
   type Galaxy,
   type SessionDocument,
 } from "@galaxyproject/orbit-browser";
@@ -16,6 +15,12 @@ export const PLUGIN_TYPE = "olit";
 
 /** A saved session the signed-in user does not own, which Galaxy may still show them. */
 export class NotYours extends Error {}
+
+/** Galaxy requires at least three characters and shows this in the user's visualization list. */
+export function title(document: SessionDocument): string {
+  const given = (document.session.title || "").trim();
+  return given.length >= 3 ? given : `Olit Session (${document.session.id.slice(0, 8)})`;
+}
 
 export interface SavedSessions {
   /**

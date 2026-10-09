@@ -119,6 +119,7 @@ async function main() {
       savedState: reportSavedState,
       savedNote:
         "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
+      label: "Save this conversation as a Galaxy visualization",
     },
   });
 }

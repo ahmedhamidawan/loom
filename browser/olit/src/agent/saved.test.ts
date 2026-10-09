@@ -14,7 +14,8 @@ import { olitFlavor } from "./flavor";
 import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
 import { artifactsOf } from "@galaxyproject/orbit-browser/artifacts";
 import { artifactsIn, context, Runtime } from "@galaxyproject/orbit-browser/agent";
-import { title, usageTotals, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import { usageTotals, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import { title } from "../saved-session";
 import type { Python } from "@galaxyproject/orbit-browser/agent";
 
 const ROOT = "http://galaxy.test/";
