@@ -148,10 +148,13 @@ const servePyodide = (flavorRoot: string): Plugin => ({
 export function orbitBrowserVite({
   command,
   flavorRoot,
+  galaxyPaths = [],
 }: {
   command: "build" | "serve";
   /** The flavor package's directory: where static/ is built and served from. */
   flavorRoot: string;
+  /** More paths the dev server forwards to Galaxy, for what only the flavor fetches. */
+  galaxyPaths?: string[];
 }): UserConfig {
   return {
     base: "./",
@@ -189,8 +192,7 @@ export function orbitBrowserVite({
         "/api": proxyGalaxy(),
         // Galaxy serves its OpenAPI spec here; the scoped catalog fetches it.
         "/openapi.json": proxyGalaxy(),
-        // Visualization plugins the artifact pane mounts, from where Galaxy serves them.
-        "/static/plugins/visualizations": proxyGalaxy(),
+        ...Object.fromEntries(galaxyPaths.map((p) => [p, proxyGalaxy()])),
         // Dev LLM proxy; the key is attached here so it never reaches page JS.
         "/llm": {
           changeOrigin: true,
