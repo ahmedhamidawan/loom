@@ -21,7 +21,7 @@
     "test:unit": "npm run test:unit --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "vendored": "python3 scripts/check_vendored.py",
-    "build:session": "npm run build:session -w @galaxyproject/olit"
+    "build:session": "npm run build:session -w @galaxyproject/olit && mkdir -p dist && cp -R olit/dist/. dist/"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

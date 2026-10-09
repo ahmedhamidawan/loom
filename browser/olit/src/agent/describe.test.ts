@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { describe as describeOlit } from "@galaxyproject/orbit-browser/node";
+import { agentSources, describe as describeOlit } from "@galaxyproject/orbit-browser/node";
 import { olitFlavor, olitLayout } from "./flavor";
 import { PROVIDERS } from "@galaxyproject/orbit-browser/agent";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
@@ -108,8 +108,8 @@ describe("the guard inventory", () => {
   // The Guard type is derived from GUARDS, so the compiler already refuses a guard the policy
   // does not publish. The reverse needs a look at the source.
   it("publishes no guard the code never sets", () => {
-    const code = olitLayout(ROOT)
-      .sources.flatMap((source) => sources(join(source, "src/agent")))
+    const code = agentSources(olitLayout(ROOT))
+      .flatMap((source) => sources(join(source, "src/agent")))
       .filter((path) => !path.endsWith("/tool.ts"))
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");

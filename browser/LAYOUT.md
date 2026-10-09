@@ -53,7 +53,7 @@ olit/                     @galaxyproject/olit: files ["static"]
   public/olit.xml           plugin manifest: data sources, ai_prompt, capabilities
   vite.config.ts            the core's preset; builds static/ (olit.xml, index.js, index.css,
                             the worker chunk, pyodide/)
-  vite.config.session.ts    the Node build, into ../dist/session.mjs
+  vite.config.session.ts    the Node build, into dist/session.mjs (the root copies it to ../dist)
   src/main.ts               reads data-incoming and mounts the shell with Olit's options
   src/worker.ts             the worker entry: startAgentWorker(olitFlavor)
   src/incoming.ts seed-dataset.ts saved-session.ts   launching on a dataset, saving as a visualization

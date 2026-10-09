@@ -13,8 +13,9 @@ function buildCommit(): string {
 export default defineConfig({
   build: {
     ssr: "src/agent/node.ts",
-    // browser/dist/session.mjs, where the agents repo looks for it.
-    outDir: "../dist",
+    // Inside the package; the workspace root's build:session copies it to browser/dist, where
+    // the agents repo looks for it.
+    outDir: "dist",
     emptyOutDir: false,
     target: "node22",
     // One file: a lazy chunk importing back from an entry that is still in its top-level

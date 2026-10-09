@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join, relative, resolve as absolute } from "node:path";
 import * as galaxyOps from "@galaxyproject/galaxy-ops/browser";
 import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
@@ -22,20 +23,30 @@ const SOURCE = "src/agent";
 const SKIPPED = ["skills/"];
 
 /**
- * Where the agent's pieces sit on disk. Each source is a package root whose `src/agent` modules
- * are keyed as `src/agent/<path>`, whichever package holds them, so the description reads the
- * same however the agent is split.
+ * Where the flavor's pieces sit on disk. The core finds its own (its sources, prompt, skills
+ * corpus and lock) through the flavor's dependency on it, so a flavor names only its own paths.
  */
 export interface DescribeLayout {
-  sources: string[];
+  /** The flavor's package root; its `src/agent` modules are described beside the core's. */
+  flavor: string;
   /** The plugin manifest holding the identity prompt. */
   manifest: string;
-  /** skills.lock.json. */
-  lock: string;
-  /** The vendored galaxy-skills corpus. */
-  skills: string;
-  /** prompt.ts. */
-  prompt: string;
+}
+
+/** The core package this flavor resolves, wherever it is installed. */
+function corePackage(flavor: string): string {
+  const pkg = createRequire(absolute(flavor, "package.json")).resolve(
+    "@galaxyproject/orbit-browser/package.json",
+  );
+  return dirname(pkg);
+}
+
+/**
+ * Each package root whose `src/agent` modules are keyed as `src/agent/<path>`, whichever package
+ * holds them, so the description reads the same however the agent is split.
+ */
+export function agentSources(layout: DescribeLayout): string[] {
+  return [corePackage(layout.flavor), layout.flavor];
 }
 
 /** Whitespace-normalised hash: reflowing a paragraph is not a semantic change. */
@@ -90,8 +101,13 @@ function symbols(sources: string[]): Record<string, string[]> {
   return out;
 }
 
-function promptBlocks(prompt: string): string[] {
-  const text = readFileSync(prompt, "utf8");
+/** The blocks each package's `src/agent/prompt.ts` defines, so a flavor's sections are named too. */
+function promptBlocks(sources: string[]): string[] {
+  const text = sources
+    .map((source) => join(source, SOURCE, "prompt.ts"))
+    .filter(existsSync)
+    .map((prompt) => readFileSync(prompt, "utf8"))
+    .join("\n");
   const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = `/gm)].map((m) => m[1]);
   const builders = [...text.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
   return [...new Set([...blocks, ...builders])].sort();
@@ -230,17 +246,19 @@ async function providers() {
 
 /** The surface Olit exposes, as data, for an evaluator that does not read its source. */
 export async function describe(layout: DescribeLayout, flavor: AgentFlavor) {
+  const sources = agentSources(layout);
+  const core = sources[0];
   return {
     schema: SCHEMA,
     agent: "olit",
     identity_prompt: identityPrompt(layout.manifest),
-    symbols: symbols(layout.sources),
-    prompt_blocks: promptBlocks(layout.prompt),
+    symbols: symbols(sources),
+    prompt_blocks: promptBlocks(sources),
     tools: tools(flavor),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
     providers: await providers(),
     follow_ups: followUps(),
-    skills: skills(layout.skills, layout.lock),
+    skills: skills(join(core, SOURCE, "skills", "galaxy-skills"), join(core, "skills.lock.json")),
     record: { starter: STARTER, resume_tool: "notebook_resume" },
   };
 }
