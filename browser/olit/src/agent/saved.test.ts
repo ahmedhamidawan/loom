@@ -8,13 +8,14 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { savedSessions } from "../saved-session";
-import { Binding, json, text } from "@galaxyproject/orbit-browser/agent";
+import { Binding, json, text } from "@galaxyproject/orbit-browser/testing";
 import { visualizationStore } from "./fake-visualizations";
 import { olitFlavor } from "./flavor";
 import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
 import { artifactsOf } from "@galaxyproject/orbit-browser/artifacts";
-import { artifactsIn, context, Runtime } from "@galaxyproject/orbit-browser/agent";
-import { usageTotals, type SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import { artifactsIn, context, Runtime } from "@galaxyproject/orbit-browser/testing";
+import type { SessionDocument } from "@galaxyproject/orbit-browser/agent";
+import { usageTotals } from "@galaxyproject/orbit-browser/testing";
 import { title } from "../saved-session";
 import type { Python } from "@galaxyproject/orbit-browser/agent";
 

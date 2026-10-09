@@ -7,7 +7,7 @@ import { olitFlavor, olitLayout } from "./flavor";
 import { PROVIDERS } from "@galaxyproject/orbit-browser/agent";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
 import { olitTools } from "@galaxyproject/orbit-browser/agent";
-import { GUARDS } from "@galaxyproject/orbit-browser/agent";
+import { GUARDS } from "@galaxyproject/orbit-browser/testing";
 
 // The workspace root, whichever directory vitest runs from.
 const ROOT = join(__dirname, "..", "..", "..");

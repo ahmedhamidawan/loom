@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { registerArtifactKinds, type Artifact } from "@galaxyproject/orbit-browser/artifacts";
 import { OLIT_KINDS } from "../artifacts/kinds";
-import { resolveArtifacts } from "@galaxyproject/orbit-browser/agent";
+import { resolveArtifacts } from "@galaxyproject/orbit-browser/testing";
 
 registerArtifactKinds(OLIT_KINDS);
 

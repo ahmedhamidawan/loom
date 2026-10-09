@@ -68,9 +68,10 @@ olit/                     @galaxyproject/olit: files ["static"]
 ## How a flavor extends the core
 
 A flavor imports the core only through its package exports (`.`, `/agent`, `/artifacts`,
-`/worker`, `/node`, `/vite`), never a path inside it, so it can move to another repository and
-consume the published package. `olit/src/boundary.test.ts` holds Olit to that, and
-`core/src/boundary.test.ts` keeps the core from naming Olit or anything only a visualization
+`/worker`, `/node`, `/vite`, and `/testing` for its tests), never a path inside it, so it can move
+to another repository and consume the published package. `olit/src/boundary.test.ts` holds Olit
+to that and checks that the core's own prompt and skills name none of Olit's tools, and
+`core/src/boundary.test.ts` keeps the core from importing Olit or anything only a visualization
 flavor needs.
 
 - **Agent.** `AgentFlavor` (`/agent`) adds tools (placed after Galaxy's, so they take `{{artifact}}`

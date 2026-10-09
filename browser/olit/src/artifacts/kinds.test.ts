@@ -1,7 +1,7 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it } from "vitest";
 
-import { pageContentProblem } from "@galaxyproject/orbit-browser/agent";
+import { pageContentProblem } from "@galaxyproject/orbit-browser/testing";
 import {
   artifactsOf,
   pageWriter,

@@ -7,7 +7,7 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 
 import { olitFlavor } from "./flavor";
-import { annotating } from "@galaxyproject/orbit-browser/agent";
+import { annotating } from "@galaxyproject/orbit-browser/testing";
 import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
 import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";

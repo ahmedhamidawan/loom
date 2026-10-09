@@ -1,5 +1,5 @@
 /** For tests: Galaxy's saved visualizations, as a test scripts them. */
-import { json } from "@galaxyproject/orbit-browser/agent";
+import { json } from "@galaxyproject/orbit-browser/testing";
 
 /** A saved visualization as Galaxy keeps it: its config, and the user who owns it. */
 export interface VisualizationRow {

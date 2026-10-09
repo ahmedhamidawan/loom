@@ -6,8 +6,9 @@ import {
   type Artifact,
 } from "@galaxyproject/orbit-browser/artifacts";
 import { OLIT_KINDS } from "../artifacts/kinds";
-import { connectWeb, type Galaxy } from "@galaxyproject/orbit-browser/agent";
-import { claim, type Context, Outcome, rendered } from "@galaxyproject/orbit-browser/agent";
+import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
+import type { Context } from "@galaxyproject/orbit-browser/agent";
+import { claim, connectWeb, Outcome, rendered } from "@galaxyproject/orbit-browser/testing";
 import {
   chartOptions,
   checkLevel,
