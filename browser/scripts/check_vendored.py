@@ -11,7 +11,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# The skills corpus is gitignored and fetched by scripts/install_skills.js, which stamps each
+# The skills corpus is gitignored and fetched by core/scripts/install_skills.js, which stamps each
 # file's git blob id. Recomputing them catches an edit made after vendoring.
 SKILLS = ROOT / "core" / "src" / "agent" / "skills" / "galaxy-skills"
 SKILLS_STAMP = SKILLS / "VENDORED.json"
@@ -29,12 +29,12 @@ def blob_id(path: pathlib.Path) -> str:
 def skills(argv: list[str]) -> int:
     """Compare the vendored skills corpus against the blob ids its install stamped."""
     if not SKILLS_STAMP.exists():
-        print("skills corpus not vendored; run: node scripts/install_skills.js")
+        print("skills corpus not vendored; run: node core/scripts/install_skills.js")
         return 0
     stamp = json.loads(SKILLS_STAMP.read_text())
     pinned = stamp.get("blobs") or {}
     if not pinned:
-        print("skills corpus predates blob stamping; re-vendor with: node scripts/install_skills.js")
+        print("skills corpus predates blob stamping; re-vendor with: node core/scripts/install_skills.js")
         return 0
 
     present = {str(p.relative_to(SKILLS)): p for p in SKILLS.rglob("*") if p.is_file() and p != SKILLS_STAMP}
@@ -55,7 +55,7 @@ def skills(argv: list[str]) -> int:
         f"\n{stamp.get('repo', 'galaxy-skills')} owns this corpus and olit vendors it verbatim.\n"
         "A formatter or an editor reaching into it diverges from upstream and is undone by the\n"
         "next vendor. Restore it with:\n"
-        "  node scripts/install_skills.js"
+        "  node core/scripts/install_skills.js"
     )
     return 1
 

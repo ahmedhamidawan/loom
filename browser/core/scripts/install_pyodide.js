@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,9 +37,8 @@ export async function downloadFiles(pyodideDir, files, version) {
   }
 }
 
-/* Read the installed pyodide version from node_modules. */
-export function getInstalledVersion(repoRoot) {
-  const pkgPath = path.join(repoRoot, "node_modules", "pyodide", "package.json");
+/* Read the installed pyodide version from wherever the workspace hoisted it. */
+export function getInstalledVersion(pkgPath) {
   const text = fs.readFileSync(pkgPath, "utf-8");
   const json = JSON.parse(text);
   if (typeof json.version !== "string") {
@@ -76,9 +76,9 @@ export function getPackageFiles(pyodideDir, packageNames) {
 }
 
 /* Read list of required packages. */
-export function getPackageNames(repoRoot) {
+export function getPackageNames(packageRoot) {
   const installPackages = [];
-  const dependenciesPath = path.join(repoRoot, "pyodide.requirements.txt");
+  const dependenciesPath = path.join(packageRoot, "pyodide.requirements.txt");
   const deps = fs.readFileSync(dependenciesPath, "utf-8").split(/\r?\n/);
   for (const line of deps) {
     const v = line.trim();
@@ -91,14 +91,16 @@ export function getPackageNames(repoRoot) {
 
 /** Installs pyodide and packages */
 async function main() {
-  const repoRoot = path.join(__dirname, "..");
-  const nodePath = path.join(repoRoot, "node_modules", "pyodide");
-  const tempDir = path.join(repoRoot, "temp", "pyodide");
-  const version = getInstalledVersion(repoRoot);
+  // The core package, which owns the wheel cache whichever flavor builds against it.
+  const packageRoot = path.join(__dirname, "..");
+  const pkgPath = createRequire(import.meta.url).resolve("pyodide/package.json");
+  const nodePath = path.dirname(pkgPath);
+  const tempDir = path.join(packageRoot, "temp", "pyodide");
+  const version = getInstalledVersion(pkgPath);
   console.log(`Installed version: ${version}.`);
-  const files = getPackageFiles(nodePath, getPackageNames(repoRoot));
-  // The download cache; the build's static-copy step (vite.config.js) places the runtime and
-  // these wheels in static/pyodide, after emptying static/.
+  const files = getPackageFiles(nodePath, getPackageNames(packageRoot));
+  // The download cache; the core's Vite preset (core/vite.ts) places the runtime and these
+  // wheels in the flavor's static/pyodide, after emptying static/.
   await downloadFiles(tempDir, files, version);
   console.log("Done.");
 }

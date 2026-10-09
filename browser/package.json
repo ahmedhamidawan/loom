@@ -8,9 +8,9 @@
     "olit"
   ],
   "scripts": {
-    "build": "npm run build:pyodide && npm run build:skills && npm run build -w @galaxyproject/olit",
-    "build:pyodide": "node scripts/install_pyodide.js",
-    "build:skills": "node scripts/install_skills.js",
+    "build": "npm run build -w @galaxyproject/olit",
+    "build:pyodide": "npm run build:pyodide -w @galaxyproject/orbit-browser",
+    "build:skills": "npm run build:skills -w @galaxyproject/orbit-browser",
     "dev": "npm run build && npm run dev -w @galaxyproject/olit",
     "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' '{core,olit}/*.{js,ts,json}' '{core,olit}/src/**/*.{js,ts,json,css}'",
     "lint:scripts": "python3 -m black --check --line-length 120 scripts && ruff check --line-length 120 scripts",
@@ -21,7 +21,7 @@
     "test:unit": "npm run test:unit --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "vendored": "python3 scripts/check_vendored.py",
-    "build:session": "npm run build:pyodide && npm run build:skills && npm run build:session -w @galaxyproject/olit"
+    "build:session": "npm run build:session -w @galaxyproject/olit"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

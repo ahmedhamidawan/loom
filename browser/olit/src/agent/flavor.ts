@@ -27,7 +27,7 @@ const under = (root: string, path: string) => `${root.replace(/\/+$/, "")}/${pat
 export const olitLayout = (root: string): DescribeLayout => ({
   sources: [under(root, "core"), under(root, "olit")],
   manifest: under(root, "olit/public/olit.xml"),
-  lock: under(root, "skills.lock.json"),
+  lock: under(root, "core/skills.lock.json"),
   skills: under(root, "core/src/agent/skills/galaxy-skills"),
   prompt: under(root, "core/src/agent/prompt.ts"),
 });

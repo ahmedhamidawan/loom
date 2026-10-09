@@ -28,7 +28,7 @@ async function github(path) {
 }
 
 async function skills() {
-  const lock = read("skills.lock.json");
+  const lock = read("core/skills.lock.json");
   const head = await github(`repos/${lock.repo}/commits/${lock.ref || "main"}`);
   if (head.sha === lock.sha) {
     return `skills     up to date at ${lock.sha.slice(0, 8)} (${lock.repo}@${lock.ref})`;
@@ -38,7 +38,7 @@ async function skills() {
   return (
     `skills     BEHIND by ${cmp.total_commits} commit(s): ${lock.sha.slice(0, 8)} -> ${head.sha.slice(0, 8)}\n` +
     `           ${touched} file(s) changed under skills/, the subtree olit vendors\n` +
-    `           update: edit skills.lock.json, node scripts/install_skills.js`
+    `           update: edit core/skills.lock.json, node core/scripts/install_skills.js`
   );
 }
 

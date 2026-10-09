@@ -13,8 +13,8 @@
  * enforces that more strongly: the corpus is fixed at build time and the running
  * agent cannot be pointed at another repo at all.
  *
- * The corpus itself is a build artifact (gitignored), but `skills.lock.json` at the
- * repo root is committed and pins the exact commit. Without the lock every build
+ * The corpus itself is a build artifact (gitignored), but `skills.lock.json` beside
+ * this package's package.json is committed and pins the exact commit. Without the lock every build
  * would silently take whatever `main` points at that day, which is a poor foundation
  * for a project whose claim is reproducibility. Pass GALAXY_SKILLS_REF to move the
  * pin deliberately; the lock is rewritten and the change shows up in review.
@@ -31,8 +31,9 @@ import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = process.env.GALAXY_SKILLS_REPO || "galaxyproject/galaxy-skills";
+// The core package, wherever npm runs this from.
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const DEST = join(ROOT, "core", "src", "agent", "skills", "galaxy-skills");
+const DEST = join(ROOT, "src", "agent", "skills", "galaxy-skills");
 const STAMP = join(DEST, "VENDORED.json");
 const LOCK = join(ROOT, "skills.lock.json");
 

@@ -11,9 +11,15 @@
     "./artifacts": "./src/artifacts/kinds.ts",
     "./worker": "./src/agent/worker.ts",
     "./node": "./src/node.ts",
-    "./vite": "./vite.ts"
+    "./vite": "./vite.ts",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "orbit-browser-assets": "scripts/install_assets.js"
   },
   "scripts": {
+    "build:pyodide": "node scripts/install_pyodide.js",
+    "build:skills": "node scripts/install_skills.js",
     "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"

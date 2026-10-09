@@ -9,12 +9,15 @@ forwards `build`, `test`, `typecheck` and `build:session` to the packages.
 ```
 package.json              private workspace root: shared dev tooling, scripts that forward
 tsconfig.base.json        compiler options both packages extend
-skills.lock.json          the galaxy-skills revision the core vendors
 scripts/ e2e/             tooling and Playwright drives, for the workspace as a whole
 dist/session.mjs          the Node build of the agent (npm run build:session)
 
 core/                     @galaxyproject/orbit-browser, TypeScript source behind package exports
   vite.ts                   the Vite preset a flavor builds with: proxies, defines, worker, Pyodide
+  scripts/install_assets.js the orbit-browser-assets bin a flavor's build runs first: fetches
+                            Pyodide's wheels into temp/ and the galaxy-skills corpus into src/
+  skills.lock.json          the galaxy-skills revision the core vendors
+  pyodide.requirements.txt  the Python packages run_python loads
   src/index.ts              the page entry: mountOrbitBrowser and what a page needs
   src/shell.ts              mounts Orbit's ChatPanel, starts the flavor's worker, drives the chat
   src/layout.ts artifact-pane.ts usage-bar.ts retry-notice.ts   the pane's parts
@@ -92,7 +95,10 @@ linked `vite.ts` to Node as is, so olit's scripts load their config with `--conf
 
 Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls` groups the
 verbs and the name says when it runs. The extension follows what the script has to load, not which
-side of olit it serves: `install_skills.js` is JavaScript because it fetches through node.
+side of olit it serves: `install_skills.js` is JavaScript because it fetches through node. A script
+a package's own build needs lives in that package instead, so the package builds wherever it goes:
+the core's `scripts/` fetches what it ships, and a flavor's `build` runs `orbit-browser-assets`
+before Vite.
 
 If another repo names a path, it is not tooling but an interface. The `agents` repo builds
 `dist/session.mjs` (`npm run build:session`) and drives it, asks it to `--describe --root .`

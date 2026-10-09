@@ -105,10 +105,10 @@ export function defines(settings: Partial<typeof env> = {}): Record<string, stri
   };
 }
 
-// Wherever the workspace hoisted it; scripts/install_pyodide.js puts the wheels in temp/ beside
-// that node_modules.
+// Pyodide wherever it was hoisted; the wheels in the core's own temp/, where its install script
+// (scripts/install_pyodide.js) puts them.
 const PYODIDE = path.dirname(createRequire(import.meta.url).resolve("pyodide/package.json"));
-const WHEELS = path.join(PYODIDE, "..", "..", "temp", "pyodide");
+const WHEELS = fileURLToPath(new URL("./temp/pyodide", import.meta.url));
 
 /** Pyodide and the wheels the agent loads beside it, copied next to the bundle Galaxy serves. */
 const copyPyodide: Plugin = {

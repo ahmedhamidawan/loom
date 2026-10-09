@@ -12,14 +12,14 @@
     "webkit"
   ],
   "scripts": {
-    "build": "vite build --configLoader runner",
+    "build": "orbit-browser-assets && vite build --configLoader runner",
     "dev": "vite --configLoader runner",
     "preview": "vite preview --configLoader runner",
     "test:unit": "vitest run --configLoader runner",
     "test:watch": "vitest --watch --configLoader runner",
     "test:ui": "vitest --ui --configLoader runner",
     "typecheck": "tsc --noEmit",
-    "build:session": "vite build --config vite.config.session.ts"
+    "build:session": "orbit-browser-assets && vite build --config vite.config.session.ts"
   },
   "devDependencies": {
     "@galaxyproject/orbit-browser": "0.1.0",
