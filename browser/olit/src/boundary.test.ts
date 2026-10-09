@@ -4,14 +4,18 @@
  * never a relative path out of olit/, never Orbit's renderer, never a path inside the package.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { olitFlavor } from "./agent/flavor";
+
 const OLIT = join(__dirname, "..");
 const CORE_PACKAGE = "@galaxyproject/orbit-browser";
-const EXPORTS = Object.keys(
-  JSON.parse(readFileSync(join(OLIT, "..", "core", "package.json"), "utf8")).exports,
-);
+// Found the way any consumer finds it, so this holds wherever the core is installed.
+const CORE_MANIFEST = createRequire(import.meta.url).resolve(`${CORE_PACKAGE}/package.json`);
+const CORE = dirname(CORE_MANIFEST);
+const EXPORTS = Object.keys(JSON.parse(readFileSync(CORE_MANIFEST, "utf8")).exports);
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -77,5 +81,38 @@ describe("olit's way into the core", () => {
       "b",
       "c",
     ]);
+  });
+});
+
+/** The core's own prompt, skills and code: not its tests, and not the vendored galaxy-skills. */
+function coreProse(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) {
+      return ["node_modules", "galaxy-skills", "__surface__"].includes(name) ? [] : coreProse(path);
+    }
+    return /\.(ts|js|md)$/.test(name) && !/\.test\.ts$/.test(name) ? [path] : [];
+  });
+}
+
+describe("the core's prose", () => {
+  // A tool only Olit has, named by the core, is a reference every other flavor ships without
+  // the tool behind it. The ones below predate the split: the notebook skill's aside, and the
+  // system prompt's Galaxy terminology, which sends a request to view a dataset to
+  // list_visualizations. Their text is pinned until the agent's prompts can change.
+  const KNOWN = {
+    "src/agent/prompt.ts": ["list_visualizations"],
+    "src/agent/skills/olit-skills/notebook/SKILL.md": ["get_visualization_details"],
+  };
+
+  it("names none of Olit's tools beyond the known ones", () => {
+    const tools = olitFlavor.tools!().map((t) => t.name);
+    const found: Record<string, string[]> = {};
+    for (const file of coreProse(join(CORE, "src"))) {
+      const text = readFileSync(file, "utf8");
+      const named = tools.filter((t) => new RegExp(`\\b${t}\\b`).test(text));
+      if (named.length) found[relative(CORE, file)] = named.sort();
+    }
+    expect(found).toEqual(KNOWN);
   });
 });
