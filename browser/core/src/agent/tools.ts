@@ -24,8 +24,11 @@ export interface AgentFlavor {
   skills?: Record<string, string>;
   /** Galaxy-op result notes, tried after IWC's and before invocation-outcome and fetch-failure. */
   annotators?: Annotate[];
-  /** Appended after the skills router text. */
-  promptSections?: (input: { model?: string; provider?: string; datasetId?: string }) => string[];
+  /** System prompt sections, right after the identity line or after the skills router text. */
+  promptSections?: (input: { model?: string; provider?: string; datasetId?: string }) => {
+    afterIdentity?: string[];
+    afterRouter?: string[];
+  };
   /** Registered in whichever realm the runtime runs in. */
   artifactKinds?: readonly ArtifactKind<any>[];
 }

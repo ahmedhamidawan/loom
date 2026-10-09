@@ -14,7 +14,7 @@ import {
   PLAN_CONVENTION,
   RECORD_WRITES,
   currentDateBlock,
-  seedDatasetBlock,
+  IDENTITY,
   systemText,
 } from "./prompt";
 
@@ -396,24 +396,13 @@ describe("artifact links", () => {
   });
 });
 
-describe("seed dataset", () => {
-  it("names the dataset so a bare reference resolves", () => {
-    const text = seedDatasetBlock("f2db41e1fa331b3e");
-    expect(text).toContain("f2db41e1fa331b3e");
-    expect(text).toContain("get_dataset_details");
+describe("a flavor's sections", () => {
+  it("follow the identity line", () => {
+    const text = systemText({ afterIdentity: ["## Flavor section"] });
+    expect(text.startsWith(`${IDENTITY}\n\n## Flavor section\n\n`)).toBe(true);
   });
 
-  it("adds no block without a dataset", () => {
-    expect(seedDatasetBlock(undefined)).toBe("");
-    expect(seedDatasetBlock("")).toBe("");
-  });
-
-  it("reaches the system text", () => {
-    expect(systemText({ seedDataset: "abc123" })).toContain("abc123");
-    expect(systemText()).not.toContain("Starting dataset");
-  });
-
-  it("leaves a bare start unchanged", () => {
-    expect(systemText({ seedDataset: undefined })).toBe(systemText());
+  it("drop out when empty", () => {
+    expect(systemText({ afterIdentity: [""] })).toBe(systemText());
   });
 });

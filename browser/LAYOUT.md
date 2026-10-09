@@ -61,6 +61,7 @@ olit/                     @galaxyproject/olit: files ["static"]
   src/agent/flavor.ts       olitFlavor and olitLayout
   src/agent/node.ts         the Node entry: runNodeSession(olitFlavor, olitLayout)
   src/agent/visualizations.ts visualization-inputs.ts vega.ts hints.ts   the visualization tools
+  src/agent/prompt.ts       the starting-dataset section
   src/agent/skills/         olit-skills/visualization
 ```
 
@@ -74,10 +75,10 @@ flavor needs.
 
 - **Agent.** `AgentFlavor` (`/agent`) adds tools (placed after Galaxy's, so they take `{{artifact}}`
   tokens and count as the agent's own), skill files merged over the packaged corpus, notes on
-  galaxy-ops results, prompt sections after the skills router, and artifact kinds. The flavor's
-  worker entry calls `startAgentWorker(flavor)`; the Node entry calls `runNodeSession(flavor,
-  layout)`. This is the agent's own seam until it runs on Orbit's pi extensions, where each field
-  has a counterpart.
+  galaxy-ops results, prompt sections (right after the identity line, or after the skills router),
+  and artifact kinds. The flavor's worker entry calls `startAgentWorker(flavor)`; the Node entry
+  calls `runNodeSession(flavor, layout)`. This is the agent's own seam until it runs on Orbit's pi
+  extensions, where each field has a counterpart.
 - **Artifacts.** A kind augments `ArtifactKinds` (`/artifacts`) and is registered with how it is
   written into a page. Each realm keeps its own registry, so the worker registers the flavor's
   kinds and the page registers them again through `mountOrbitBrowser`'s `artifactKinds`.

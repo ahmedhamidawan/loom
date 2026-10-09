@@ -181,20 +181,22 @@ export class Runtime {
       capabilities,
       secrets: () =>
         [current.apiKey, config.galaxy_key].filter((s): s is string => typeof s === "string"),
-      prompt: ({ model, provider, datasetId }) =>
-        [
+      prompt: ({ model, provider, datasetId }) => {
+        const sections = flavor?.promptSections?.({ model, provider, datasetId }) ?? {};
+        return [
           systemText({
             model,
             provider,
             galaxyStatus,
-            seedDataset: datasetId,
+            afterIdentity: sections.afterIdentity,
             galaxyRoot: galaxy.root,
           }),
           skills.routerText(),
-          ...(flavor?.promptSections?.({ model, provider, datasetId }) ?? []),
+          ...(sections.afterRouter ?? []),
         ]
           .filter(Boolean)
-          .join("\n\n"),
+          .join("\n\n");
+      },
       ask,
       watch,
     });

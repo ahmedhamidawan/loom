@@ -586,24 +586,12 @@ You are **${model}**${via}. That is your identity for this session: state it
 accurately when asked, and do not claim to be a different model or provider.`;
 }
 
-/** Olit opened on a dataset names it, so a bare reference to "the dataset" resolves. */
-export function seedDatasetBlock(datasetId?: string): string {
-  if (!datasetId) {
-    return "";
-  }
-  return (
-    `## Starting dataset\n\n` +
-    `The user opened Olit on dataset \`${datasetId}\`. Take it as the one they mean when ` +
-    `they refer to a dataset without naming another, and call \`get_dataset_details\` for ` +
-    `its columns and datatype before acting on it.`
-  );
-}
-
 export interface PromptOptions {
   model?: string;
   provider?: string;
   galaxyStatus?: GalaxyStatus;
-  seedDataset?: string;
+  /** A flavor's sections, placed right after the identity line. */
+  afterIdentity?: string[];
   galaxyRoot?: string;
 }
 
@@ -617,14 +605,14 @@ export function systemText({
   model,
   provider,
   galaxyStatus = GALAXY_READY,
-  seedDataset,
+  afterIdentity = [],
   galaxyRoot,
 }: PromptOptions = {}): string {
   // As loom does: the Galaxy guidance rides on the connection, whichever tools are granted.
   const galaxy = (block: string) => (galaxyStatus === GALAXY_READY ? block : "");
   return [
     IDENTITY,
-    seedDatasetBlock(seedDataset),
+    ...afterIdentity,
     activeModelBlock(model, provider),
     NO_LOCAL_SHELL,
     galaxyNotice(galaxyStatus),
