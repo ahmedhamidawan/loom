@@ -68,8 +68,13 @@ async function waitFor(page, fn, ms, arg) {
           `${beforeAllowed} -> ${afterAllowed} provider calls`);
 
     // Now run a process, which fails here: the stub serves none of what it reads.
-    // The approved turn above answered with another plan card, so count from what is on screen.
+    // The approved turn above answered with another plan card, so count from what is on screen,
+    // once that card is there: answered() only waits for the provider call, and a card that
+    // lands after the count passes for the new one until the next message settles it.
     await fetch(`${STUB}/__script?name=plan-after-process`);
+    check("the approved turn answered with a plan",
+          await waitFor(page, () => !!document.querySelector(
+              ".plan-draft-card:not(.approved):not(.rejected):not(.answered)"), 120000));
     const cards = await page.locator(".plan-draft-approve").count();
     await page.fill("#input", "Organize the seed history, then plan the rest.");
     await page.click("#send-btn");
