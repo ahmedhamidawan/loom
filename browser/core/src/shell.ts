@@ -68,6 +68,10 @@ export interface SessionStore {
   savedNote: string;
   /** The Save button's tooltip, saying where a save goes. */
   label?: string;
+  /** Appended when the browser can't keep the conversation, saying how to keep it anyway. */
+  keepHint?: string;
+  /** Appended when the browser keeps nothing for this history, saying where saves reopen from. */
+  reopenHint?: string;
 }
 
 export interface OrbitBrowserOptions {
@@ -338,7 +342,8 @@ export async function mountOrbitBrowser(
       if (message.unkept) {
         chat.addErrorMessage(
           `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
-            "the page closes. Save it to Galaxy to keep it.",
+            "the page closes." +
+            (sessions?.keepHint ? ` ${sessions.keepHint}` : ""),
         );
       }
       if (message.galaxyProblem) {
@@ -376,7 +381,8 @@ export async function mountOrbitBrowser(
       // The browser kept nothing of a session here; the user says which, if any, this is.
       const line = info(
         "This browser keeps no Olit conversation for this history. Continue one of its records, " +
-          "or start new. A conversation saved with Save opens from Galaxy's visualizations.",
+          "or start new." +
+          (sessions?.reopenHint ? ` ${sessions.reopenHint}` : ""),
       );
       const choices = document.createElement("div");
       choices.className = "olit-choices";

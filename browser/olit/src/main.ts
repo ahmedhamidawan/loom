@@ -120,6 +120,8 @@ async function main() {
       savedNote:
         "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
       label: "Save this conversation as a Galaxy visualization",
+      keepHint: "Save it to Galaxy to keep it.",
+      reopenHint: "A conversation saved with Save opens from Galaxy's visualizations.",
     },
   });
 }
