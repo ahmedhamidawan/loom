@@ -78,9 +78,12 @@ function buildCommit(): string {
   }
 }
 
+// Read while the config module loads: olit's `--configLoader runner` closes the module runner
+// once the config is evaluated, and the registry's lazy imports would find it gone.
+const targets = await llmTargets();
+
 /** Where the dev server's /llm proxy goes; it refuses a provider the registry doesn't know. */
-async function llmProxy(env: Env): Promise<{ root: string; path: string }> {
-  const targets = await llmTargets();
+function llmProxy(env: Env): { root: string; path: string } {
   if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
     // Falling through to the local default here is the trap that answers with the wrong model.
     const known = Object.keys(targets).sort().join(", ") || "none readable";
@@ -150,7 +153,7 @@ const servePyodide = (flavorRoot: string): Plugin => ({
   },
 });
 
-export async function orbitBrowserVite({
+export function orbitBrowserVite({
   command,
   flavorRoot,
   galaxyPaths = [],
@@ -160,11 +163,10 @@ export async function orbitBrowserVite({
   flavorRoot: string;
   /** More paths the dev server forwards to Galaxy, for what only the flavor fetches. */
   galaxyPaths?: string[];
-}): Promise<UserConfig> {
+}): UserConfig {
   const { env, missing } = readEnv();
   // Only the dev server reads these; a build is compiled without them.
-  const llm =
-    command === "serve" ? await llmProxy(env) : { root: "http://127.0.0.1:11434", path: "/v1" };
+  const llm = command === "serve" ? llmProxy(env) : { root: "http://127.0.0.1:11434", path: "/v1" };
   if (command === "serve" && missing.length) {
     console.log(`Not set in the environment, so using defaults: ${missing.join(", ")}.`);
   }
