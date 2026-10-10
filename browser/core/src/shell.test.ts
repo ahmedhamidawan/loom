@@ -82,7 +82,7 @@ describe("a flavor with no session store", () => {
 });
 
 describe("dispose", () => {
-  // Orbit's ChatPanel adds a document mouseup of its own that only the renderer could detach.
+  // Orbit's ChatPanel adds document listeners of its own that only the renderer could detach.
   it("ends the worker and detaches the pane's document listeners", async () => {
     const worker = fakeWorker();
     const listening = vi.spyOn(document, "addEventListener");
@@ -104,6 +104,27 @@ describe("dispose", () => {
     expect(worker.terminate).toHaveBeenCalledTimes(1);
     expect(container.childElementCount).toBe(0);
     listening.mockRestore();
+  });
+
+  it("leaves nothing on the container that answers a second mount's shortcut", async () => {
+    const mount = () =>
+      mountOrbitBrowser(container, {
+        ...base,
+        createWorker: () => fakeWorker() as unknown as Worker,
+        launch: async () => ({ historyId: "h1" }),
+      });
+    const showSomething = () =>
+      container.querySelector("#artifact-content")!.appendChild(document.createElement("div"));
+    const first = await mount();
+    showSomething();
+    first!.dispose();
+    await mount();
+    showSomething();
+    const before = document.body.classList.contains("artifact-collapsed");
+    container.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "\\", ctrlKey: true, bubbles: true }),
+    );
+    expect(document.body.classList.contains("artifact-collapsed")).toBe(!before);
   });
 });
 

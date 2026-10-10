@@ -93,7 +93,12 @@ export interface OrbitBrowserOptions {
 
 /** The mounted page, as its host sees it. */
 export interface OrbitBrowserHandle {
-  /** End the agent's worker, detach what the shell attached outside `container`, and empty it. */
+  /**
+   * End the agent's worker, detach what the shell attached to `container` and outside it, and
+   * empty it. Orbit's ChatPanel adds document and window listeners of its own (mouseup, mousedown,
+   * selectionchange, keydown, blur) that only the renderer could detach; they stay, but act on
+   * the detached panel.
+   */
   dispose(): void;
 }
 
@@ -543,11 +548,15 @@ export async function mountOrbitBrowser(
     }
   });
   // Esc stops the run; bound on the container because olit lives in an iframe.
-  container.addEventListener("keydown", (e) => {
-    if ((e as KeyboardEvent).key === "Escape" && busy) {
-      stop();
-    }
-  });
+  container.addEventListener(
+    "keydown",
+    (e) => {
+      if ((e as KeyboardEvent).key === "Escape" && busy) {
+        stop();
+      }
+    },
+    { signal: mounted.signal },
+  );
 
   // Approve / Edit / Reject on a plan draft card; wording follows loom's handler.
   el.messages.addEventListener("plan-draft-action", (e) => {

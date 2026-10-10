@@ -27,7 +27,8 @@ export interface ArtifactPane {
   reveal(): void;
 }
 
-/** `signal` ends what the pane attached outside its container, for a page that unmounts it. */
+/** `signal` ends what the pane attached to the container and outside it, for a page that unmounts
+ * it and may mount again into the same element. */
 export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal): ArtifactPane {
   const chatPane = container.querySelector<HTMLElement>("#chat-pane")!;
   const divider = container.querySelector<HTMLElement>("#divider")!;
@@ -83,14 +84,18 @@ export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal):
   );
 
   button.addEventListener("click", () => set(!collapsed()));
-  container.addEventListener("keydown", (e) => {
-    const ev = e as KeyboardEvent;
-    // Guarded: the button is hidden with nothing to show, so the shortcut must not open it.
-    if ((ev.ctrlKey || ev.metaKey) && ev.key === "\\" && !empty()) {
-      ev.preventDefault();
-      set(!collapsed());
-    }
-  });
+  container.addEventListener(
+    "keydown",
+    (e) => {
+      const ev = e as KeyboardEvent;
+      // Guarded: the button is hidden with nothing to show, so the shortcut must not open it.
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === "\\" && !empty()) {
+        ev.preventDefault();
+        set(!collapsed());
+      }
+    },
+    { signal },
+  );
 
   // Clamped so neither pane can be dragged away entirely.
   let dragging = false;
