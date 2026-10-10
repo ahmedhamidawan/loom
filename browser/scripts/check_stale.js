@@ -19,6 +19,14 @@ export function pinned(pkg, name) {
   return spec;
 }
 
+/** Which package.json declares each pin this script reports on. */
+export const PINS = {
+  "@galaxyproject/galaxy-ops": "core/package.json",
+  "galaxy-charts": "olit/package.json",
+};
+
+export const pinFor = (name) => pinned(read(PINS[name]), name);
+
 async function github(path) {
   const headers = { "User-Agent": "olit-stale-check", Accept: "application/vnd.github+json" };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
@@ -52,7 +60,7 @@ async function npmLatest(pkg) {
 const ARTIFACT = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
 async function galaxyOps() {
-  const spec = pinned(read("core/package.json"), "@galaxyproject/galaxy-ops");
+  const spec = pinFor("@galaxyproject/galaxy-ops");
   const latest = await npmLatest("@galaxyproject/galaxy-ops");
   const artifact = ARTIFACT.exec(spec);
   if (artifact) {
@@ -71,7 +79,7 @@ async function galaxyOps() {
 }
 
 async function galaxyCharts() {
-  const version = pinned(read("olit/package.json"), "galaxy-charts").replace(/^[\^~]/, "");
+  const version = pinFor("galaxy-charts").replace(/^[\^~]/, "");
   const latest = await npmLatest("galaxy-charts");
   return version === latest
     ? `charts     up to date at ${version}`
