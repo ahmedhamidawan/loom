@@ -78,6 +78,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The agents repo drives dist/session.mjs, and its build crosses into the core's package
+      # exports; --describe loads the bundle and resolves the flavor and the core from it.
+      - name: Build the Node session bundle
+        run: npm run build:session
+
+      - name: Smoke the session bundle
+        run: node dist/session.mjs --describe --root . > /dev/null
+
       - name: Test
         run: npm test
 
