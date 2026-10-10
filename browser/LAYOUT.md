@@ -106,9 +106,8 @@ What still ties the two packages to this workspace, and why each waits:
   the renderer is built for Orbit's shells, not as a reusable component, and a package would make
   its internals a public API. That means Vite library mode with one entry per export plus a
   `style.css`, and export conditions so this workspace keeps resolving TypeScript source while
-  npm consumers get `dist/`. The one fiddly part is types: `OrbitBrowserHandle` exposes the
-  renderer's `ChatPanel`, so either the declarations get bundled or the handle stops exposing
-  renderer types. Narrowing the handle is the better of the two.
+  npm consumers get `dist/`. The handle `mountOrbitBrowser` returns is just `dispose()`, so no
+  renderer type reaches the published declarations.
 - **Olit's name inside the core.** The prompt's identity line, describe's `agent: "olit"`,
   `OlitTool` and `olitTools`, and a few shell messages still say Olit. The prompt and describe's
   output are frozen while this split must not change the agent, and the agents repo reads those

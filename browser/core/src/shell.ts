@@ -88,12 +88,10 @@ export interface OrbitBrowserOptions {
   sessions?: SessionStore;
 }
 
-/** The mounted page, or undefined when its launch stopped it before a conversation started. */
+/** The mounted page, as its host sees it. */
 export interface OrbitBrowserHandle {
-  agent: AgentClient;
-  chat: ChatPanel;
-  galaxy: Galaxy;
-  view: ChatView;
+  /** End the agent's worker, detach what the shell attached outside `container`, and empty it. */
+  dispose(): void;
 }
 
 /** With no dataset to start from, the conversation is Galaxy's current history's. */
@@ -122,10 +120,17 @@ function autosize(input: HTMLTextAreaElement): void {
   input.style.overflowY = wanted > MAX_INPUT_HEIGHT ? "auto" : "hidden";
 }
 
+/**
+ * Mount the shell into `container`. It assumes it owns its document: one mount per page or
+ * iframe. It puts the theme on the root element and the pane's state and drag cursor on body,
+ * sizes the pane from the window's width, injects fixed element ids, configures the shared
+ * `marked`, and its worker holds a per-origin tab lock. A host that needs it inside a larger page
+ * mounts it in an iframe.
+ */
 export async function mountOrbitBrowser(
   container: HTMLElement,
   options: OrbitBrowserOptions,
-): Promise<OrbitBrowserHandle | undefined> {
+): Promise<OrbitBrowserHandle> {
   registerArtifactKinds(options.artifactKinds ?? []);
   registerArtifactRenderers(options.renderers ?? {});
   // Caught at mount rather than when the first artifact of the kind arrives mid-conversation.
@@ -143,7 +148,17 @@ export async function mountOrbitBrowser(
 
   const el = mountLayout(container, { save: !!sessions });
   if (el.save && sessions?.label) el.save.title = sessions.label;
-  const artifactPane = mountArtifactPane(container);
+  const mounted = new AbortController();
+  let started: AgentClient | undefined;
+  const handle: OrbitBrowserHandle = {
+    dispose() {
+      mounted.abort();
+      retryNotice.stop();
+      started?.close();
+      container.replaceChildren();
+    },
+  };
+  const artifactPane = mountArtifactPane(container, mounted.signal);
   useChatMarkdown();
   const chat = new ChatPanel(el.messages);
   /** An info line as text: the vendored panel parses it as HTML, and dataset names, ids and
@@ -168,7 +183,7 @@ export async function mountOrbitBrowser(
     chat.addErrorMessage(launch.stop);
     el.input.disabled = true;
     el.send.disabled = true;
-    return undefined;
+    return handle;
   }
   let savedId = launch.saved?.id;
 
@@ -431,6 +446,7 @@ export async function mountOrbitBrowser(
       chat.addErrorMessage(briefly(message.message));
     }
   }, options.createWorker);
+  started = agent;
   agent.open(opening);
 
   el.model.addEventListener("click", async () => {
@@ -557,5 +573,5 @@ export async function mountOrbitBrowser(
     }
   });
 
-  return { agent, chat, galaxy, view };
+  return handle;
 }

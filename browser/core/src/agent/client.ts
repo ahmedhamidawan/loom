@@ -8,6 +8,7 @@ export class AgentClient {
     { resolve: (v: unknown) => void; reject: (e: Error) => void }
   >();
   private nextId = 0;
+  private closed = false;
 
   /**
    * `createWorker` belongs to the flavor: the worker entry it names is what decides which tools
@@ -33,12 +34,13 @@ export class AgentClient {
   }
 
   private send(message: PageMessage) {
-    this.worker.postMessage(message);
+    if (!this.closed) this.worker.postMessage(message);
   }
 
   private request<T>(message: (id: number) => PageMessage): Promise<T> {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
+      if (this.closed) return reject(new Error("The agent is closed."));
       this.replies.set(id, { resolve: resolve as (v: unknown) => void, reject });
       this.send(message(id));
     });
@@ -79,5 +81,14 @@ export class AgentClient {
 
   saved(savedId: string, document: import("./saved").SessionDocument) {
     return this.request<void>((id) => ({ type: "saved", id, savedId, document }));
+  }
+
+  /** End the worker, which also lets go of its storage lock, and fail whatever waits on it. */
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    this.worker.terminate();
+    for (const waiting of this.replies.values()) waiting.reject(new Error("The agent is closed."));
+    this.replies.clear();
   }
 }

@@ -27,7 +27,8 @@ export interface ArtifactPane {
   reveal(): void;
 }
 
-export function mountArtifactPane(container: HTMLElement): ArtifactPane {
+/** `signal` ends what the pane attached outside its container, for a page that unmounts it. */
+export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal): ArtifactPane {
   const chatPane = container.querySelector<HTMLElement>("#chat-pane")!;
   const divider = container.querySelector<HTMLElement>("#divider")!;
   const appMain = container.querySelector<HTMLElement>("#app-main")!;
@@ -64,16 +65,22 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
   show(narrow || preferred);
 
   // The pane reads its own contents rather than trusting a caller to announce them.
-  new MutationObserver(() => show(narrow || preferred)).observe(content, { childList: true });
+  const observer = new MutationObserver(() => show(narrow || preferred));
+  observer.observe(content, { childList: true });
+  signal?.addEventListener("abort", () => observer.disconnect());
 
-  window.addEventListener("resize", () => {
-    const isNarrow = window.innerWidth < BREAKPOINT;
-    if (isNarrow === narrow) {
-      return;
-    }
-    narrow = isNarrow;
-    show(isNarrow ? true : preferred);
-  });
+  window.addEventListener(
+    "resize",
+    () => {
+      const isNarrow = window.innerWidth < BREAKPOINT;
+      if (isNarrow === narrow) {
+        return;
+      }
+      narrow = isNarrow;
+      show(isNarrow ? true : preferred);
+    },
+    { signal },
+  );
 
   button.addEventListener("click", () => set(!collapsed()));
   container.addEventListener("keydown", (e) => {
@@ -94,24 +101,32 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   });
-  document.addEventListener("mousemove", (e) => {
-    if (!dragging) {
-      return;
-    }
-    const width = appMain.getBoundingClientRect().width;
-    const left = chatPane.getBoundingClientRect().left;
-    const pct = (((e as MouseEvent).clientX - left) / width) * 100;
-    chatPane.style.flex = `0 0 ${Math.max(MIN_CHAT_PERCENT, Math.min(MAX_CHAT_PERCENT, pct))}%`;
-  });
-  document.addEventListener("mouseup", () => {
-    if (!dragging) {
-      return;
-    }
-    dragging = false;
-    divider.classList.remove("dragging");
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  });
+  document.addEventListener(
+    "mousemove",
+    (e) => {
+      if (!dragging) {
+        return;
+      }
+      const width = appMain.getBoundingClientRect().width;
+      const left = chatPane.getBoundingClientRect().left;
+      const pct = (((e as MouseEvent).clientX - left) / width) * 100;
+      chatPane.style.flex = `0 0 ${Math.max(MIN_CHAT_PERCENT, Math.min(MAX_CHAT_PERCENT, pct))}%`;
+    },
+    { signal },
+  );
+  document.addEventListener(
+    "mouseup",
+    () => {
+      if (!dragging) {
+        return;
+      }
+      dragging = false;
+      divider.classList.remove("dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    },
+    { signal },
+  );
 
   return {
     reveal: () => set(false),
