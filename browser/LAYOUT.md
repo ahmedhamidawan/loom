@@ -137,8 +137,11 @@ What still ties the two packages to this workspace, and why each waits:
     skills repo a flavor's skills are keyed under.
   - *Plain text* a brand option replaces: the record page's "Olit Notebook" title and "maintained
     by Olit" starter, `cannotStart`, the worker-failure fallback, the transcript's failure lines,
-    the composer placeholder, and the shell's status messages.
+    the composer placeholder, the shell's status messages, and the `[olit]` prefix on its console
+    lines.
   - *Names in the API*: `OlitTool`, `olitTools`, and the `olit_commit`/`olit_built` defines.
+  - *Internal names* that only a rename touches: the stylesheet `olit.css` and its `olit-` classes,
+    `olitExtension`/`OlitHost` and `olitModels`.
 
   The persisted names are also why a second flavor can't share a Galaxy origin with Olit yet: it
   would open Olit's database, resume Olit's conversation on a history with its own tools, list

@@ -2,7 +2,8 @@
  * Olit's kinds are registered twice, once in each realm: the worker that makes them registers
  * the flavor's (startAgentWorker), and the page that shows them registers what main.ts mounts
  * the shell with. Each realm has its own registry, so each has to keep all three kinds. Both
- * tests go through the core's own entry points, so dropping either registration fails here.
+ * tests go through the core's own entry points, so a kind or renderer missing from olitFlavor or
+ * OLIT_ARTIFACTS fails here; main.ts forgetting to spread OLIT_ARTIFACTS does not.
  */
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { beforeEach, describe, expect, it, vi } from "vitest";
