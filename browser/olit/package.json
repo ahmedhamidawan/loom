@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "orbit-browser-assets && vite build --configLoader runner",
-    "dev": "vite --configLoader runner",
+    "dev": "npm run build && vite --configLoader runner",
     "preview": "vite preview --configLoader runner",
     "test:unit": "vitest run --configLoader runner",
     "test:watch": "vitest --watch --configLoader runner",
