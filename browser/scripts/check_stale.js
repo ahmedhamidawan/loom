@@ -19,13 +19,19 @@ export function pinned(pkg, name) {
   return spec;
 }
 
-/** Which package.json declares each pin this script reports on. */
+/** Every package.json that declares each pin this script reports on. */
 export const PINS = {
-  "@galaxyproject/galaxy-ops": "core/package.json",
-  "galaxy-charts": "olit/package.json",
+  "@galaxyproject/galaxy-ops": ["core/package.json", "olit/package.json"],
+  "galaxy-charts": ["olit/package.json"],
 };
 
-export const pinFor = (name) => pinned(read(PINS[name]), name);
+/** The one spec every declaring package pins `name` to; packages that disagree are an error. */
+export function pinFor(name) {
+  const specs = PINS[name].map((path) => pinned(read(path), name));
+  if (new Set(specs).size > 1)
+    throw new Error(`${PINS[name].join(" and ")} pin ${name} differently`);
+  return specs[0];
+}
 
 async function github(path) {
   const headers = { "User-Agent": "olit-stale-check", Accept: "application/vnd.github+json" };
@@ -68,14 +74,14 @@ async function galaxyOps() {
       read("package-lock.json").packages["node_modules/@galaxyproject/galaxy-ops"].version;
     return (
       `galaxy-ops TEMPORARY: pinned to candidate ${built} (${artifact[1]} release ${artifact[2]}); npm has ${latest}\n` +
-      `           replace it with the first npm release that contains it: npm install -w @galaxyproject/orbit-browser @galaxyproject/galaxy-ops@<version>, then npm test`
+      `           replace it with the first npm release that contains it: npm install -w @galaxyproject/orbit-browser -w @galaxyproject/olit @galaxyproject/galaxy-ops@<version>, then npm test`
     );
   }
   const version = spec.replace(/^[\^~]/, "");
   return version === latest
     ? `galaxy-ops up to date at ${version}`
     : `galaxy-ops BEHIND: package.json wants ${version}, npm has ${latest}\n` +
-        `           update: bump it and run npm test; ops.ts runs its operations directly`;
+        `           update: bump it in core/ and olit/ and run npm test; ops.ts runs its operations directly`;
 }
 
 async function galaxyCharts() {
