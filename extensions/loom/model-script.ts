@@ -14,13 +14,14 @@
  * `LOOM_MODEL_SCRIPT` names a JSONL file, one model turn per line, in order:
  *
  * ```json
- * {"text": "Recording the evidence first."}
+ * {"tool": "galaxy_invocation_check_all", "input": {}, "text": "Checking the run first."}
  * {"tool": "edit", "input": {"path": "notebook.md", "edits": [{"oldText": "...", "newText": "..."}]}}
- * {"tool": "bash", "input": {"command": "ls"}, "text": "optional text before the call"}
+ * {"text": "Step 1 is verified."}
  * ```
  *
  * A tool line ends its turn with `toolUse`, so pi runs the call and asks for
- * the next turn; a text line ends it with `stop`. A script that runs out
+ * the next turn; a text line ends it with `stop`, which ends the prompt -- so
+ * text meant to come before a call goes on the call's line. A script that runs out
  * answers every later turn with an empty `stop`, which ends the prompt cleanly
  * rather than with the faux provider's "no more responses" error.
  *
@@ -161,7 +162,6 @@ export function resetModelScriptState(): void {
 export function createScriptedModel(state: ScriptState = { loaded: false, turns: [] }): {
   faux: FauxProviderHandle;
   load: (turns: ScriptTurn[]) => void;
-  remaining: () => number;
 } {
   const faux = fauxProvider({
     provider: MODEL_SCRIPT_PROVIDER,
@@ -187,7 +187,6 @@ export function createScriptedModel(state: ScriptState = { loaded: false, turns:
     load: (turns) => {
       state.turns = turns.map((t) => structuredClone(t));
     },
-    remaining: () => state.turns.length,
   };
 }
 
@@ -238,21 +237,15 @@ export function readModelScript(sessionDir: string, configured: string): ScriptR
     if (!stat.isFile()) return { file: null, parsed: empty, rejected: "not-a-file" };
     // O_NOFOLLOW covers the last component only. A parent directory swapped
     // for a symlink between the realpath and the open would still be
-    // followed, so check that what was opened is the file the containment
-    // check approved, and that its path still resolves inside the session.
-    let again: string;
+    // followed, so the path has to resolve to the same place after the open,
+    // and to the file this descriptor has open.
+    let again: fs.Stats | null = null;
     try {
-      again = fs.realpathSync(real);
+      if (fs.realpathSync(real) === real) again = fs.statSync(real);
     } catch {
-      return { file: null, parsed: empty, rejected: "outside-session-dir" };
+      // gone or moved: refused below
     }
-    const checked = fs.statSync(again);
-    if (
-      again !== real ||
-      checked.dev !== stat.dev ||
-      checked.ino !== stat.ino ||
-      !again.startsWith(fs.realpathSync(sessionDir) + path.sep)
-    ) {
+    if (!again || again.dev !== stat.dev || again.ino !== stat.ino) {
       return { file: null, parsed: empty, rejected: "outside-session-dir" };
     }
     if (stat.size > MAX_SCRIPT_BYTES) {

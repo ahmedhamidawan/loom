@@ -180,7 +180,8 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   }
   // Eval-only seam: a scripted model, so a Tier-1 scenario can make the tool
   // calls a model would and pi's own tool_call path decides them. Off unless
-  // LOOM_MODEL_SCRIPT names a file inside the session directory.
+  // LOOM_MODEL_SCRIPT is set; the file it names must be inside the session
+  // directory, and while it's set the session never reaches a real model.
   if (isModelScriptEnabled()) {
     registerModelScript(pi);
   }

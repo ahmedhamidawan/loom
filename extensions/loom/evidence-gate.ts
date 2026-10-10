@@ -66,10 +66,11 @@
  * ## Modes
  *
  * `off | warn | deny`, from `LOOM_EVIDENCE_GATE` or `evidenceGate.mode` in the
- * config, default `deny`. Every decision that involves a completion is recorded to
- * `activity.jsonl` as `evidence.decision`, with the contradiction's source,
- * so `scripts/evidence-gate-audit.mjs` can tabulate what deny would have done;
- * `docs/evidence-gate-audit.md` holds the result the default rests on.
+ * config, default `deny`. Every decision that involves a completion is
+ * recorded to `activity.jsonl` as `evidence.decision`, with the
+ * contradiction's source, so `scripts/evidence-gate-audit.mjs` can tabulate
+ * what deny would have done; `docs/evidence-gate-audit.md` holds the audit
+ * the default rests on.
  *
  * ## The exception is the user's, not the model's
  *
