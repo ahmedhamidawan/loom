@@ -5,7 +5,7 @@ import type { Credentials } from "./credentials";
 export interface Launched {
   root: string;
   datasetId?: string;
-  /** Galaxy's chat proxy for the plugin, which the "galaxy" provider talks to. */
+  /** Galaxy's AI proxy for the flavor's visualization plugin; the "galaxy" provider talks to it. */
   galaxyChatUrl: string;
 }
 

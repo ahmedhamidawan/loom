@@ -77,7 +77,10 @@ export interface SessionStore {
 export interface OrbitBrowserOptions {
   galaxyRoot: string;
   datasetId?: string;
-  /** Galaxy's chat proxy for this plugin, which the "galaxy" provider talks to. */
+  /**
+   * Galaxy's AI proxy for the flavor's visualization plugin (`<root>api/plugins/<plugin>`), which
+   * the default "galaxy" provider talks to.
+   */
   galaxyChatUrl: string;
   pyodideURL: string;
   /** The flavor's agent worker; see AgentClient. */

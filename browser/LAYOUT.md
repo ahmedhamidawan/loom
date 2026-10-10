@@ -4,7 +4,10 @@ browser/ is an npm workspace of two packages. `@galaxyproject/orbit-browser` (co
 shell for the browser: the agent in a worker, its providers, the chat and artifact panes, and the
 Galaxy transport. `@galaxyproject/olit` (olit/) is the flavor that makes it a Galaxy
 visualization plugin, and is what Galaxy installs. The workspace root holds the shared tooling and
-forwards `build`, `test`, `typecheck` and `build:session` to the packages.
+runs lint, the vendored check, its own scripts' tests and the e2e drives itself. It forwards
+`build`, `dev`, `preview`, `build:session`, `test:watch` and `test:ui` to olit,
+`build:pyodide` and `build:skills` to core, and `test:unit` and `typecheck` to both; `test`
+chains all of the checks.
 
 ```
 package.json              private workspace root: shared dev tooling, scripts that forward
@@ -108,15 +111,48 @@ What still ties the two packages to this workspace, and why each waits:
   its internals a public API. That means Vite library mode with one entry per export plus a
   `style.css`, and export conditions so this workspace keeps resolving TypeScript source while
   npm consumers get `dist/`. The handle `mountOrbitBrowser` returns is just `dispose()`, so no
-  renderer type reaches the published declarations. `--describe` also reads the core's `src/agent/**`
-  (exported symbols and `prompt.ts`) and `skills.lock.json` from the installed package, so the
-  bundle either keeps shipping those (a `files` entry) or describe's data gets generated at the
-  core's build time; a flavor still lays its own sources out as `src/agent/*.ts`.
-- **Olit's name inside the core.** The prompt's identity line, describe's `agent: "olit"`,
-  `OlitTool` and `olitTools`, and a few shell messages still say Olit. The prompt and describe's
-  output are frozen while this split must not change the agent, and the agents repo reads those
-  names; they move with a brand option on `mountOrbitBrowser`. The `olit_session` key stays for
-  good, since saved sessions are stored under it.
+  renderer type reaches the published declarations. Two things the bundle has to account for:
+  - `--describe` reads the core's `src/agent/**` (exported symbols and `prompt.ts`) and
+    `skills.lock.json` from the installed package, so the bundle either keeps shipping those (a
+    `files` entry) or describe's data gets generated at the core's build time. A flavor still lays
+    its own sources out as `src/agent/*.ts`.
+  - The core reads build-time `process.env.*` defines (`credentials`, `olit_commit`/`olit_built`,
+    the `llm_*` dev overrides) that the preset's `defines()` injects into the flavor's build. A
+    pre-built bundle can't carry those: building them in would stamp the core's commit into every
+    saved session and freeze the dev settings, and leaving them in throws on `process`. So they
+    become `mountOrbitBrowser` options (a build stamp, the credentials mode, the dev model
+    overrides), with the build stamp handed to the worker in its open request.
+- **Olit's name inside the core.** It moves with a brand or id option (on `AgentFlavor` for the
+  worker, on `mountOrbitBrowser` for the page), but not all of it can move the same way:
+  - *Persisted*, so Olit's id must keep producing these names exactly, or saved state and records
+    are orphaned: the `olit_session` key saved sessions live under; the durable watch task kind
+    `olit.galaxy-watch`; the record page slug `olit-<session>` and the `^olit-` pattern that finds
+    a history's earlier records again; the OPFS pool (`/olit`, `olit-opfs`) and the per-user
+    database `olit-<user>`; the `olit:storage` tab lock; and the `olit.credentials` and
+    `olit.artifactCollapsed` browser storage keys.
+  - *Model-visible*, frozen by the surface snapshots and read by the agents repo until the split
+    can change the agent: the prompt's identity line, `FOLLOW_UP_MARK`, the `[olit]` prefixes on
+    result hints, misrouted()'s "is an Olit tool" refusal, run_python's description, the pi
+    extension name, describe's `agent: "olit"` and `runner: "olit"`, and the `olit-skills` default
+    skills repo a flavor's skills are keyed under.
+  - *Plain text* a brand option replaces: the record page's "Olit Notebook" title and "maintained
+    by Olit" starter, `cannotStart`, the worker-failure fallback, the transcript's failure lines,
+    the composer placeholder, and the shell's status messages.
+  - *Names in the API*: `OlitTool`, `olitTools`, and the `olit_commit`/`olit_built` defines.
+
+  The persisted names are also why a second flavor can't share a Galaxy origin with Olit yet: it
+  would open Olit's database, resume Olit's conversation on a history with its own tools, list
+  Olit's records as its own, and fight Olit for the tab lock. Whether flavors get separate pools
+  and locks or share a pool with separate databases is decided with the id option.
+- **The default "galaxy" provider assumes a plugin-hosted flavor.** It talks to Galaxy's AI proxy,
+  which Galaxy serves per visualization plugin at `api/plugins/<name>`, and it's the provider a
+  first launch uses. A flavor that isn't a registered plugin has no `galaxyChatUrl` to give, so it
+  would need that option made optional, "galaxy" dropped from the provider list, and another
+  default in `buildConfig`.
+- **One mount per document.** The shell puts its theme on the root element and the pane's state
+  on body, sizes the pane from the window, injects fixed ids and configures the shared `marked`.
+  Scoping all of that to the container is a follow-up; until then a host that needs the shell
+  inside a larger page mounts it in an iframe.
 - **Two mentions of Olit's tools in the core's prose:** the notebook skill's aside about
   `get_visualization_details`, and the system prompt's Galaxy terminology, which sends a request to
   view a dataset to `list_visualizations`. Their text is frozen for the same reason; olit's
@@ -131,7 +167,8 @@ What still ties the two packages to this workspace, and why each waits:
 
 Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls` groups the
 verbs and the name says when it runs. The extension follows what the script has to load, not which
-side of olit it serves: `install_skills.js` is JavaScript because it fetches through node. A script
+side of olit it serves: the core's `scripts/install_skills.js` is JavaScript because it fetches
+through node. A script
 a package's own build needs lives in that package instead, so the package builds wherever it goes:
 the core's `scripts/` fetches what it ships, and a flavor's `build` runs `orbit-browser-assets`
 before Vite.
