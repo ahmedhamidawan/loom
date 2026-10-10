@@ -1,6 +1,5 @@
 /** What makes the agent Olit: the Galaxy-visualization tools, their skill, notes and artifact kinds. */
 import type { AgentFlavor } from "@galaxyproject/orbit-browser/agent";
-import type { DescribeLayout } from "@galaxyproject/orbit-browser/node";
 
 import { OLIT_KINDS } from "../artifacts/kinds";
 import { catalogMissHint } from "./hints";
@@ -21,12 +20,3 @@ export const olitFlavor: AgentFlavor = {
   promptSections: ({ datasetId }) => ({ afterIdentity: [seedDatasetBlock(datasetId)] }),
   artifactKinds: OLIT_KINDS,
 };
-
-// Not node:path: the worker imports this module too, and a browser bundle has no node:path.
-const under = (root: string, path: string) => `${root.replace(/\/+$/, "")}/${path}`;
-
-/** Where `--describe --root <workspace>` finds Olit; the core finds its own half. */
-export const olitLayout = (root: string): DescribeLayout => ({
-  flavor: under(root, "olit"),
-  manifest: under(root, "olit/public/olit.xml"),
-});

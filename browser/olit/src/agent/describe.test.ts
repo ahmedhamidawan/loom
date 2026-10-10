@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { agentSources, describe as describeOlit } from "@galaxyproject/orbit-browser/node";
-import { olitFlavor, olitLayout } from "./flavor";
+import { olitFlavor } from "./flavor";
+import { olitLayout } from "./layout";
 import { PROVIDERS } from "@galaxyproject/orbit-browser/agent";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
 import { olitTools } from "@galaxyproject/orbit-browser/agent";

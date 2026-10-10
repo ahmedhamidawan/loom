@@ -58,7 +58,8 @@ olit/                     @galaxyproject/olit: files ["static"]
   src/worker.ts             the worker entry: startAgentWorker(olitFlavor)
   src/incoming.ts seed-dataset.ts saved-session.ts   launching on a dataset, saving as a visualization
   src/artifacts/            vega-lite and visualization kinds (kinds.ts) and renderers
-  src/agent/flavor.ts       olitFlavor and olitLayout
+  src/agent/flavor.ts       olitFlavor
+  src/agent/layout.ts       olitLayout: where --describe finds Olit, and olit.xml's ai_prompt
   src/agent/node.ts         the Node entry: runNodeSession(olitFlavor, olitLayout)
   src/agent/visualizations.ts visualization-inputs.ts vega.ts hints.ts   the visualization tools
   src/agent/prompt.ts       the starting-dataset section
@@ -107,7 +108,10 @@ What still ties the two packages to this workspace, and why each waits:
   its internals a public API. That means Vite library mode with one entry per export plus a
   `style.css`, and export conditions so this workspace keeps resolving TypeScript source while
   npm consumers get `dist/`. The handle `mountOrbitBrowser` returns is just `dispose()`, so no
-  renderer type reaches the published declarations.
+  renderer type reaches the published declarations. `--describe` also reads the core's `src/agent/**`
+  (exported symbols and `prompt.ts`) and `skills.lock.json` from the installed package, so the
+  bundle either keeps shipping those (a `files` entry) or describe's data gets generated at the
+  core's build time; a flavor still lays its own sources out as `src/agent/*.ts`.
 - **Olit's name inside the core.** The prompt's identity line, describe's `agent: "olit"`,
   `OlitTool` and `olitTools`, and a few shell messages still say Olit. The prompt and describe's
   output are frozen while this split must not change the agent, and the agents repo reads those

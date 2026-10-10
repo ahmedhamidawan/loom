@@ -29,8 +29,8 @@ const SKIPPED = ["skills/"];
 export interface DescribeLayout {
   /** The flavor's package root; its `src/agent` modules are described beside the core's. */
   flavor: string;
-  /** The plugin manifest holding the identity prompt. */
-  manifest: string;
+  /** The prompt a page seeds a conversation with, as the flavor states it (Olit's olit.xml). */
+  identityPrompt?: string;
 }
 
 /** The core package this flavor resolves, wherever it is installed. */
@@ -113,12 +113,9 @@ function promptBlocks(sources: string[]): string[] {
   return [...new Set([...blocks, ...builders])].sort();
 }
 
-function identityPrompt(manifest: string) {
-  const found = /<ai_prompt>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ai_prompt>/.exec(
-    readFileSync(manifest, "utf8"),
-  );
+function identityPrompt(text: string | undefined) {
   // The text too: a harness seeds a run with the prompt the page seeds a conversation with.
-  return found ? { fingerprint: fingerprint(found[1]), text: found[1].trim() } : {};
+  return text !== undefined ? { fingerprint: fingerprint(text), text: text.trim() } : {};
 }
 
 function typeOf(spec: Record<string, any>): string {
@@ -251,7 +248,7 @@ export async function describe(layout: DescribeLayout, flavor: AgentFlavor) {
   return {
     schema: SCHEMA,
     agent: "olit",
-    identity_prompt: identityPrompt(layout.manifest),
+    identity_prompt: identityPrompt(layout.identityPrompt),
     symbols: symbols(sources),
     prompt_blocks: promptBlocks(sources),
     tools: tools(flavor),
