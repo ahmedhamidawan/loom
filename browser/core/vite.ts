@@ -12,7 +12,7 @@ import { searchForWorkspaceRoot, type Plugin, type UserConfig } from "vite";
 
 import { defaultEndpoint, PROVIDERS } from "./src/agent/providers";
 
-const env = {
+const DEFAULTS = {
   GALAXY_KEY: "",
   GALAXY_ROOT: "http://127.0.0.1:8080",
   // Names a built-in provider (galaxy | gemini | deepseek | openrouter | local). Setting it is
@@ -31,17 +31,20 @@ const env = {
   LLM_KEEP_RECENT_TOKENS: "",
 };
 
-type EnvKeyType = keyof typeof env;
+type Env = typeof DEFAULTS;
 
-Object.keys(env).forEach((key) => {
-  if (process.env[key]) {
-    env[key as EnvKeyType] = process.env[key] as string;
-  } else {
-    console.log(`${key} not available. Please provide as environment variable.`);
+/** The dev settings as the environment gives them when the config is made, not when imported. */
+function readEnv(): { env: Env; missing: string[] } {
+  const env = { ...DEFAULTS };
+  const missing: string[] = [];
+  for (const key of Object.keys(env) as (keyof Env)[]) {
+    if (process.env[key]) env[key] = process.env[key] as string;
+    else missing.push(key);
   }
-});
+  return { env, missing };
+}
 
-const proxyGalaxy = () => ({
+const proxyGalaxy = (env: Env) => ({
   changeOrigin: true,
   rewrite: (path: string) => {
     if (env.GALAXY_KEY) {
@@ -75,21 +78,23 @@ function buildCommit(): string {
   }
 }
 
-const targets = await llmTargets();
-if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
-  // Falling through to the local default here is the trap that answers with the wrong model.
-  const known = Object.keys(targets).sort().join(", ") || "none readable";
-  throw new Error(`LLM_PROVIDER=${env.LLM_PROVIDER} is not in the agent's registry (${known}).`);
+/** Where the dev server's /llm proxy goes; it refuses a provider the registry doesn't know. */
+async function llmProxy(env: Env): Promise<{ root: string; path: string }> {
+  const targets = await llmTargets();
+  if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
+    // Falling through to the local default here is the trap that answers with the wrong model.
+    const known = Object.keys(targets).sort().join(", ") || "none readable";
+    throw new Error(`LLM_PROVIDER=${env.LLM_PROVIDER} is not in the agent's registry (${known}).`);
+  }
+  const target = targets[env.LLM_PROVIDER] || { root: "http://127.0.0.1:11434", path: "/v1" };
+  return { root: env.LLM_ROOT || target.root, path: env.LLM_PATH || target.path };
 }
-const llmTarget = targets[env.LLM_PROVIDER] || { root: "http://127.0.0.1:11434", path: "/v1" };
-const llmRoot = env.LLM_ROOT || llmTarget.root;
-const llmPath = env.LLM_PATH || llmTarget.path;
 
 /**
  * What the bundle is compiled with. The dev server passes the shell's settings; a build passes
  * none, because a build is what Galaxy serves and a developer's routing must not reach it.
  */
-export function defines(settings: Partial<typeof env> = {}): Record<string, string> {
+export function defines(settings: Partial<Env> = {}): Record<string, string> {
   return {
     "process.env.credentials": JSON.stringify(settings.GALAXY_KEY ? "omit" : "include"),
     "process.env.olit_commit": JSON.stringify(buildCommit()),
@@ -112,7 +117,7 @@ const WHEELS = fileURLToPath(new URL("./temp/pyodide", import.meta.url));
 
 /** Pyodide and the wheels the agent loads beside it, copied next to the bundle Galaxy serves. */
 const copyPyodide: Plugin = {
-  name: "olit-pyodide-copy",
+  name: "orbit-browser-pyodide-copy",
   writeBundle(options) {
     const dest = path.join(options.dir!, "pyodide");
     fs.mkdirSync(dest, { recursive: true });
@@ -125,7 +130,7 @@ const copyPyodide: Plugin = {
 
 /** Pyodide's files as they are, as Galaxy serves them: the dev server would transform its scripts. */
 const servePyodide = (flavorRoot: string): Plugin => ({
-  name: "olit-pyodide",
+  name: "orbit-browser-pyodide",
   configureServer(server) {
     const root = path.resolve(flavorRoot, "static/pyodide");
     server.middlewares.use("/static/pyodide", (req, res, next) => {
@@ -145,7 +150,7 @@ const servePyodide = (flavorRoot: string): Plugin => ({
   },
 });
 
-export function orbitBrowserVite({
+export async function orbitBrowserVite({
   command,
   flavorRoot,
   galaxyPaths = [],
@@ -155,11 +160,19 @@ export function orbitBrowserVite({
   flavorRoot: string;
   /** More paths the dev server forwards to Galaxy, for what only the flavor fetches. */
   galaxyPaths?: string[];
-}): UserConfig {
+}): Promise<UserConfig> {
+  const { env, missing } = readEnv();
+  // Only the dev server reads these; a build is compiled without them.
+  const llm =
+    command === "serve" ? await llmProxy(env) : { root: "http://127.0.0.1:11434", path: "/v1" };
+  if (command === "serve" && missing.length) {
+    console.log(`Not set in the environment, so using defaults: ${missing.join(", ")}.`);
+  }
   return {
     base: "./",
     build: {
-      outDir: "./static",
+      // Beside where the dev server serves Pyodide from, whatever directory Vite runs in.
+      outDir: path.resolve(flavorRoot, "static"),
       emptyOutDir: true,
       rollupOptions: {
         output: {
@@ -189,15 +202,15 @@ export function orbitBrowserVite({
         ],
       },
       proxy: {
-        "/api": proxyGalaxy(),
+        "/api": proxyGalaxy(env),
         // Galaxy serves its OpenAPI spec here; the scoped catalog fetches it.
-        "/openapi.json": proxyGalaxy(),
-        ...Object.fromEntries(galaxyPaths.map((p) => [p, proxyGalaxy()])),
+        "/openapi.json": proxyGalaxy(env),
+        ...Object.fromEntries(galaxyPaths.map((p) => [p, proxyGalaxy(env)])),
         // Dev LLM proxy; the key is attached here so it never reaches page JS.
         "/llm": {
           changeOrigin: true,
-          target: llmRoot,
-          rewrite: (path: string) => path.replace(/^\/llm/, llmPath),
+          target: llm.root,
+          rewrite: (path: string) => path.replace(/^\/llm/, llm.path),
           // Gemini's native API takes its key in its own header; the rest take a bearer token.
           headers: !env.LLM_KEY
             ? undefined
