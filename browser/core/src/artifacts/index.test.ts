@@ -7,8 +7,11 @@ const renderOther = vi.fn();
 
 vi.mock("./mermaid", () => ({ renderMermaid: (...a: unknown[]) => renderMermaid(...a) }));
 
-const { registerArtifactRenderers, renderArtifact, paneArtifacts } = await import("./index");
+const { kindsWithoutRenderer, registerArtifactRenderers, renderArtifact, paneArtifacts } =
+  await import("./index");
+const { registerArtifactKinds } = await import("./kinds");
 // A flavor's own kind; "other" stands in for one.
+registerArtifactKinds([{ kind: "other", toPage: null } as never]);
 registerArtifactRenderers({ other: renderOther } as never);
 
 const galaxy = {
@@ -70,6 +73,30 @@ describe("an artifact kind with no renderer", () => {
       "No renderer is registered for artifact kind 'unrendered'.",
     );
     expect(content.children).toHaveLength(0);
+  });
+});
+
+describe("registering renderers", () => {
+  it("takes the same renderer again", () => {
+    expect(() => registerArtifactRenderers({ other: renderOther } as never)).not.toThrow();
+  });
+
+  it("refuses a renderer for a kind nobody registered", () => {
+    expect(() => registerArtifactRenderers({ unknown: vi.fn() } as never)).toThrow(
+      "Artifact kind 'unknown' has a renderer but is not registered.",
+    );
+  });
+
+  it("refuses a second renderer for a kind", () => {
+    expect(() => registerArtifactRenderers({ mermaid: vi.fn() } as never)).toThrow(
+      "Artifact kind 'mermaid' already has a different renderer.",
+    );
+  });
+
+  it("lists the kinds left without one", () => {
+    expect(kindsWithoutRenderer()).toEqual([]);
+    registerArtifactKinds([{ kind: "bare", toPage: null } as never]);
+    expect(kindsWithoutRenderer()).toEqual(["bare"]);
   });
 });
 

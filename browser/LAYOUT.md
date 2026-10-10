@@ -82,7 +82,10 @@ flavor needs.
   extensions, where each field has a counterpart.
 - **Artifacts.** A kind augments `ArtifactKinds` (`/artifacts`) and is registered with how it is
   written into a page. Each realm keeps its own registry, so the worker registers the flavor's
-  kinds and the page registers them again through `mountOrbitBrowser`'s `artifactKinds`.
+  kinds and the page registers them again through `mountOrbitBrowser`'s `artifactKinds`; pass the
+  same constant to both, since a kind the page doesn't know is dropped from what it shows. The
+  page refuses to mount when a kind it knows has no renderer, or a renderer names a kind it
+  doesn't know.
 - **Page.** `mountOrbitBrowser(container, options)` takes the flavor's `createWorker`, its kinds and
   renderers, a `launch` callback (where the conversation starts and what to say about it; the
   default is Galaxy's current history), and an optional `sessions` store, without which there is

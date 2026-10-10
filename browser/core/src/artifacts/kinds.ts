@@ -45,6 +45,9 @@ export function registerArtifactKinds(defs: readonly ArtifactKind<any>[]): void 
   }
 }
 
+/** Every kind this realm knows. */
+export const registeredKinds = (): Kind[] => [...KINDS.keys()] as Kind[];
+
 export const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && KINDS.has(kind);
 
 /** How a kind is written into a page: null when Galaxy cannot render it, undefined when unknown. */

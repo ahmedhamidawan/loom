@@ -1,6 +1,6 @@
 import type { Galaxy } from "../agent/galaxy";
 import { renderMermaid } from "./mermaid";
-import type { Artifact, ArtifactOf, Kind } from "./kinds";
+import { isKind, registeredKinds, type Artifact, type ArtifactOf, type Kind } from "./kinds";
 
 export type { Artifact } from "./kinds";
 
@@ -19,11 +19,27 @@ const PANE = new Map<string, ArtifactRenderer<any>>([
   ["mermaid", (body, a: ArtifactOf<"mermaid">) => renderMermaid(body, a.diagram)],
 ]);
 
+/**
+ * Draw these kinds in this realm's pane. As with kinds, registering the same renderer again is
+ * harmless, but a renderer for a kind nobody registered, or a second renderer for a kind, is a
+ * flavor's mistake that would otherwise only show as a missing or wrong card.
+ */
 export function registerArtifactRenderers(renderers: ArtifactRenderers): void {
   for (const [kind, render] of Object.entries(renderers)) {
-    if (render) PANE.set(kind, render);
+    if (!render) continue;
+    if (!isKind(kind)) {
+      throw new Error(`Artifact kind '${kind}' has a renderer but is not registered.`);
+    }
+    const known = PANE.get(kind);
+    if (known && known !== render) {
+      throw new Error(`Artifact kind '${kind}' already has a different renderer.`);
+    }
+    PANE.set(kind, render);
   }
 }
+
+/** Kinds this realm knows but cannot draw: each would fail only once an artifact of it arrives. */
+export const kindsWithoutRenderer = (): Kind[] => registeredKinds().filter((k) => !PANE.has(k));
 
 /** What the pane shows for a list: the newest, since a live turn clears the pane first. */
 export function paneArtifacts(artifacts: Artifact[]): Artifact[] {

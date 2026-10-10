@@ -24,6 +24,7 @@ import { WHAT } from "./agent/markers";
 import type { Settled } from "./agent/watch";
 import type { SessionDocument } from "./agent/saved";
 import {
+  kindsWithoutRenderer,
   paneArtifacts,
   registerArtifactRenderers,
   renderArtifact,
@@ -123,6 +124,11 @@ export async function mountOrbitBrowser(
 ): Promise<OrbitBrowserHandle | undefined> {
   registerArtifactKinds(options.artifactKinds ?? []);
   registerArtifactRenderers(options.renderers ?? {});
+  // Caught at mount rather than when the first artifact of the kind arrives mid-conversation.
+  const undrawable = kindsWithoutRenderer();
+  if (undrawable.length) {
+    throw new Error(`No renderer is registered for artifact kinds: ${undrawable.join(", ")}.`);
+  }
   const sessions = options.sessions;
   const target = {
     root: options.galaxyRoot,
@@ -213,8 +219,17 @@ export async function mountOrbitBrowser(
   async function showArtifacts(artifacts: Artifact[], restored: boolean) {
     if (!artifacts.length) return;
     el.artifactContent.innerHTML = "";
-    for (const artifact of restored ? paneArtifacts(artifacts) : artifacts) {
-      await renderArtifact(el.artifactContent, artifact, rootPath, galaxy);
+    try {
+      for (const artifact of restored ? paneArtifacts(artifacts) : artifacts) {
+        await renderArtifact(el.artifactContent, artifact, rootPath, galaxy);
+      }
+    } catch (e) {
+      // Fire-and-forget from the view, so a throw here would reach only the console.
+      console.error("[olit] could not draw an artifact", e);
+      chat.addErrorMessage(
+        `Could not show the artifact: ${briefly(String((e as Error)?.message ?? e))}`,
+      );
+      return;
     }
     // After filling, so the pane opens on something rather than on an empty frame.
     if (!restored) artifactPane.reveal();
