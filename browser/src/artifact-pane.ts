@@ -41,10 +41,16 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
   const empty = () => content.childElementCount === 0;
 
   const show = (collapsed: boolean) => {
-    document.body.classList.toggle("artifact-collapsed", collapsed || empty());
+    const wasHidden = document.body.classList.contains("artifact-collapsed");
+    const hide = collapsed || empty();
+    document.body.classList.toggle("artifact-collapsed", hide);
     button.classList.toggle("hidden", empty());
-    if (collapsed || empty()) {
+    if (hide) {
       chatPane.style.flex = "";
+    } else if (wasHidden) {
+      // A chart drawn while the pane was hidden measured it as 0x0, and vega-embed only
+      // measures its container again on a window resize.
+      window.dispatchEvent(new Event("resize"));
     }
   };
   const set = (collapsed: boolean) => {

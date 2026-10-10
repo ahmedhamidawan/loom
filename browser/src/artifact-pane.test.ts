@@ -106,4 +106,15 @@ describe("artifact pane", () => {
     expect(collapsed()).toBe(true);
     expect(hidden(container)).toBe(true);
   });
+
+  it("has charts measure again when it opens, since they drew into a hidden pane", () => {
+    const { pane } = mount(1200);
+    let resizes = 0;
+    window.addEventListener("resize", () => (resizes += 1));
+    pane.reveal();
+    expect(collapsed()).toBe(false);
+    expect(resizes).toBe(1);
+    pane.reveal();
+    expect(resizes).toBe(1);
+  });
 });
