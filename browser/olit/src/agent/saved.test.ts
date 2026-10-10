@@ -11,7 +11,7 @@ import { savedSessions } from "../saved-session";
 import { Binding, json, text } from "@galaxyproject/orbit-browser/testing";
 import { visualizationStore } from "./fake-visualizations";
 import { olitFlavor } from "./flavor";
-import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
+import { connectGalaxy } from "@galaxyproject/orbit-browser/testing";
 import { artifactsOf } from "@galaxyproject/orbit-browser/artifacts";
 import { artifactsIn, context, Runtime } from "@galaxyproject/orbit-browser/testing";
 import type { SessionDocument } from "@galaxyproject/orbit-browser/agent";

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { connectGalaxy } from "@galaxyproject/orbit-browser/agent";
+import { connectGalaxy } from "@galaxyproject/orbit-browser/testing";
 import { resolveLaunch, summarize } from "./seed-dataset";
 
 const galaxy = connectGalaxy({ root: "http://galaxy/" });

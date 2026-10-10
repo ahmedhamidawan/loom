@@ -10,9 +10,9 @@ import { olitFlavor } from "./flavor";
 import { annotating } from "@galaxyproject/orbit-browser/testing";
 import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
 import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
-import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
+import { flavoredSkills } from "@galaxyproject/orbit-browser/testing";
 import type { Context, Python } from "@galaxyproject/orbit-browser/agent";
-import { olitTools } from "@galaxyproject/orbit-browser/agent";
+import { olitTools } from "@galaxyproject/orbit-browser/testing";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";

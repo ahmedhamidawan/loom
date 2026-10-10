@@ -1,7 +1,8 @@
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { connectGalaxy, olitTools, type Context } from "@galaxyproject/orbit-browser/agent";
+import type { Context } from "@galaxyproject/orbit-browser/agent";
+import { connectGalaxy, olitTools } from "@galaxyproject/orbit-browser/testing";
 import { connectWeb, Outcome } from "@galaxyproject/orbit-browser/testing";
 import { registerArtifactKinds, type Artifact } from "@galaxyproject/orbit-browser/artifacts";
 import { OLIT_KINDS } from "../artifacts/kinds";

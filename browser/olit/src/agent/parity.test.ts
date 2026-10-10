@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { flavoredSkills, olitTools } from "@galaxyproject/orbit-browser/agent";
+import { flavoredSkills, olitTools } from "@galaxyproject/orbit-browser/testing";
 
 import { olitFlavor } from "./flavor";
 import { CATALOG_SEARCHES } from "./hints";

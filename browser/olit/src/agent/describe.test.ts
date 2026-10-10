@@ -5,9 +5,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { agentSources, describe as describeOlit } from "@galaxyproject/orbit-browser/node";
 import { olitFlavor } from "./flavor";
 import { olitLayout } from "./layout";
-import { PROVIDERS } from "@galaxyproject/orbit-browser/agent";
-import { flavoredSkills } from "@galaxyproject/orbit-browser/agent";
-import { olitTools } from "@galaxyproject/orbit-browser/agent";
+import { PROVIDERS } from "@galaxyproject/orbit-browser/testing";
+import { flavoredSkills } from "@galaxyproject/orbit-browser/testing";
+import { olitTools } from "@galaxyproject/orbit-browser/testing";
 import { GUARDS } from "@galaxyproject/orbit-browser/testing";
 
 // The workspace root, whichever directory vitest runs from.
