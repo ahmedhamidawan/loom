@@ -1,7 +1,8 @@
 /**
  * Olit's kinds are registered twice, once in each realm: the worker that makes them registers
  * the flavor's (startAgentWorker), and the page that shows them registers what main.ts mounts
- * the shell with. Each realm has its own registry, so each has to keep all three kinds.
+ * the shell with. Each realm has its own registry, so each has to keep all three kinds. Both
+ * tests go through the core's own entry points, so dropping either registration fails here.
  */
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,21 +27,36 @@ beforeEach(() => {
 });
 
 describe("an artifact carried across a realm", () => {
-  it("survives in the worker, registered as startAgentWorker registers the flavor", async () => {
+  it("survives in the worker that startAgentWorker starts with Olit's flavor", async () => {
     const { artifactsOf } = await import("@galaxyproject/orbit-browser/artifacts");
     expect(artifactsOf(entries).map((a) => a.kind)).toEqual(["mermaid"]);
     const { olitFlavor } = await import("../agent/flavor");
-    const { registerArtifactKinds } = await import("@galaxyproject/orbit-browser/artifacts");
-    registerArtifactKinds(olitFlavor.artifactKinds ?? []);
+    const { startAgentWorker } = await import("@galaxyproject/orbit-browser/worker");
+    const listening = self.onmessage;
+    startAgentWorker(olitFlavor);
+    self.onmessage = listening;
     expect(artifactsOf(entries)).toEqual(ARTIFACTS);
   });
 
-  it("survives on the page, registered as main.ts mounts the shell", async () => {
-    const { artifactsOf, registerArtifactKinds } =
-      await import("@galaxyproject/orbit-browser/artifacts");
+  it("survives on the page that main.ts mounts", async () => {
+    const { artifactsOf } = await import("@galaxyproject/orbit-browser/artifacts");
     expect(artifactsOf(entries).map((a) => a.kind)).toEqual(["mermaid"]);
-    const { OLIT_KINDS } = await import("./kinds");
-    registerArtifactKinds(OLIT_KINDS);
+    const { OLIT_ARTIFACTS } = await import("./renderers");
+    const { mountOrbitBrowser } = await import("@galaxyproject/orbit-browser");
+    // A provider that needs no key keeps the picker shut, and a stopped launch starts no worker.
+    sessionStorage.setItem("olit.credentials", JSON.stringify({ provider: "galaxy" }));
+    const container = document.body.appendChild(document.createElement("div"));
+    const handle = await mountOrbitBrowser(container, {
+      galaxyRoot: "/",
+      galaxyChatUrl: "/api/plugins/olit",
+      pyodideURL: "/pyodide/",
+      createWorker: vi.fn(),
+      launch: async () => ({ stop: "stopped" }),
+      ...OLIT_ARTIFACTS,
+    });
+    handle.dispose();
+    container.remove();
+    sessionStorage.clear();
     expect(artifactsOf(entries)).toEqual(ARTIFACTS);
   });
 });

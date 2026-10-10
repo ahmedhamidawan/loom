@@ -6,8 +6,7 @@ import {
   type Galaxy,
   type LaunchContext,
 } from "@galaxyproject/orbit-browser";
-import { OLIT_KINDS } from "./artifacts/kinds";
-import { OLIT_RENDERERS } from "./artifacts/renderers";
+import { OLIT_ARTIFACTS } from "./artifacts/renderers";
 import { parseIncoming } from "./incoming";
 import { NotYours, reportSavedState, savedSessions, type SavedSessions } from "./saved-session";
 import { resolveLaunch, summarize } from "./seed-dataset";
@@ -108,8 +107,7 @@ async function main() {
     galaxyChatUrl: `${incoming.root}api/plugins/${PLUGIN_NAME}`,
     pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, document.baseURI).href,
     createWorker: () => new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
-    artifactKinds: OLIT_KINDS,
-    renderers: OLIT_RENDERERS,
+    ...OLIT_ARTIFACTS,
     launch: (galaxy) => {
       saved = savedSessions(galaxy);
       return launch(galaxy, incoming.visualizationId, incoming.datasetId);
