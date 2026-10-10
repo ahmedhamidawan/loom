@@ -1,28 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { buildConfig } from "./config";
+import { buildConfig, type Launched } from "./config";
 
-// The plugin's specs never reach the config: only these three fields are read.
-const incoming = (_specs: Record<string, unknown>) => ({
-  root: "/",
-  datasetId: "d1",
-  galaxyChatUrl: "/api/plugins/olit",
-});
+const incoming: Launched = { root: "/", datasetId: "d1", galaxyChatUrl: "/api/plugins/olit" };
 
 describe("buildConfig", () => {
   it("never hands the agent the API key", () => {
-    const config = buildConfig(incoming({}), { provider: "openrouter", apiKey: "sk-secret" });
+    const config = buildConfig(incoming, { provider: "openrouter", apiKey: "sk-secret" });
     expect(JSON.stringify(config)).not.toContain("sk-secret");
     expect("ai_api_key" in config).toBe(false);
   });
 
-  it("carries no Galaxy key: the browser authenticates with the user's session", () => {
-    expect("galaxy_key" in buildConfig(incoming({ galaxy_api_key: "fea4130124bb18ef" }))).toBe(
-      false,
-    );
-  });
-
-  it("carries no capability grant: an install cannot half-disable the agent", () => {
-    expect("capabilities" in buildConfig(incoming({ capabilities: "llm,local,read" }))).toBe(false);
+  // Launched has no field for either, but a launch that carries the plugin's specs along
+  // anyway still mustn't pass them through.
+  it("carries no Galaxy key or capability grant from whatever launched it", () => {
+    const launched = {
+      ...incoming,
+      galaxy_api_key: "fea4130124bb18ef",
+      capabilities: "llm,local,read",
+    } as Launched;
+    const config = JSON.stringify(buildConfig(launched));
+    expect(config).not.toContain("fea4130124bb18ef");
+    expect(config).not.toContain("llm,local,read");
   });
 });
