@@ -29,15 +29,20 @@ function sources(dir: string): string[] {
   });
 }
 
+/** import.meta.glob takes one pattern or an array of them, and any of them can reach out. */
+const GLOB = /\bimport\.meta\.glob\(\s*(\[[^\]]*\]|(["'`])[^"'`]*\2)/g;
+const QUOTED = /(["'`])([^"'`$]+)\1/g;
+
 /**
  * Every module a file names: imports, re-exports, dynamic imports, mocks, augmentations, worker
  * URLs and globs. A template with `${...}` in it can't be resolved here, so it is skipped.
  */
 export function specifiers(text: string): string[] {
   const found = text.matchAll(
-    /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bimport\.meta\.glob\(\s*\[?\s*|\bnew\s+URL\(\s*|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\(\s*|\bdeclare module\s+)(["'`])([^"'`$]+)\1/g,
+    /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bnew\s+URL\(\s*|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\(\s*|\bdeclare module\s+)(["'`])([^"'`$]+)\1/g,
   );
-  return [...found].map((m) => m[2]);
+  const globbed = [...text.matchAll(GLOB)].flatMap((m) => [...m[1].matchAll(QUOTED)]);
+  return [...found, ...globbed].map((m) => m[2]);
 }
 
 /** Why `spec`, named by `file`, reaches past the core's public surface, or undefined. */
@@ -90,14 +95,16 @@ describe("olit's way into the core", () => {
     const reaches = [
       'new Worker(new URL("../../core/src/agent/worker.ts", import.meta.url));',
       'import.meta.glob("../../core/src/agent/skills/**/*");',
+      'import.meta.glob(["./skills/**/*", "../../core/src/agent/skills/**/*"]);',
       'vi.importActual("../../core/src/agent/tool");',
       'vi.doMock("../../core/src/agent/tool");',
       "import(`../../core/src/agent/tool`);",
     ];
     for (const line of reaches) {
-      const [spec] = specifiers(line);
-      expect(spec, line).toBeDefined();
-      expect(trespass(file, spec), line).toBeDefined();
+      expect(
+        specifiers(line).some((spec) => trespass(file, spec)),
+        line,
+      ).toBe(true);
     }
     expect(specifiers("import(`./${name}`);")).toEqual([]);
   });
