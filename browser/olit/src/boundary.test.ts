@@ -29,12 +29,15 @@ function sources(dir: string): string[] {
   });
 }
 
-/** Every module a file names: imports, re-exports, dynamic imports, mocks, augmentations. */
+/**
+ * Every module a file names: imports, re-exports, dynamic imports, mocks, augmentations, worker
+ * URLs and globs. A template with `${...}` in it can't be resolved here, so it is skipped.
+ */
 export function specifiers(text: string): string[] {
   const found = text.matchAll(
-    /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bvi\.mock\(\s*|\bdeclare module\s+)["']([^"']+)["']/g,
+    /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bimport\.meta\.glob\(\s*\[?\s*|\bnew\s+URL\(\s*|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\(\s*|\bdeclare module\s+)(["'`])([^"'`$]+)\1/g,
   );
-  return [...found].map((m) => m[1]);
+  return [...found].map((m) => m[2]);
 }
 
 /** Why `spec`, named by `file`, reaches past the core's public surface, or undefined. */
@@ -59,12 +62,15 @@ export function trespass(file: string, spec: string, root = OLIT): string | unde
 
 describe("olit's way into the core", () => {
   it("is the core package's exports and nothing else", () => {
-    const found = sources(OLIT).flatMap((file) =>
-      specifiers(readFileSync(file, "utf8")).flatMap((spec) => {
-        const why = trespass(file, spec);
-        return why ? [`${relative(OLIT, file)}: ${spec} (${why})`] : [];
-      }),
-    );
+    // This file's own fixtures name the reaches on purpose.
+    const found = sources(OLIT)
+      .filter((file) => file !== __filename)
+      .flatMap((file) =>
+        specifiers(readFileSync(file, "utf8")).flatMap((spec) => {
+          const why = trespass(file, spec);
+          return why ? [`${relative(OLIT, file)}: ${spec} (${why})`] : [];
+        }),
+      );
     expect(found).toEqual([]);
   });
 
@@ -81,6 +87,19 @@ describe("olit's way into the core", () => {
       "b",
       "c",
     ]);
+    const reaches = [
+      'new Worker(new URL("../../core/src/agent/worker.ts", import.meta.url));',
+      'import.meta.glob("../../core/src/agent/skills/**/*");',
+      'vi.importActual("../../core/src/agent/tool");',
+      'vi.doMock("../../core/src/agent/tool");',
+      "import(`../../core/src/agent/tool`);",
+    ];
+    for (const line of reaches) {
+      const [spec] = specifiers(line);
+      expect(spec, line).toBeDefined();
+      expect(trespass(file, spec), line).toBeDefined();
+    }
+    expect(specifiers("import(`./${name}`);")).toEqual([]);
   });
 });
 

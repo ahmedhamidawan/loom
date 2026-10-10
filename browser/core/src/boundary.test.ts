@@ -1,6 +1,8 @@
 /**
- * The core names no flavor: not Olit, and none of what makes Olit a Galaxy visualization
- * plugin. A kind, tool or renderer that needs one of these belongs in the flavor that adds it.
+ * The core imports no flavor: nothing from olit/ or @galaxyproject/olit, and none of the packages
+ * only a visualization flavor needs. A kind, tool or renderer that needs one of these belongs in
+ * the flavor that adds it. Olit's name itself still appears in the core; LAYOUT.md's "Not split
+ * yet" says where and why.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -28,9 +30,9 @@ function sources(dir: string): string[] {
 const specifiers = (text: string) =>
   [
     ...text.matchAll(
-      /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bvi\.mock\(\s*|\bdeclare module\s+)["']([^"']+)["']/g,
+      /(?:\bfrom\s+|\bimport\s+|\bimport\(\s*|\bimport\.meta\.glob\(\s*\[?\s*|\bnew\s+URL\(\s*|\bvi\.(?:mock|doMock|unmock|importActual|importMock)\(\s*|\bdeclare module\s+)(["'`])([^"'`$]+)\1/g,
     ),
-  ].map((m) => m[1]);
+  ].map((m) => m[2]);
 
 function flavored(file: string, spec: string): string | undefined {
   if (spec.startsWith(".")) {
@@ -44,12 +46,15 @@ function flavored(file: string, spec: string): string | undefined {
 
 describe("the core", () => {
   it("imports no flavor and nothing only a flavor needs", () => {
-    const found = sources(CORE).flatMap((file) =>
-      specifiers(readFileSync(file, "utf8")).flatMap((spec) => {
-        const why = flavored(file, spec);
-        return why ? [`${relative(CORE, file)}: ${spec} (${why})`] : [];
-      }),
-    );
+    // This file's own fixtures name the reaches on purpose.
+    const found = sources(CORE)
+      .filter((file) => file !== __filename)
+      .flatMap((file) =>
+        specifiers(readFileSync(file, "utf8")).flatMap((spec) => {
+          const why = flavored(file, spec);
+          return why ? [`${relative(CORE, file)}: ${spec} (${why})`] : [];
+        }),
+      );
     expect(found).toEqual([]);
   });
 
@@ -61,5 +66,23 @@ describe("the core", () => {
     expect(flavored(file, "galaxy-charts/runtime")).toBeDefined();
     expect(flavored(file, "vegafusion")).toBeUndefined();
     expect(flavored(file, "./artifacts/kinds")).toBeUndefined();
+    expect(
+      specifiers(
+        [
+          'new Worker(new URL("../../olit/src/worker.ts", import.meta.url));',
+          'import.meta.glob("../../olit/src/agent/skills/**/*");',
+          'vi.importActual("../../olit/src/agent/flavor");',
+          'vi.doMock("vega-embed");',
+          "import(`../../olit/src/main`);",
+          "import(`./${name}`);",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      "../../olit/src/worker.ts",
+      "../../olit/src/agent/skills/**/*",
+      "../../olit/src/agent/flavor",
+      "vega-embed",
+      "../../olit/src/main",
+    ]);
   });
 });
