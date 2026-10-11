@@ -1,0 +1,10 @@
+# Not a gate: a flag on the PR that the change reaches past one shell.
+"orbit-browser core":
+  - changed-files:
+      - any-glob-to-any-file: "browser/core/**"
+
+"shared with Orbit desktop":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "app/src/renderer/**"
+          - "shared/**"

@@ -1,0 +1,20 @@
+name: labeler
+
+# Labels a PR by what it reaches: the browser core every flavor builds on, or the chat UI and
+# contracts Orbit desktop and the browser share. pull_request_target so it can label PRs from
+# forks; it never checks out or runs the PR's code.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          sync-labels: true
