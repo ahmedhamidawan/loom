@@ -1,12 +1,13 @@
 # Layout
 
-browser/ is an npm workspace of two packages. `@galaxyproject/orbit-browser` (core/) is Orbit's
-shell for the browser: the agent in a worker, its providers, the chat and artifact panes, and the
-Galaxy transport. `@galaxyproject/olit` (olit/) is the flavor that makes it a Galaxy
-visualization plugin, and is what Galaxy installs. The workspace root holds the shared tooling and
+browser/ is an npm workspace of two packages and a test flavor. `@galaxyproject/orbit-browser`
+(core/) is Orbit's shell for the browser: the agent in a worker, its providers, the chat and
+artifact panes, and the Galaxy transport. `@galaxyproject/olit` (olit/) is the flavor that makes
+it a Galaxy visualization plugin, and is what Galaxy installs. bare/ is a private flavor that adds
+nothing, so the core is also tested as something other than Olit. The workspace root holds the shared tooling and
 runs lint, the vendored check, its own scripts' tests and the e2e drives itself. It forwards
 `build`, `dev`, `preview`, `build:session`, `test:watch` and `test:ui` to olit,
-`build:pyodide` and `build:skills` to core, and `test:unit` and `typecheck` to both; `test`
+`build:pyodide` and `build:skills` to core, and `test:unit` and `typecheck` to all three; `test`
 chains all of the checks.
 
 ```
@@ -67,16 +68,26 @@ olit/                     @galaxyproject/olit: files ["static"]
   src/agent/visualizations.ts visualization-inputs.ts vega.ts hints.ts   the visualization tools
   src/agent/prompt.ts       the starting-dataset section
   src/agent/skills/         olit-skills/visualization
+
+bare/                     @galaxyproject/orbit-browser-bare, private: the core with nothing added
+  src/main.ts src/worker.ts   mountOrbitBrowser with only the required options; startAgentWorker({})
+  src/surface.test.ts       what the core alone sends a model, pinned in src/__surface__/
 ```
 
 ## How a flavor extends the core
 
 A flavor imports the core only through its package exports (`.`, `/agent`, `/artifacts`,
 `/worker`, `/node`, `/vite`, and `/testing` for its tests), never a path inside it, so it can move
-to another repository and consume the published package. `olit/src/boundary.test.ts` holds Olit
-to that and checks that the core's own prompt and skills name none of Olit's tools, and
-`core/src/boundary.test.ts` keeps the core from importing Olit or anything only a visualization
-flavor needs.
+to another repository and consume the published package. The rule lives in the core's `/testing`
+export (`flavorTrespasses`), and each flavor's boundary test runs it over its own folder.
+`olit/src/boundary.test.ts` also checks that the core's own prompt and skills name none of Olit's tools, and
+`core/src/boundary.test.ts` keeps the core from importing any flavor in the workspace or anything
+only a visualization flavor needs.
+
+bare/ is the second flavor a change to the core has to keep working. Its surface snapshot is what
+every flavor inherits from the core, so a core change to the prompt or the tools shows there as
+well as in Olit's, and anything Olit-specific that lands in the core shows up in a flavor that has
+none of it. `e2e/bare-drive.cjs` mounts it on the current history with no session store.
 
 - **Agent.** `AgentFlavor` (`/agent`) adds tools (placed after Galaxy's, so they take `{{artifact}}`
   tokens and count as the agent's own), skill files merged over the packaged corpus, notes on
@@ -161,8 +172,8 @@ What still ties the two packages to this workspace, and why each waits:
   view a dataset to `list_visualizations`. Their text is frozen for the same reason; olit's
   boundary test lists them as the known cases. The terminology line moves with a prompt section a
   flavor can add to that list.
-- **End-to-end drives.** Every drive in `e2e/` mounts the Olit plugin, so they move to olit/ when
-  it leaves. A drive of the core alone needs a minimal test flavor first.
+- **End-to-end drives.** Every drive in `e2e/` but `bare-drive.cjs` mounts the Olit plugin, so
+  they move to olit/ when it leaves; the bare drive stays with the core.
 - **Shared config.** Both packages extend `tsconfig.base.json` and use the root's Prettier config;
   a flavor that leaves takes a copy.
 
