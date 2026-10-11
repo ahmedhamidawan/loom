@@ -13,7 +13,8 @@ export type AskFor = (
 /**
  * What a call would destroy, in words for the person approving it, or undefined when it
  * destroys nothing. Whether it destroys is the tool's to say (galaxy-ops' `destructive` and
- * `destructiveWhen`); the words are Olit's, and a whole history gets its own, as loom gives it.
+ * `destructiveWhen`); the words are the agent's, and a whole history gets its own, as loom gives
+ * it.
  */
 export function classify(
   name: string,

@@ -7,14 +7,14 @@ import {
   EXECUTING_A_STEP,
   GALAXY_PAGE_MARKDOWN,
   GALAXY_READY,
-  GALAXY_TERMINOLOGY,
+  galaxyTerminology,
   GALAXY_UNREACHABLE,
   IMPORTING_SRA,
   NO_LOCAL_SHELL,
   PLAN_CONVENTION,
   RECORD_WRITES,
   currentDateBlock,
-  IDENTITY,
+  identity,
   systemText,
 } from "./prompt";
 
@@ -54,10 +54,12 @@ describe("composition", () => {
     expect(EXECUTING_A_STEP).toContain("Do not spend a turn in a polling loop");
   });
 
-  it("sends opening or viewing a dataset to list_visualizations, and says nothing of charts", () => {
-    expect(GALAXY_TERMINOLOGY).toContain("no tool search finds them");
-    expect(GALAXY_TERMINOLOGY).toContain("call `list_visualizations` with its id");
-    expect(GALAXY_TERMINOLOGY).not.toMatch(/chart|plot/i);
+  it("names no flavor's tools in its terms, and places a flavor's own after the UDT one", () => {
+    expect(galaxyTerminology()).not.toMatch(/list_visualizations|chart|plot/i);
+    const terms = galaxyTerminology(["- **Thing**: a flavor's term."]);
+    expect(terms).toMatch(
+      /from memory\.\n- \*\*Thing\*\*: a flavor's term\.\n- \*\*Workflow invocation/,
+    );
   });
 
   it("tells how to place a session's visualization on a page without fetching a skill", () => {
@@ -66,7 +68,7 @@ describe("composition", () => {
   });
 
   it("names IWC correctly", () => {
-    expect(GALAXY_TERMINOLOGY).toContain("Intergalactic Workflow Commission");
+    expect(galaxyTerminology()).toContain("Intergalactic Workflow Commission");
   });
 
   it("promises no runtime Olit does not have", () => {
@@ -179,7 +181,7 @@ describe("other blocks", () => {
   });
 
   it("points UDT authoring at its skill, as loom does", () => {
-    expect(GALAXY_TERMINOLOGY).toContain("fetch\n  the `udt-authoring` skill first");
+    expect(galaxyTerminology()).toContain("fetch\n  the `udt-authoring` skill first");
   });
 
   it("carries a real date", () => {
@@ -399,7 +401,7 @@ describe("artifact links", () => {
 describe("a flavor's sections", () => {
   it("follow the identity line", () => {
     const text = systemText({ afterIdentity: ["## Flavor section"] });
-    expect(text.startsWith(`${IDENTITY}\n\n## Flavor section\n\n`)).toBe(true);
+    expect(text.startsWith(`${identity()}\n\n## Flavor section\n\n`)).toBe(true);
   });
 
   it("drop out when empty", () => {

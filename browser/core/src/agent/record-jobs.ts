@@ -1,7 +1,7 @@
 /** Record the outcome of submitted Galaxy work, by the session rather than the model.
  *
  * loom's `applyJobPollUpdate` advances the notebook block for a finished job; the checkbox
- * flips and the status line updates without the agent being asked. olit's record is prose
+ * flips and the status line updates without the agent being asked. the agent's record is prose
  * written by the model, so there is no block to key on -- what there is, reliably, is the
  * id: the model writes ids into the record, and the watcher knows which id settled.
  *
@@ -112,7 +112,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
  * Note submitted work in the record, keyed by the id the session observed.
  *
  * loom has `galaxy_invocation_record({ invocationId, ... })`: the agent hands the poller the
- * id and the poller owns the entry from then on. olit's watcher already holds the correct
+ * id and the poller owns the entry from then on. the agent's watcher already holds the correct
  * id -- it took it from the tool result -- so the session writes the entry itself rather than
  * trusting the model to transcribe a hex string.
  */

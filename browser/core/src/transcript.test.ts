@@ -1,7 +1,10 @@
 import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it, vi } from "vitest";
 
-import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
+import { DEFAULT_BRAND, followUpMark } from "./agent/brand";
+import { EMPTY_REPLY } from "./agent/markers";
+
+const FOLLOW_UP_MARK = followUpMark(DEFAULT_BRAND);
 import { ChatView } from "./transcript";
 
 /** A tool step whose failure is prose, not `{"ok": false}` -- the cap message, a refusal. */
@@ -151,7 +154,7 @@ describe("a live run", () => {
       { type: "run_start", inputs: [] } as unknown as AgentEvent,
       unanswered("faulted", "host.watched raised"),
     ]);
-    expect(v.outcome.error).toBe("Olit failed while answering: host.watched raised");
+    expect(v.outcome.error).toBe("Orbit failed while answering: host.watched raised");
     v.apply([
       { type: "run_start", inputs: [] } as unknown as AgentEvent,
       unanswered("model_error", "context overflow"),
@@ -171,7 +174,7 @@ describe("a live run", () => {
     v.apply([
       { type: "task_failed", taskId: 7, kind: "olit.galaxy-watch", message: "boom" } as AgentEvent,
     ]);
-    expect(hooks.failed).toHaveBeenCalledWith("Olit's olit.galaxy-watch task failed: boom");
+    expect(hooks.failed).toHaveBeenCalledWith("Orbit's olit.galaxy-watch task failed: boom");
   });
 });
 

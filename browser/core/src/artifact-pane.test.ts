@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { mountArtifactPane } from "./artifact-pane";
 import { LAYOUT } from "./layout";
 
-const COLLAPSED_KEY = "olit.artifactCollapsed";
+const COLLAPSED_KEY = "orbit.artifactCollapsed";
 
 function mount(width: number, withArtifact = true) {
   document.body.className = "";

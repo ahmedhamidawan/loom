@@ -56,7 +56,9 @@ const proxyGalaxy = (env: Env) => ({
   target: env.GALAXY_ROOT,
 });
 
-/** The /llm proxy's origin and path for each provider: Olit's endpoint, or pi's for its own. */
+/**
+ * The /llm proxy's origin and path for each provider: the agent's endpoint, or pi's for its own.
+ */
 async function llmTargets(): Promise<Record<string, { root: string; path: string }>> {
   const endpoints = await Promise.all(PROVIDERS.map(async (p) => [p.id, await defaultEndpoint(p)]));
   return Object.fromEntries(
@@ -78,7 +80,7 @@ function buildCommit(): string {
   }
 }
 
-// Read while the config module loads: olit's `--configLoader runner` closes the module runner
+// Read while the config module loads: a flavor's `--configLoader runner` closes the module runner
 // once the config is evaluated, and the registry's lazy imports would find it gone.
 const targets = await llmTargets();
 

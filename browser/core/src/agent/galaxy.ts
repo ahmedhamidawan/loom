@@ -78,7 +78,7 @@ export interface Galaxy {
 }
 
 /**
- * The one transport every Galaxy request takes, Olit's own and galaxy-ops' alike: the user's
+ * The one transport every Galaxy request takes, the agent's own and galaxy-ops' alike: the user's
  * session or key, never a cached answer, and a refused request resent while that is safe.
  */
 export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOptions): typeof fetch {

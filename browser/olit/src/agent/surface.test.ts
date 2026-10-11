@@ -7,7 +7,7 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 
 import { olitFlavor } from "./flavor";
-import { annotating } from "@galaxyproject/orbit-browser/testing";
+import { annotating, noteTag } from "@galaxyproject/orbit-browser/testing";
 import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
 import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/testing";
@@ -192,7 +192,7 @@ describe("what a galaxy-ops result is annotated with", () => {
     },
   } as unknown as Galaxy;
   const ctx = { galaxy } as unknown as Context;
-  const annotate = annotating(olitFlavor.annotators);
+  const annotate = annotating(olitFlavor.annotators, noteTag(olitFlavor.brand!));
 
   const CASES: Array<[string, Record<string, unknown>, unknown]> = [
     ["search_tools_by_name", { query: "structure viewer" }, []],

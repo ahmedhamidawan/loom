@@ -1,5 +1,6 @@
 /** Provider/model/key picker. Mirrors Orbit's BYO-key overlay behaviour. */
 
+import { DEFAULT_BRAND, type Brand } from "./agent/brand";
 import { defaultEndpoint, needsKey, providerById, PROVIDERS, takesModel } from "./agent/providers";
 import { discoverModels } from "./model-discovery";
 import {
@@ -61,8 +62,12 @@ const MARKUP = `
  * on: dismissing the first-run picker would leave the agent with no key at all.
  * Resolves null when dismissed.
  */
-function openPicker(container: HTMLElement, cancellable: boolean): Promise<Credentials | null> {
-  const stored = loadCredentials();
+function openPicker(
+  container: HTMLElement,
+  cancellable: boolean,
+  brand: Brand,
+): Promise<Credentials | null> {
+  const stored = loadCredentials(brand);
 
   container.insertAdjacentHTML("beforeend", MARKUP);
   const overlay = container.querySelector<HTMLElement>("#cred-overlay")!;
@@ -155,10 +160,10 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
         errorEl.textContent = problem;
         return;
       }
-      saveCredentials(creds);
+      saveCredentials(creds, brand);
       close(creds);
     };
-    // Orbit clears a credential by saving an empty key from Preferences. Olit has no
+    // Orbit clears a credential by saving an empty key from Preferences. The browser has no
     // Preferences screen and the key lives in this browser, so it gets its own control.
     // The endpoint's own catalog beats anything bundled here, which is how a provider
     // whose models we never listed becomes usable without typing an id from memory.
@@ -178,7 +183,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
       if (!found.models.includes(modelInput.value.trim())) modelInput.value = found.models[0]!;
     });
     forgetBtn.addEventListener("click", () => {
-      clearCredentials();
+      clearCredentials(brand);
       keyInput.value = "";
       modelInput.value = "";
       endpointInput.value = "";
@@ -195,19 +200,25 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
   });
 }
 
-export async function switchProvider(container: HTMLElement): Promise<Credentials | undefined> {
-  const before = JSON.stringify(loadCredentials());
-  const picked = await openPicker(container, true);
+export async function switchProvider(
+  container: HTMLElement,
+  brand: Brand = DEFAULT_BRAND,
+): Promise<Credentials | undefined> {
+  const before = JSON.stringify(loadCredentials(brand));
+  const picked = await openPicker(container, true, brand);
   return picked && JSON.stringify(picked) !== before ? picked : undefined;
 }
 
 /** First-run entry point. Not dismissible: there is nothing to fall back to. */
-export async function ensureCredentials(container: HTMLElement): Promise<Credentials> {
-  const stored = loadCredentials();
+export async function ensureCredentials(
+  container: HTMLElement,
+  brand: Brand = DEFAULT_BRAND,
+): Promise<Credentials> {
+  const stored = loadCredentials(brand);
   if (stored && !credentialProblem(stored)) return stored;
   // Dev override, as in config.ts: the vite proxy attaches the key, so there is nothing
   // to ask for. A deployed build has no LLM_PROVIDER and always shows the picker.
   const provider = process.env.llm_provider as string | undefined;
   if (provider) return { provider, model: process.env.llm_model as string | undefined };
-  return (await openPicker(container, false)) as Credentials;
+  return (await openPicker(container, false, brand)) as Credentials;
 }

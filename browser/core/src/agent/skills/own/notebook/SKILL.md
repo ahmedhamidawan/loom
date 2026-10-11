@@ -72,7 +72,7 @@ So a collection goes in as
 a dataset as `history_dataset_display(history_dataset_id=f2db41e1fa331b3e)`. The values are
 **encoded ids**, which you get from `get_history_contents`, `get_dataset_details` or the
 tool result that created the thing. A directive is neither a tool nor a visualization, so
-`search_tools_by_name` and `get_visualization_details` cannot tell you anything about one.
+`search_tools_by_name`, or any lookup of visualizations, cannot tell you anything about one.
 
 A ``` fence opens a cell, and Galaxy renders only ```galaxy, ```vega and ```visualization
 cells; any other type shows as an error and Galaxy refuses the page. For code or plain text use

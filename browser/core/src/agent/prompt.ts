@@ -1,3 +1,5 @@
+import { DEFAULT_BRAND } from "./brand";
+
 // System-prompt blocks, adopted from Orbit's `extensions/loom/context.ts`.
 
 // loom: buildNoLocalShellBlock().
@@ -10,7 +12,8 @@ scratchpad for inspecting and summarizing data, not a compute path: real work is
 Galaxy job, which is also what makes it reproducible.`;
 
 // loom: buildGalaxyContextBlock(), the "Galaxy terminology" section.
-export const GALAXY_TERMINOLOGY = `## Galaxy
+/** The Galaxy terms the agent should know, with a flavor's own bullets after the UDT one. */
+export const galaxyTerminology = (more: string[] = []) => `## Galaxy
 
 ### Galaxy terminology
 
@@ -22,10 +25,7 @@ export const GALAXY_TERMINOLOGY = `## Galaxy
   rather than inventing a workaround. When authoring the UDT definition, fetch
   the \`udt-authoring\` skill first (see Skills repositories below) rather
   than writing the YAML from memory.
-- **Visualization**: a viewer Galaxy opens on a dataset in the browser, such as a genome
-  browser or a structure viewer. Visualizations are not tools and no tool search finds them:
-  to open or view a dataset in a viewer, call \`list_visualizations\` with its id.
-- **Workflow invocation**: a single run of a Galaxy workflow on a history.
+${more.map((term) => `${term}\n`).join("")}- **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated
   workflows. See "Finding a community workflow".`;
 
@@ -592,31 +592,37 @@ export interface PromptOptions {
   galaxyStatus?: GalaxyStatus;
   /** A flavor's sections, placed right after the identity line. */
   afterIdentity?: string[];
+  /** A flavor's own Galaxy terms, as bullets in the terminology list. */
+  terminology?: string[];
   galaxyRoot?: string;
+  /** What the agent is called: the brand's name. */
+  name?: string;
 }
 
 function galaxyNotice(status: GalaxyStatus): string {
   return status === GALAXY_UNREACHABLE ? GALAXY_UNAVAILABLE : "";
 }
 
-export const IDENTITY = "You are Olit.";
+export const identity = (name = DEFAULT_BRAND.name) => `You are ${name}.`;
 
 export function systemText({
+  name,
   model,
   provider,
   galaxyStatus = GALAXY_READY,
   afterIdentity = [],
+  terminology = [],
   galaxyRoot,
 }: PromptOptions = {}): string {
   // As loom does: the Galaxy guidance rides on the connection, whichever tools are granted.
   const galaxy = (block: string) => (galaxyStatus === GALAXY_READY ? block : "");
   return [
-    IDENTITY,
+    identity(name),
     ...afterIdentity,
     activeModelBlock(model, provider),
     NO_LOCAL_SHELL,
     galaxyNotice(galaxyStatus),
-    galaxy(GALAXY_TERMINOLOGY),
+    galaxy(galaxyTerminology(terminology)),
     galaxy(FINDING_A_WORKFLOW),
     galaxy(DRAFTING_A_PLAN),
     galaxy(GETTING_DATA_IN),

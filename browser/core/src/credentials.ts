@@ -1,5 +1,6 @@
 /** Provider/model/key selection, held on the client and never sent to Galaxy. */
 
+import { DEFAULT_BRAND, type Brand } from "./agent/brand";
 import { needsKey, providerById, takesModel } from "./agent/providers";
 
 export interface Credentials {
@@ -12,28 +13,28 @@ export interface Credentials {
 
 // sessionStorage, so the key survives a reload but dies with the tab. It is
 // never written to the plugin specs, which Galaxy persists server-side.
-const STORE_KEY = "olit.credentials";
+const storeKey = (brand: Brand) => `${brand.id}.credentials`;
 
-export function loadCredentials(): Credentials | null {
+export function loadCredentials(brand: Brand = DEFAULT_BRAND): Credentials | null {
   try {
-    const raw = sessionStorage.getItem(STORE_KEY);
+    const raw = sessionStorage.getItem(storeKey(brand));
     return raw ? (JSON.parse(raw) as Credentials) : null;
   } catch {
     return null;
   }
 }
 
-export function saveCredentials(creds: Credentials): void {
+export function saveCredentials(creds: Credentials, brand: Brand = DEFAULT_BRAND): void {
   try {
-    sessionStorage.setItem(STORE_KEY, JSON.stringify(creds));
+    sessionStorage.setItem(storeKey(brand), JSON.stringify(creds));
   } catch {
     // A blocked store is not fatal: the key still works for this page.
   }
 }
 
-export function clearCredentials(): void {
+export function clearCredentials(brand: Brand = DEFAULT_BRAND): void {
   try {
-    sessionStorage.removeItem(STORE_KEY);
+    sessionStorage.removeItem(storeKey(brand));
   } catch {
     /* nothing to clear */
   }

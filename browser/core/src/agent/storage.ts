@@ -6,6 +6,7 @@ import {
   type SyncSqliteConnection,
   type SyncSqliteStatement,
 } from "@earendil-works/pi-durable/storage/sqlite";
+import { DEFAULT_BRAND } from "./brand";
 
 type Sqlite3 = Awaited<ReturnType<typeof sqlite3InitModule>>;
 type OoDatabase = InstanceType<Sqlite3["oo1"]["DB"]>;
@@ -46,11 +47,18 @@ const connection = (database: OoDatabase): SyncSqliteConnection => ({
   close: () => database.close(),
 });
 
-/** Durable storage in the origin private file system, in a dedicated worker. */
-async function opfsStorage(name: string): Promise<Storage> {
+/**
+ * Durable storage in the origin private file system, in a dedicated worker. `brand` names the
+ * file pool, one per brand, so two flavors on one origin never share files.
+ */
+async function opfsStorage(name: string, brand: string): Promise<Storage> {
   const s = await sqlite3();
   // Its types omit the option that lets a failed install be tried again.
-  const options = { directory: "/olit", name: "olit-opfs", forceReinitIfPreviouslyFailed: true };
+  const options = {
+    directory: `/${brand}`,
+    name: `${brand}-opfs`,
+    forceReinitIfPreviouslyFailed: true,
+  };
   const pool = await s.installOpfsSAHPoolVfs(options);
   await pool.reserveMinimumCapacity(pool.getFileCount() + 2);
   const database = new SyncSqliteDatabase(connection(new pool.OpfsSAHPoolDb(`/${name}.sqlite3`)));
@@ -64,20 +72,20 @@ export interface OpenedStorage {
   unkept?: string;
 }
 
-/** The storage of `name`: OPFS where the browser has it, memory otherwise. */
-export async function openStorage(name: string): Promise<OpenedStorage> {
+/** The storage of `name` in `pool`: OPFS where the browser has it, memory otherwise. */
+export async function openStorage(name: string, pool = DEFAULT_BRAND.id): Promise<OpenedStorage> {
   // A tab that just handed the storage over may still be letting go of its files.
   let failure: unknown;
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      return { storage: await opfsStorage(name) };
+      return { storage: await opfsStorage(name, pool) };
     } catch (error) {
       failure = error;
       if ((error as Error)?.name !== "NoModificationAllowedError") break;
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
-  console.warn("[olit] files are not kept:", failure);
+  console.warn(`[${pool}] files are not kept:`, failure);
   const { name: kind, message } = (failure ?? {}) as Partial<Error>;
   return {
     storage: new MemoryStorage(),
@@ -99,7 +107,7 @@ export function holdStorage(
 ): Promise<void> {
   const locks = (globalThis.navigator as Navigator | undefined)?.locks;
   if (!locks) return Promise.resolve();
-  const key = `olit:${name}`;
+  const key = name;
   return new Promise((held) => {
     const keep = () => {
       held();

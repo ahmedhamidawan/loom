@@ -1,7 +1,8 @@
 /**
  * A plan draft is answerable until the user's next message, live or restored: whatever they
  * wrote next answered it, so its buttons would otherwise act on whichever plan the model holds
- * by then ("the plan above"). Olit's rule over loom's chat panel, which leaves restored drafts open.
+ * by then ("the plan above"). The shell's rule over loom's chat panel, which leaves restored
+ * drafts open.
  */
 export function settlePlanDrafts(container: ParentNode): void {
   container

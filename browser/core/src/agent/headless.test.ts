@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Binding } from "./documents";
 import { Headless, type HeadlessConfig } from "./headless";
-import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./markers";
+import { DEFAULT_BRAND, followUpMark } from "./brand";
+import { EMPTY_REPLY } from "./markers";
+
+const FOLLOW_UP_MARK = followUpMark(DEFAULT_BRAND);
 import { pageContentProblem } from "./page-edit";
 import { serialized } from "./record-write";
 import { context } from "./runtime";
@@ -226,7 +229,7 @@ describe("a turn", () => {
     expect(results(result.entries).map(guardOf)).toEqual(Array(4).fill("destructive-declined"));
   });
 
-  it("names an Olit tool asked for as a Galaxy tool, rather than letting Galaxy shrug", async () => {
+  it("names one of its own tools asked for as a Galaxy tool, rather than letting Galaxy shrug", async () => {
     const { result } = await turn([
       {
         calls: [
@@ -237,7 +240,7 @@ describe("a turn", () => {
       { text: "ok" },
     ]);
     const [first, second] = results(result.entries).map((m) => contentText(m.content));
-    expect(first).toContain("'lineage_report' is an Olit tool, not a Galaxy tool");
+    expect(first).toContain("'lineage_report' is an Orbit tool, not a Galaxy tool");
     expect(second).toContain("the tool catalog does not hold it");
   });
 
@@ -362,7 +365,7 @@ describe("a turn", () => {
     const { requests } = await turn([{ text: "ok" }], { history_id: "h1" });
     const sent = requests[0].messages as Array<{ role: string; content: string }>;
     expect(sent[0].role).toBe("system");
-    expect(sent[0].content).toContain("You are Olit.");
+    expect(sent[0].content).toContain("You are Orbit.");
     expect(sent.at(-2)!.content).toContain('Updated system prompt section "record"');
     expect(sent.at(-2)!.content).toContain("history `h1`");
     expect(sent.at(-1)).toEqual({ role: "user", content: "hi" });
@@ -372,8 +375,8 @@ describe("a turn", () => {
 describe("a restart, as a browser with nothing stored does it", () => {
   const RECORD = {
     id: "p7",
-    slug: "olit-sess-7",
-    title: "Olit Notebook (sess-7)",
+    slug: "orbit-sess-7",
+    title: "Orbit Notebook (sess-7)",
     create_time: "2026-10-01T09:00:00",
     update_time: "2026-10-02T09:00:00",
   };
@@ -398,7 +401,7 @@ describe("a restart, as a browser with nothing stored does it", () => {
   });
 
   it("offers the history's records and starts nothing until told which session this is", async () => {
-    const session = await launched([RECORD, { id: "p9", slug: "not-olit", title: "Mine" }]);
+    const session = await launched([RECORD, { id: "p9", slug: "not-orbit", title: "Mine" }]);
     const before = session.conversation.id;
     const offered = await session.restart();
     expect(offered.map((r) => r.pageId)).toEqual(["p7"]);

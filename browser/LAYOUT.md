@@ -2,11 +2,11 @@
 
 browser/ is an npm workspace of two packages and a test flavor. `@galaxyproject/orbit-browser`
 (core/) is Orbit's shell for the browser: the agent in a worker, its providers, the chat and
-artifact panes, and the Galaxy transport. `@galaxyproject/olit` (olit/) is the flavor that makes
-it a Galaxy visualization plugin, and is what Galaxy installs. bare/ is a private flavor that adds
-nothing, so the core is also tested as something other than Olit. The workspace root holds the shared tooling and
-runs lint, the vendored check, its own scripts' tests and the e2e drives itself. It forwards
-`build`, `dev`, `preview`, `build:session`, `test:watch` and `test:ui` to olit,
+artifact panes, and the Galaxy transport. `@galaxyproject/olit` (olit/) is the flavor that makes it
+a Galaxy visualization plugin, and is what Galaxy installs. bare/ is a private flavor that adds
+nothing, so the core is also tested as something other than Olit. The workspace root holds the
+shared tooling and runs lint, the vendored check, its own scripts' tests and the e2e drives itself.
+It forwards `build`, `dev`, `preview`, `build:session`, `test:watch` and `test:ui` to olit,
 `build:pyodide` and `build:skills` to core, and `test:unit` and `typecheck` to all three; `test`
 chains all of the checks.
 
@@ -50,7 +50,8 @@ core/                     @galaxyproject/orbit-browser, TypeScript source behind
     prompt.ts skills.ts notebook.ts   the system prompt, SKILL.md routers, the record page
     python.ts python-realm.js python-node.ts   `run_python` and the realm Pyodide runs in
     processes/                deterministic procedures (lineage_report, organize_datasets)
-    skills/                   olit-skills/notebook, and galaxy-skills fetched at build time
+    skills/                   own/notebook, the brand's own skills, and galaxy-skills fetched at
+                              build time
     describe.ts               what the agent publishes about itself, for an outside evaluator
 
 olit/                     @galaxyproject/olit: files ["static"]
@@ -67,7 +68,7 @@ olit/                     @galaxyproject/olit: files ["static"]
   src/agent/node.ts         the Node entry: runNodeSession(olitFlavor, olitLayout)
   src/agent/visualizations.ts visualization-inputs.ts vega.ts hints.ts   the visualization tools
   src/agent/prompt.ts       the starting-dataset section
-  src/agent/skills/         olit-skills/visualization
+  src/agent/skills/         own/visualization, merged into the core's own
 
 bare/                     @galaxyproject/orbit-browser-bare, private: the core with nothing added
   src/main.ts src/worker.ts   mountOrbitBrowser with only the required options; startAgentWorker({})
@@ -80,9 +81,15 @@ A flavor imports the core only through its package exports (`.`, `/agent`, `/art
 `/worker`, `/node`, `/vite`, and `/testing` for its tests), never a path inside it, so it can move
 to another repository and consume the published package. The rule lives in the core's `/testing`
 export (`flavorTrespasses`), and each flavor's boundary test runs it over its own folder.
-`olit/src/boundary.test.ts` also checks that the core's own prompt and skills name none of Olit's tools, and
-`core/src/boundary.test.ts` keeps the core from importing any flavor in the workspace or anything
-only a visualization flavor needs.
+`olit/src/boundary.test.ts` also checks that the core's own prompt and skills name none of
+Olit's tools, and `core/src/boundary.test.ts` keeps the core from importing any flavor in the
+workspace or anything only a visualization flavor needs.
+
+A flavor says who it is with a `Brand`, the same one on its `AgentFlavor` and on
+`mountOrbitBrowser`, since the page reads what the worker keeps under it. Its prompt sections
+go after the identity line, after the skills router, or into the Galaxy terminology list
+(`promptSections`), which is how Olit's Visualization term reaches the prompt without the core
+naming `list_visualizations`.
 
 bare/ is the second flavor a change to the core has to keep working. Its surface snapshot is what
 every flavor inherits from the core, so a core change to the prompt or the tools shows there as
@@ -133,28 +140,19 @@ What still ties the two packages to this workspace, and why each waits:
     saved session and freeze the dev settings, and leaving them in throws on `process`. So they
     become `mountOrbitBrowser` options (a build stamp, the credentials mode, the dev model
     overrides), with the build stamp handed to the worker in its open request.
-- **Olit's name inside the core.** It moves with a brand or id option (on `AgentFlavor` for the
-  worker, on `mountOrbitBrowser` for the page), but not all of it can move the same way:
-  - *Persisted*, so Olit's id must keep producing these names exactly, or saved state and records
-    are orphaned: the `olit_session` key saved sessions live under; the durable watch task kind
-    `olit.galaxy-watch`; the record page slug `olit-<session>` and the `^olit-` pattern that finds
-    a history's earlier records again; the OPFS pool (`/olit`, `olit-opfs`) and the per-user
-    database `olit-<user>`; the `olit:storage` tab lock; and the `olit.credentials` and
-    `olit.artifactCollapsed` browser storage keys.
-  - *Model-visible*, frozen by the surface snapshots and read by the agents repo until the split
-    can change the agent: the prompt's identity line, `FOLLOW_UP_MARK`, the `[olit]` prefixes on
-    result hints, misrouted()'s "is an Olit tool" refusal, run_python's description, the pi
-    extension name, describe's `agent: "olit"` and `runner: "olit"`, and the `olit-skills` default
-    skills repo a flavor's skills are keyed under.
-  - *Plain text* a brand option replaces: the record page's "Olit Notebook" title and "maintained
-    by Olit" starter, `cannotStart`, the worker-failure fallback, the transcript's failure lines,
-    the composer placeholder, the shell's status messages, and the `[olit]` prefix on its console
-    lines.
-
-  The persisted names are also why a second flavor can't share a Galaxy origin with Olit yet: it
-  would open Olit's database, resume Olit's conversation on a history with its own tools, list
-  Olit's records as its own, and fight Olit for the tab lock. Whether flavors get separate pools
-  and locks or share a pool with separate databases is decided with the id option.
+- **Durable format names that still say olit.** A flavor names itself with a `Brand` (`{ id,
+  name }`, on `AgentFlavor` and `mountOrbitBrowser`; `DEFAULT_BRAND` is Orbit), and everything
+  that tells flavors apart follows it: the identity line, the follow-up mark, the tag on result
+  notes, the misroute refusal, run_python's description, the extension name, describe's `agent`
+  and `runner`, the skills repo the core's own skills are offered under (`skills/own/` becomes
+  `<id>-skills`), the record page's title, slug and starter, the OPFS pool, the per-user database
+  and its tab lock, the browser storage keys, and the page's messages. Olit's brand reproduces
+  its old names exactly. What doesn't follow it is the durable format inside each brand's own
+  database and saved documents: the document kinds `olit.binding`, `olit.follow-ups` and
+  `olit.sessions`, the watch task `olit.galaxy-watch`, and the `olit_session` marker on a saved
+  session. They can't collide across flavors, which never share a database or a session store,
+  and renaming them would orphan every conversation Olit has kept, so they change only with a
+  migration.
 - **The default "galaxy" provider assumes a plugin-hosted flavor.** It talks to Galaxy's AI proxy,
   which Galaxy serves per visualization plugin at `api/plugins/<name>`, and it's the provider a
   first launch uses. A flavor that isn't a registered plugin has no `galaxyChatUrl` to give, so it
@@ -164,11 +162,6 @@ What still ties the two packages to this workspace, and why each waits:
   on body, sizes the pane from the window, injects fixed ids and configures the shared `marked`.
   Scoping all of that to the container is a follow-up; until then a host that needs the shell
   inside a larger page mounts it in an iframe.
-- **Two mentions of Olit's tools in the core's prose:** the notebook skill's aside about
-  `get_visualization_details`, and the system prompt's Galaxy terminology, which sends a request to
-  view a dataset to `list_visualizations`. Their text is frozen for the same reason; olit's
-  boundary test lists them as the known cases. The terminology line moves with a prompt section a
-  flavor can add to that list.
 - **End-to-end drives.** Every drive in `e2e/` but `bare-drive.cjs` mounts the Olit plugin, so
   they move to olit/ when it leaves; the bare drive stays with the core.
 - **Shared config.** Both packages extend `tsconfig.base.json` and use the root's Prettier config;

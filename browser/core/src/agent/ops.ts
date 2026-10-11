@@ -13,7 +13,7 @@ import { fail, Outcome, rendered, type Context, type AgentTool } from "./tool";
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
-/** What Olit adds to a Galaxy result before the model reads it. */
+/** What the agent adds to a Galaxy result before the model reads it. */
 export type Annotate = (
   name: string,
   args: Record<string, unknown>,
@@ -21,9 +21,9 @@ export type Annotate = (
   ctx: Context,
 ) => Promise<string | undefined>;
 
-/** What Olit layers on a galaxy-ops operation it does not own: policy, not behaviour. */
+/** What the agent layers on a galaxy-ops operation it does not own: policy, not behaviour. */
 export interface OpPolicy {
-  /** Olit's refusal before the operation runs, or undefined to let it run. */
+  /** The agent's refusal before the operation runs, or undefined to let it run. */
   check?: (args: Record<string, unknown>, ctx: Context) => Promise<Outcome | undefined>;
   /**
    * Runs the call, for a queue the call has to wait its turn in; `call` sends `args`, or the
@@ -34,7 +34,7 @@ export interface OpPolicy {
     args: Record<string, unknown>,
     ctx: Context,
   ) => Promise<T>;
-  /** Olit's own answer to a refusal, when its policy has something to add to the message. */
+  /** The agent's own answer to a refusal, when its policy has something to add to the message. */
   refused?: (message: string, args: Record<string, unknown>) => Outcome | undefined;
   destructiveWhen?: (args: Record<string, unknown>) => boolean;
   polls?: string;

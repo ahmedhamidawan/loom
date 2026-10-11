@@ -1,4 +1,5 @@
 import REALM from "./python-realm.js?raw";
+import { DEFAULT_BRAND } from "./brand";
 import { fail, Outcome, type AgentTool, type Python } from "./tool";
 
 export { REALM };
@@ -167,14 +168,14 @@ export async function serveAsset(
   }
 }
 
-export function pythonTool(): AgentTool {
+export function pythonTool(name = DEFAULT_BRAND.name): AgentTool {
   return {
     name: "run_python",
     description:
       "Run Python locally in the browser (Pyodide). numpy and pandas are available; state persists " +
       "across calls. Returns the last expression value and stdout. Top-level `await` works, and " +
       "`pyfetch(url)` performs a browser fetch, so a public HTTP API can be read directly - but only " +
-      "from hosts that send CORS headers, which many do not. Python is isolated from Olit: its " +
+      `from hosts that send CORS headers, which many do not. Python is isolated from ${name}: its ` +
       "requests carry no Galaxy login, so Galaxy is reached through the Galaxy tools, not from " +
       "Python. This runs in the browser, NOT on Galaxy - it cannot import galaxy, and real compute " +
       "belongs in a Galaxy job.",

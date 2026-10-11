@@ -17,6 +17,7 @@ import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { ChatView, type RunOutcome } from "./transcript";
 
 import { createConfirm } from "./confirm-modal";
+import { DEFAULT_BRAND, type Brand } from "./agent/brand";
 import { AgentClient } from "./agent/client";
 import { briefly, connectGalaxy, type Galaxy } from "./agent/galaxy";
 import type { GalaxyStatus } from "./agent/prompt";
@@ -49,7 +50,7 @@ const absolute = (url: string) => new URL(url, document.baseURI).href;
 /** Where a conversation starts, and what the page says about it once the agent is ready. */
 export interface LaunchContext {
   historyId?: string;
-  /** A saved session the page was opened on: said as "Opened a saved Olit session." */
+  /** A saved session the page was opened on: said as "Opened a saved <name> session." */
   saved?: { id: string; document: SessionDocument };
   /** Why a saved session could not be opened, as a whole line, said before the ready line. */
   savedProblem?: string;
@@ -89,6 +90,8 @@ export interface OrbitBrowserOptions {
   renderers?: ArtifactRenderers;
   launch?: (galaxy: Galaxy) => Promise<LaunchContext>;
   sessions?: SessionStore;
+  /** The same brand as the flavor's worker, whose stored state the page reads under it. */
+  brand?: Brand;
 }
 
 /** The mounted page, as its host sees it. */
@@ -103,20 +106,28 @@ export interface OrbitBrowserHandle {
 }
 
 /** With no dataset to start from, the conversation is Galaxy's current history's. */
-export async function currentHistoryLaunch(galaxy: Galaxy): Promise<LaunchContext> {
+export async function currentHistoryLaunch(
+  galaxy: Galaxy,
+  brand: Brand = DEFAULT_BRAND,
+): Promise<LaunchContext> {
   try {
     const id = (await galaxy.get("history/current_history_json"))?.id;
     if (typeof id === "string" && id) return { historyId: id };
-    return { stop: cannotStart("the current history") };
+    return { stop: cannotStart("the current history", undefined, brand) };
   } catch (e) {
-    return { stop: cannotStart("the current history", String((e as Error)?.message ?? e)) };
+    const problem = String((e as Error)?.message ?? e);
+    return { stop: cannotStart("the current history", problem, brand) };
   }
 }
 
 /** The line a launch stops with when Galaxy names no history to work in. */
-export const cannotStart = (what: string, problem = "it named no history") =>
-  `Could not read ${what} from Galaxy (${problem}). Olit works in a history, so it cannot ` +
-  "start; reload to try again.";
+export const cannotStart = (
+  what: string,
+  problem = "it named no history",
+  brand: Brand = DEFAULT_BRAND,
+) =>
+  `Could not read ${what} from Galaxy (${problem}). ${brand.name} works in a history, so it ` +
+  "cannot start; reload to try again.";
 
 /** Grow the composer with its content, up to a few lines. */
 function autosize(input: HTMLTextAreaElement): void {
@@ -147,6 +158,8 @@ export async function mountOrbitBrowser(
     throw new Error(`No renderer is registered for artifact kinds: ${undrawable.join(", ")}.`);
   }
   const sessions = options.sessions;
+  const brand = options.brand ?? DEFAULT_BRAND;
+  const name = brand.name;
   const target = {
     root: options.galaxyRoot,
     datasetId: options.datasetId,
@@ -154,7 +167,7 @@ export async function mountOrbitBrowser(
   };
   applyOrbitTheme("light", document.documentElement);
 
-  const el = mountLayout(container, { save: !!sessions });
+  const el = mountLayout(container, { save: !!sessions, name });
   if (el.save && sessions?.label) el.save.title = sessions.label;
   const mounted = new AbortController();
   let started: AgentClient | undefined;
@@ -166,7 +179,7 @@ export async function mountOrbitBrowser(
       container.replaceChildren();
     },
   };
-  const artifactPane = mountArtifactPane(container, mounted.signal);
+  const artifactPane = mountArtifactPane(container, mounted.signal, brand);
   useChatMarkdown();
   const chat = new ChatPanel(el.messages);
   /** An info line as text: the vendored panel parses it as HTML, and dataset names, ids and
@@ -179,14 +192,14 @@ export async function mountOrbitBrowser(
   const retryNotice = createRetryNotice({ addInfoMessage: info });
 
   // Ask for a provider/key before the worker starts.
-  let creds = await ensureCredentials(container);
+  let creds = await ensureCredentials(container, brand);
   const config = buildConfig(target, creds);
   const rootPath = new URL(config.galaxy_root, document.baseURI).pathname;
   chat.setGalaxyServerUrl(absolute(config.galaxy_root));
   const credentials = (process.env.credentials as RequestCredentials) || "include";
   // The page's own Galaxy requests take the transport the agent's do.
   const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
-  const launch = await (options.launch ?? currentHistoryLaunch)(galaxy);
+  const launch = await (options.launch ?? ((g) => currentHistoryLaunch(g, brand)))(galaxy);
   if (launch.stop) {
     chat.addErrorMessage(launch.stop);
     el.input.disabled = true;
@@ -224,12 +237,12 @@ export async function mountOrbitBrowser(
   /** Exactly one explanation for a quiet ending, most specific first. */
   function ended(outcome: RunOutcome) {
     if (outcome.error) {
-      console.error("[olit] run failed", outcome.error);
+      console.error(`[${brand.id}] run failed`, outcome.error);
       chat.addErrorMessage(briefly(outcome.error));
     } else if (outcome.aborted) {
       info("Stopped.");
     } else if (outcome.exhausted) {
-      // Orbit has no step cap; olit's must not look like completion.
+      // Orbit has no step cap; this one's must not look like completion.
       info('I ran out of steps for one turn while still working. Say "continue" to pick it up.');
     } else if (!outcome.spoke && !outcome.done) {
       info("The model ended the turn without a reply. Ask again, or rephrase.");
@@ -252,7 +265,7 @@ export async function mountOrbitBrowser(
       }
     } catch (e) {
       // Fire-and-forget from the view, so a throw here would reach only the console.
-      console.error("[olit] could not draw an artifact", e);
+      console.error(`[${brand.id}] could not draw an artifact`, e);
       chat.addErrorMessage(
         `Could not show the artifact: ${briefly(String((e as Error)?.message ?? e))}`,
       );
@@ -262,17 +275,21 @@ export async function mountOrbitBrowser(
     if (!restored) artifactPane.reveal();
   }
 
-  const view = new ChatView(chat, {
-    info,
-    busy: setBusy,
-    artifacts: (artifacts, restored) => void showArtifacts(artifacts, restored),
-    ended,
-    usage: (totals) => usage.set(totals),
-    retry: (errorMessage, at, attempt) => retryNotice.start(errorMessage, at, attempt),
-    failed: (message) => chat.addErrorMessage(message),
-    wrote: () => settlePlanDrafts(el.messages),
-    retried: () => retryNotice.stop(),
-  });
+  const view = new ChatView(
+    chat,
+    {
+      info,
+      busy: setBusy,
+      artifacts: (artifacts, restored) => void showArtifacts(artifacts, restored),
+      ended,
+      usage: (totals) => usage.set(totals),
+      retry: (errorMessage, at, attempt) => retryNotice.start(errorMessage, at, attempt),
+      failed: (message) => chat.addErrorMessage(message),
+      wrote: () => settlePlanDrafts(el.messages),
+      retried: () => retryNotice.stop(),
+    },
+    brand,
+  );
 
   /**
    * Saving mid-run would store a half-finished run, and an empty conversation has none. A model
@@ -336,129 +353,133 @@ export async function mountOrbitBrowser(
   /** Said once ready, when the user chose to continue a record whose conversation is gone. */
   let continuing: string | undefined;
 
-  const agent = new AgentClient((message) => {
-    if (message.type === "events") {
-      view.apply(message.events);
-      if (afterReset && message.events.some((e) => e.type === "snapshot")) {
-        info(afterReset);
-        afterReset = undefined;
-      }
-      refreshControls();
-    } else if (message.type === "settled") {
-      settledOne(message.settled);
-    } else if (message.type === "held") {
-      if (message.held) {
+  const agent = new AgentClient(
+    (message) => {
+      if (message.type === "events") {
+        view.apply(message.events);
+        if (afterReset && message.events.some((e) => e.type === "snapshot")) {
+          info(afterReset);
+          afterReset = undefined;
+        }
+        refreshControls();
+      } else if (message.type === "settled") {
+        settledOne(message.settled);
+      } else if (message.type === "held") {
+        if (message.held) {
+          info(
+            message.held === "paused"
+              ? "Galaxy results are waiting -- automatic follow-up is paused. Say continue when you're ready."
+              : "Galaxy results are waiting -- automatic follow-up paused after several automatic turns. Say continue to resume.",
+          );
+        }
+      } else if (message.type === "confirm") {
+        confirm.show(String(message.id), message);
+      } else if (message.type === "withdrawn") {
+        confirm.dismiss(String(message.id));
+      } else if (message.type === "ready") {
+        ready = true;
+        galaxyStatus = message.galaxy;
+        refreshControls();
+        if (message.unkept) {
+          chat.addErrorMessage(
+            `${name} is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
+              "the page closes." +
+              (sessions?.keepHint ? ` ${sessions.keepHint}` : ""),
+          );
+        }
+        if (message.galaxyProblem) {
+          chat.addErrorMessage(
+            `Galaxy did not answer when ${name} opened (${message.galaxyProblem}), so no Galaxy tool ` +
+              "can run in this session. Reload once Galaxy is back.",
+          );
+        }
+        if (message.recordsProblem) {
+          chat.addErrorMessage(
+            `Could not look for earlier ${name} sessions on this history (${message.recordsProblem}), ` +
+              "so this is a new session.",
+          );
+        }
+        if (launch.savedProblem) {
+          chat.addErrorMessage(launch.savedProblem);
+        }
+        if (launch.saved) {
+          info(`Opened a saved ${name} session.`);
+        }
+        if (continuing) {
+          info(continuing);
+        }
         info(
-          message.held === "paused"
-            ? "Galaxy results are waiting -- automatic follow-up is paused. Say continue when you're ready."
-            : "Galaxy results are waiting -- automatic follow-up paused after several automatic turns. Say continue to resume.",
+          launch.saved
+            ? `${name} ready.`
+            : view.turns
+              ? `Resumed this history's conversation. ${name} ready.`
+              : `${name} ready. Ask me to run something.`,
         );
-      }
-    } else if (message.type === "confirm") {
-      confirm.show(String(message.id), message);
-    } else if (message.type === "withdrawn") {
-      confirm.dismiss(String(message.id));
-    } else if (message.type === "ready") {
-      ready = true;
-      galaxyStatus = message.galaxy;
-      refreshControls();
-      if (message.unkept) {
-        chat.addErrorMessage(
-          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
-            "the page closes." +
-            (sessions?.keepHint ? ` ${sessions.keepHint}` : ""),
+        if (launch.greeting) {
+          info(launch.greeting);
+        }
+      } else if (message.type === "recoverable") {
+        // The browser kept nothing of a session here; the user says which, if any, this is.
+        const line = info(
+          `This browser keeps no ${name} conversation for this history. Continue one of its records, ` +
+            "or start new." +
+            (sessions?.reopenHint ? ` ${sessions.reopenHint}` : ""),
         );
-      }
-      if (message.galaxyProblem) {
-        chat.addErrorMessage(
-          `Galaxy did not answer when Olit opened (${message.galaxyProblem}), so no Galaxy tool ` +
-            "can run in this session. Reload once Galaxy is back.",
-        );
-      }
-      if (message.recordsProblem) {
-        chat.addErrorMessage(
-          `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
-            "so this is a new session.",
-        );
-      }
-      if (launch.savedProblem) {
-        chat.addErrorMessage(launch.savedProblem);
-      }
-      if (launch.saved) {
-        info("Opened a saved Olit session.");
-      }
-      if (continuing) {
-        info(continuing);
-      }
-      info(
-        launch.saved
-          ? "Olit ready."
-          : view.turns
-            ? "Resumed this history's conversation. Olit ready."
-            : "Olit ready. Ask me to run something.",
-      );
-      if (launch.greeting) {
-        info(launch.greeting);
-      }
-    } else if (message.type === "recoverable") {
-      // The browser kept nothing of a session here; the user says which, if any, this is.
-      const line = info(
-        "This browser keeps no Olit conversation for this history. Continue one of its records, " +
-          "or start new." +
-          (sessions?.reopenHint ? ` ${sessions.reopenHint}` : ""),
-      );
-      const choices = document.createElement("div");
-      choices.className = "launch-choices";
-      line.append(choices);
-      const choose = (pageId?: string) => {
-        choices.querySelectorAll("button").forEach((b) => (b.disabled = true));
-        agent.recover(pageId);
-      };
-      for (const record of message.records) {
-        const button = document.createElement("button");
-        button.className = "plan-btn";
-        button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
-        button.addEventListener("click", () => {
-          continuing =
-            `Continuing the record ${record.title}: new entries go to that page. Its ` +
-            "conversation is not in this browser, so this chat starts empty.";
-          choose(record.pageId);
+        const choices = document.createElement("div");
+        choices.className = "launch-choices";
+        line.append(choices);
+        const choose = (pageId?: string) => {
+          choices.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          agent.recover(pageId);
+        };
+        for (const record of message.records) {
+          const button = document.createElement("button");
+          button.className = "plan-btn";
+          button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
+          button.addEventListener("click", () => {
+            continuing =
+              `Continuing the record ${record.title}: new entries go to that page. Its ` +
+              "conversation is not in this browser, so this chat starts empty.";
+            choose(record.pageId);
+          });
+          choices.append(button);
+        }
+        const fresh = document.createElement("button");
+        fresh.className = "plan-btn";
+        fresh.textContent = "Start new";
+        fresh.addEventListener("click", () => choose());
+        choices.append(fresh);
+      } else if (message.type === "waiting") {
+        const line = info(`${name} is open in another tab. `);
+        const take = document.createElement("button");
+        take.className = "plan-btn";
+        take.textContent = "Use it here";
+        take.addEventListener("click", () => {
+          take.disabled = true;
+          agent.open({ ...opening, steal: true });
         });
-        choices.append(button);
+        line.append(take);
+      } else if (message.type === "lost") {
+        ready = false;
+        el.input.disabled = true;
+        el.send.disabled = true;
+        refreshControls();
+        chat.addErrorMessage(`${name} was opened in another tab, which has it now.`);
+      } else if (message.type === "failed") {
+        console.error(`[${brand.id}] worker failed`, message.message);
+        chat.hideThinking();
+        setBusy(false);
+        chat.addErrorMessage(briefly(message.message));
       }
-      const fresh = document.createElement("button");
-      fresh.className = "plan-btn";
-      fresh.textContent = "Start new";
-      fresh.addEventListener("click", () => choose());
-      choices.append(fresh);
-    } else if (message.type === "waiting") {
-      const line = info("Olit is open in another tab. ");
-      const take = document.createElement("button");
-      take.className = "plan-btn";
-      take.textContent = "Use it here";
-      take.addEventListener("click", () => {
-        take.disabled = true;
-        agent.open({ ...opening, steal: true });
-      });
-      line.append(take);
-    } else if (message.type === "lost") {
-      ready = false;
-      el.input.disabled = true;
-      el.send.disabled = true;
-      refreshControls();
-      chat.addErrorMessage("Olit was opened in another tab, which has it now.");
-    } else if (message.type === "failed") {
-      console.error("[olit] worker failed", message.message);
-      chat.hideThinking();
-      setBusy(false);
-      chat.addErrorMessage(briefly(message.message));
-    }
-  }, options.createWorker);
+    },
+    options.createWorker,
+    name,
+  );
   started = agent;
   agent.open(opening);
 
   el.model.addEventListener("click", async () => {
-    const picked = await switchProvider(container);
+    const picked = await switchProvider(container, brand);
     if (picked) {
       const previous = { creds, model: { ...config } };
       creds = picked;
@@ -471,7 +492,7 @@ export async function mountOrbitBrowser(
         .catch((e) => {
           // The worker kept the model it had, so the page, and the next reload, keep it too.
           creds = previous.creds;
-          saveCredentials(previous.creds);
+          saveCredentials(previous.creds, brand);
           Object.assign(config, previous.model);
           showModel();
           chat.addErrorMessage(`Could not switch the model: ${briefly(String(e))}`);
@@ -494,7 +515,7 @@ export async function mountOrbitBrowser(
       info(sessions!.savedNote);
     } catch (e) {
       // The conversation itself is untouched; only the save failed.
-      console.error("[olit] could not save the session", e);
+      console.error(`[${brand.id}] could not save the session`, e);
       save.textContent = "Save";
       chat.addErrorMessage(`Could not save this conversation: ${briefly(String(e))}`);
     } finally {
@@ -508,7 +529,7 @@ export async function mountOrbitBrowser(
       return;
     }
     if (!ready) {
-      info("Olit is still starting; send again once it says it is ready.");
+      info(`${name} is still starting; send again once it says it is ready.`);
       return;
     }
     el.input.value = "";
@@ -547,7 +568,7 @@ export async function mountOrbitBrowser(
       submit();
     }
   });
-  // Esc stops the run; bound on the container because olit lives in an iframe.
+  // Esc stops the run; bound on the container because the shell may live in an iframe.
   container.addEventListener(
     "keydown",
     (e) => {

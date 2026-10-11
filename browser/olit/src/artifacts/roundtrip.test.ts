@@ -43,6 +43,7 @@ describe("an artifact carried across a realm", () => {
     const { artifactsOf } = await import("@galaxyproject/orbit-browser/artifacts");
     expect(artifactsOf(entries).map((a) => a.kind)).toEqual(["mermaid"]);
     const { OLIT_ARTIFACTS } = await import("./renderers");
+    const { OLIT_BRAND } = await import("../brand");
     const { mountOrbitBrowser } = await import("@galaxyproject/orbit-browser");
     // A provider that needs no key keeps the picker shut, and a stopped launch starts no worker.
     sessionStorage.setItem("olit.credentials", JSON.stringify({ provider: "galaxy" }));
@@ -54,6 +55,7 @@ describe("an artifact carried across a realm", () => {
       createWorker: vi.fn(),
       launch: async () => ({ stop: "stopped" }),
       ...OLIT_ARTIFACTS,
+      brand: OLIT_BRAND,
     });
     handle.dispose();
     container.remove();

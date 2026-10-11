@@ -5,6 +5,7 @@ import { inventedEmbed } from "./artifacts";
 import * as biocontainers from "./biocontainers";
 import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
 import * as tables from "./tables";
+import { DEFAULT_BRAND, noteTag } from "./brand";
 import { fetchFailureHint, invocationOutcomeHint, iwcCandidatesHint } from "./hints";
 import { ELIDED } from "./notebook";
 import { pageBody, pageContentProblem } from "./page-edit";
@@ -92,8 +93,8 @@ const invalidPage = async (content: unknown) => {
 };
 
 /**
- * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
- * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
+ * The agent's policy over galaxy-ops operations it runs but does not own: a refusal of its own
+ * before the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
  */
 export const OPS_POLICY: Record<string, OpPolicy> = {
   // Galaxy runs a tool on a dataset from another history, so galaxy-ops does too. An agent that
@@ -163,16 +164,16 @@ async function firstOf(
 }
 
 /**
- * What Olit adds to a galaxy-ops result: IWC triage, then whatever a flavor knows (where a
+ * What the agent adds to a galaxy-ops result: IWC triage, then whatever a flavor knows (where a
  * missed search lives), what listed invocations' jobs make of them, or fetch-failure triage.
  */
 export const annotating =
-  (extra: Annotate[] = []): Annotate =>
+  (extra: Annotate[] = [], tag = noteTag(DEFAULT_BRAND)): Annotate =>
   async (name, args, data, ctx) =>
-    iwcCandidatesHint(name) ??
+    iwcCandidatesHint(name, tag) ??
     (await firstOf(extra, name, args, data, ctx)) ??
-    (await invocationOutcomeHint(ctx.galaxy, name, data)) ??
-    fetchFailureHint(data);
+    (await invocationOutcomeHint(ctx.galaxy, name, data, tag)) ??
+    fetchFailureHint(data, tag);
 
 type Row = Record<string, any>;
 
@@ -461,7 +462,7 @@ async function recommendBiocontainer(args: Row, ctx: Context) {
 type Run = (args: Row, ctx: Context) => Promise<unknown>;
 
 /**
- * What Olit says of the two tools that work on the browser's in-memory filesystem, which
+ * What the agent says of the two tools that work on the browser's in-memory filesystem, which
  * galaxy-mcp's docstrings describe as the server's own disk, and of the image resolver, which
  * reads quay.io's tag listing rather than galaxy-mcp's mulled extra.
  */
@@ -474,8 +475,7 @@ const LOCAL_DOCS: Record<string, string> = {
     "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
 };
 
-/** A tool Olit runs itself, under galaxy-mcp's name and its own description, with fetch-failure
- * triage appended. */
+/** A tool the agent runs itself, under galaxy-mcp's name and its own description. */
 function tool(
   name: string,
   capability: Capability,
@@ -488,16 +488,24 @@ function tool(
     description: LOCAL_DOCS[name],
     capability,
     parameters: { type: "object", properties, required },
+    run,
+  };
+}
+
+/** The same tool with fetch-failure triage appended to what it returns. */
+function triaged(tool: AgentTool, tag: string): AgentTool {
+  return {
+    ...tool,
     run: async (args, ctx) => {
-      const value = await run(args, ctx);
-      const hint = value instanceof Outcome ? undefined : fetchFailureHint(value);
+      const value = await tool.run(args, ctx);
+      const hint = value instanceof Outcome ? undefined : fetchFailureHint(value, tag);
       if (!hint) return value;
       return new Outcome(`${rendered({ data: value })}\n\n${hint}`, false, undefined, value);
     },
   };
 }
 
-export function galaxyTools(): AgentTool[] {
+export function galaxyTools(tag = noteTag(DEFAULT_BRAND)): AgentTool[] {
   return [
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
     tool(
@@ -514,5 +522,5 @@ export function galaxyTools(): AgentTool[] {
       ["packages"],
       recommendBiocontainer,
     ),
-  ];
+  ].map((t) => triaged(t, tag));
 }

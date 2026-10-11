@@ -24,7 +24,10 @@ import {
 } from "@galaxyproject/galaxy-ops/browser";
 
 import { FollowUps } from "./documents";
-import { FOLLOW_UP_MARK } from "./markers";
+import { DEFAULT_BRAND, followUpMark } from "./brand";
+
+const FOLLOW_UP_MARK = followUpMark(DEFAULT_BRAND);
+const NOVA = { id: "nova", name: "Nova" };
 import { HttpError, type Galaxy } from "./galaxy";
 import { context, hold, watchedBy } from "./runtime";
 import {
@@ -430,7 +433,10 @@ describe("followUpPrompt", () => {
       { watched: JOB, state: "ok", outcome: "completed" },
       { watched: { ...JOB, id: "j2", outputs: ["d9"] }, state: "error", outcome: "failed" },
     ])!;
-    expect(prompt.startsWith("[Olit automatic Galaxy follow-up]")).toBe(true);
+    expect(prompt.startsWith("[Orbit automatic Galaxy follow-up]")).toBe(true);
+    expect(followUpPrompt([{ watched: JOB, state: "ok", outcome: "completed" }], NOVA)).toMatch(
+      /^\[Nova automatic Galaxy follow-up\]/,
+    );
     expect(prompt).toContain('"label": "Galaxy job j1"');
     // A failed job is read through its output, which get_job_details takes.
     expect(prompt).toContain('"outputs": [\n      "d9"\n    ]');

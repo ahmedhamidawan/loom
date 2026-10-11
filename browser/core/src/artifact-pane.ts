@@ -1,22 +1,23 @@
 /** The artifact pane: whether it is showing, the shortcut that toggles it, and the divider. */
 
-const COLLAPSED_KEY = "olit.artifactCollapsed";
+import { DEFAULT_BRAND, type Brand } from "./agent/brand";
+
 const BREAKPOINT = 700;
 const MIN_CHAT_PERCENT = 25;
 const MAX_CHAT_PERCENT = 75;
 
 /** Collapsed unless the user has said otherwise; a blocked store only costs the preference. */
-function readPreference(): boolean {
+function readPreference(key: string): boolean {
   try {
-    return localStorage.getItem(COLLAPSED_KEY) !== "0";
+    return localStorage.getItem(key) !== "0";
   } catch {
     return true;
   }
 }
 
-function writePreference(collapsed: boolean): void {
+function writePreference(key: string, collapsed: boolean): void {
   try {
-    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    localStorage.setItem(key, collapsed ? "1" : "0");
   } catch {
     // Nothing to do: the pane still works, it just will not be remembered.
   }
@@ -29,7 +30,12 @@ export interface ArtifactPane {
 
 /** `signal` ends what the pane attached to the container and outside it, for a page that unmounts
  * it and may mount again into the same element. */
-export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal): ArtifactPane {
+export function mountArtifactPane(
+  container: HTMLElement,
+  signal?: AbortSignal,
+  brand: Brand = DEFAULT_BRAND,
+): ArtifactPane {
+  const collapsedKey = `${brand.id}.artifactCollapsed`;
   const chatPane = container.querySelector<HTMLElement>("#chat-pane")!;
   const divider = container.querySelector<HTMLElement>("#divider")!;
   const appMain = container.querySelector<HTMLElement>("#app-main")!;
@@ -37,7 +43,7 @@ export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal):
   const content = container.querySelector<HTMLElement>("#artifact-content")!;
 
   // What the user last chose, which a narrow window overrides without overwriting.
-  let preferred = readPreference();
+  let preferred = readPreference(collapsedKey);
 
   /** An empty pane has nothing to show, whatever the remembered preference says. */
   const empty = () => content.childElementCount === 0;
@@ -57,7 +63,7 @@ export function mountArtifactPane(container: HTMLElement, signal?: AbortSignal):
   };
   const set = (collapsed: boolean) => {
     preferred = collapsed;
-    writePreference(collapsed);
+    writePreference(collapsedKey, collapsed);
     show(collapsed);
   };
   const collapsed = () => document.body.classList.contains("artifact-collapsed");

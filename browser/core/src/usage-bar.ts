@@ -33,7 +33,7 @@ export function mountUsageBar(container: HTMLElement): UsageBar {
     tokensEl.title =
       `Session usage:\n  input: ${session.input.toLocaleString()}` +
       `\n  output: ${session.output.toLocaleString()}`;
-    // Shown only when the provider priced the call; olit keeps no price table.
+    // Shown only when the provider priced the call; the shell keeps no price table.
     if (session.cost === null) {
       costEl.textContent = "";
       costEl.classList.add("hidden");

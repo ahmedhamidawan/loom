@@ -1,5 +1,6 @@
 import { invocationOutcome } from "@galaxyproject/galaxy-ops/browser";
 
+import { DEFAULT_BRAND, noteTag } from "./brand";
 import type { Galaxy } from "./galaxy";
 import { quote } from "./quote";
 import { invocationJobStates } from "./watch";
@@ -53,8 +54,8 @@ export function failedUrl(result: unknown): string | undefined {
   return undefined;
 }
 
-export const IWC_CANDIDATES_HINT =
-  "[olit] These are ranked by word overlap, not relevance. Before offering one, call " +
+const IWC_CANDIDATES =
+  "These are ranked by word overlap, not relevance. Before offering one, call " +
   "`get_iwc_workflow_details` on the plausible candidates and check their inputs " +
   "against the data the user actually has (reads vs count tables, paired vs single-end). " +
   "A workflow that needs another's outputs first is half of a chain, not a match. If none " +
@@ -63,17 +64,20 @@ export const IWC_CANDIDATES_HINT =
 
 export const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
 
-export const iwcCandidatesHint = (name: string) =>
-  IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
+export const iwcCandidatesHint = (name: string, tag = noteTag(DEFAULT_BRAND)) =>
+  IWC_LISTINGS.has(name) ? `${tag} ${IWC_CANDIDATES}` : undefined;
 
 /** The triage line this result earns, or undefined when nothing failed to fetch. */
-export function fetchFailureHint(result: unknown): string | undefined {
+export function fetchFailureHint(
+  result: unknown,
+  tag = noteTag(DEFAULT_BRAND),
+): string | undefined {
   const url = failedUrl(result);
   if (url === undefined) {
     return undefined;
   }
   const archive = ARCHIVE_HOSTS.some((host) => url.includes(host)) || ACCESSION.test(url);
-  return `[olit] ${archive ? ARCHIVE_HINT : GENERIC_HINT}`;
+  return `${tag} ${archive ? ARCHIVE_HINT : GENERIC_HINT}`;
 }
 
 /** Invocations in a listing rolled up from their jobs, one Galaxy call each. */
@@ -98,13 +102,14 @@ export async function invocationOutcomeHint(
   galaxy: Galaxy,
   name: string,
   data: unknown,
+  tag = noteTag(DEFAULT_BRAND),
 ): Promise<string | undefined> {
   if (name !== "get_invocations") {
     return undefined;
   }
   if (isRow(data)) {
     const note = OUTCOME_NOTES[String(data.outcome)];
-    return note && `[olit] ${note}`;
+    return note && `${tag} ${note}`;
   }
   const lines: string[] = [];
   const listed = Array.isArray(data) ? data : [];
@@ -119,7 +124,7 @@ export async function invocationOutcomeHint(
     if (outcome && outcome !== row.state) {
       const note = OUTCOME_NOTES[outcome];
       lines.push(
-        `[olit] Invocation ${row.id}: outcome ${quote(outcome)}, jobs ${JSON.stringify(states)}.` +
+        `${tag} Invocation ${row.id}: outcome ${quote(outcome)}, jobs ${JSON.stringify(states)}.` +
           (note ? ` ${note}` : ""),
       );
     }
@@ -131,7 +136,7 @@ export async function invocationOutcomeHint(
       beyond ? `the ${beyond} listed after the first ${ROLLUP_LIMIT}` : "",
     ].filter(Boolean);
     lines.push(
-      `[olit] Jobs were not checked for ${which.join(" and ")}; their \`state\` describes ` +
+      `${tag} Jobs were not checked for ${which.join(" and ")}; their \`state\` describes ` +
         "scheduling only, so read one by id before reporting how it went.",
     );
   }

@@ -16,7 +16,7 @@ import { WATCH_TASK, type Settled } from "./watch";
 export interface HeadlessConfig extends RuntimeConfig {
   history_id?: string;
   dataset_id?: string;
-  /** The conversation's own instructions, after Olit's prompt. */
+  /** The conversation's own instructions, after the agent's prompt. */
   instructions?: string;
 }
 
@@ -126,7 +126,7 @@ export class Headless {
 
   /**
    * A tab closed and opened again with nothing stored, as a browser does it: launched on the same
-   * history and dataset, it offers the Olit records attached to that history and starts nothing
+   * history and dataset, it offers the brand's records attached to that history and starts nothing
    * until `recover` says which session this is, as the user does in a tab. With no records, a new
    * session starts at once.
    */

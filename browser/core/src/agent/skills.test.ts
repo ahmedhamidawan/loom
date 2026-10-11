@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  DEFAULT_REPO,
+  ownRepo,
   parseFrontmatter,
   selectSkills,
   SkillRegistry,
@@ -165,9 +165,9 @@ describe("the shipped corpus", async () => {
     expect(selectSkills(repo.catalog()).length).toBeGreaterThan(0);
   });
 
-  it("makes olit's own skills the default repo", () => {
-    expect(registry.names()[0]).toBe(DEFAULT_REPO);
-    expect(registry.find()?.name).toBe("olit-skills");
+  it("offers its own skills first, as the brand's repo", () => {
+    expect(registry.names()[0]).toBe(ownRepo());
+    expect(registry.find()?.name).toBe("orbit-skills");
   });
 
   it("reaches a real skill body by its router path", () => {
@@ -190,9 +190,9 @@ describe("the shipped corpus", async () => {
   });
 });
 
-describe("Olit's own skills", () => {
+describe("The agent's own skills", () => {
   it("call each tool only with arguments the tool takes", () => {
-    const root = join(__dirname, "skills", "olit-skills");
+    const root = join(__dirname, "skills", "own");
     const params = new Map(
       agentTools().map((t) => [t.name, Object.keys(t.parameters.properties ?? {})]),
     );

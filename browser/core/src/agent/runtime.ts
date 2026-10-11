@@ -16,6 +16,7 @@ import {
 import { artifactsOf, registerArtifactKinds, type Artifact } from "../artifacts/kinds";
 import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
+import { DEFAULT_BRAND, type Brand } from "./brand";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, agentExtension } from "./extension";
 import { connectGalaxy, connectWeb, type Galaxy } from "./galaxy";
 import { agentModels } from "./model";
@@ -34,7 +35,9 @@ export const context = BACKGROUND_CONTEXT;
 /** Earlier artifacts a tool can place; a spec carries its rows, so few are offered. */
 const ARTIFACT_LIMIT = 20;
 
-/** How Olit's turns run under pi-durable, whatever the model: what `describe` reports as well. */
+/**
+ * How the agent's turns run under pi-durable, whatever the model: what `describe` reports as well.
+ */
 export const LOOP = {
   toolExecution: "sequential",
   followUpMode: "all",
@@ -117,9 +120,9 @@ interface Current {
 }
 
 /**
- * Olit on pi-durable: one Harness over one storage with Olit's extension installed, and what a host
- * decides around it: which conversation a history continues, the model in use, and how a Stop
- * holds back follow-ups.
+ * The agent on pi-durable: one Harness over one storage with the agent's extension installed,
+ * and what a host decides around it: which conversation a history continues, the model in use,
+ * and how a Stop holds back follow-ups.
  */
 export class Runtime {
   /** Why Galaxy did not answer when the session opened, when it did not. */
@@ -131,10 +134,12 @@ export class Runtime {
     private readonly current: Current,
     private readonly connect: ReturnType<typeof agentModels>["connect"],
     private readonly env: Record<string, string | undefined>,
+    readonly brand: Brand,
   ) {}
 
   static async open({ storage, config, python, env = {}, ask, pollMs, flavor }: RuntimeOptions) {
     registerArtifactKinds(flavor?.artifactKinds ?? []);
+    const brand = flavor?.brand ?? DEFAULT_BRAND;
     const galaxyOptions = {
       root: config.galaxy_root,
       key: config.galaxy_key,
@@ -159,12 +164,14 @@ export class Runtime {
     const watch = galaxyWatch({
       galaxy,
       pollMs,
+      brand,
       editRecord: async (id, edit) => {
         const bound = await harness?.snapshot(Binding, id, context);
         return editRecord({ galaxy, pageId: bound?.pageId }, edit);
       },
     });
     const extension = agentExtension({
+      brand,
       galaxy,
       clients: (signal) => ({
         galaxy: connectGalaxy({ ...galaxyOptions, signal }),
@@ -185,10 +192,12 @@ export class Runtime {
         const sections = flavor?.promptSections?.({ model, provider, datasetId }) ?? {};
         return [
           systemText({
+            name: brand.name,
             model,
             provider,
             galaxyStatus,
             afterIdentity: sections.afterIdentity,
+            terminology: sections.terminology,
             galaxyRoot: galaxy.root,
           }),
           skills.routerText(),
@@ -226,11 +235,11 @@ export class Runtime {
             };
           },
         },
-        onReport: (error) => console.warn("[olit]", error),
+        onReport: (error) => console.warn(`[${brand.id}]`, error),
       },
       context,
     );
-    const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
+    const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env, brand);
     runtime.galaxyProblem = galaxyProblem;
     // Before scheduling starts, so no run the store holds takes another step unasked.
     await runtime.hold(await runtime.active());
@@ -301,9 +310,11 @@ export class Runtime {
     return (await this.kept(placement)) ?? this.create(placement);
   }
 
-  /** The Olit records attached to the launch history, for a session this browser no longer keeps. */
+  /**
+   * The brand's records attached to the launch history, for a session this browser no longer keeps.
+   */
   records(historyId: string | undefined): Promise<RecordSummary[]> {
-    return historyId ? recordsOn(this.galaxy, historyId) : Promise.resolve([]);
+    return historyId ? recordsOn(this.galaxy, historyId, this.brand) : Promise.resolve([]);
   }
 
   /** The user's own message, which lets settled work start runs again. */
@@ -325,7 +336,7 @@ export class Runtime {
   }
 
   hold(conversations: Conversation[]): Promise<void> {
-    return hold(conversations);
+    return hold(conversations, this.brand);
   }
 
   /** The conversation as a saved session: its context, and what binds it to Galaxy. */
@@ -425,7 +436,10 @@ export class Runtime {
  * next message, while its Galaxy work is still watched. Returns once the pauses are committed and
  * the aborts enqueued, without waiting for a running tool to end.
  */
-export async function hold(conversations: Conversation[]): Promise<void> {
+export async function hold(
+  conversations: Conversation[],
+  brand: Brand = DEFAULT_BRAND,
+): Promise<void> {
   for (const conversation of conversations) {
     await conversation.commit(async (tx) => {
       (await tx.doc(FollowUps, conversation.id)).paused = true;
@@ -435,7 +449,7 @@ export async function hold(conversations: Conversation[]): Promise<void> {
   for (const conversation of conversations) {
     conversation
       .abort(context, { keepQueued: true })
-      .catch((e) => console.warn("[olit] a held conversation did not stop", e));
+      .catch((e) => console.warn(`[${brand.id}] a held conversation did not stop`, e));
   }
 }
 

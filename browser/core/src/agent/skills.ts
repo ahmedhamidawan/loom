@@ -1,12 +1,19 @@
 import { parse } from "yaml";
 
+import { DEFAULT_BRAND, type Brand } from "./brand";
 import { fail, type AgentTool } from "./tool";
 import type { AgentFlavor } from "./tools";
 
 /** Orbit's own surface tag, so the corpus offers the same skills it offers Orbit. */
 export const SURFACE_ID = "loom";
-/** Sorted first, so `skills_fetch` without a repo lands on olit's own skills. */
-export const DEFAULT_REPO = "olit-skills";
+/**
+ * The folder, in the core and in a flavor, that holds the agent's own skills. They are offered as
+ * the brand's repo, sorted first, so `skills_fetch` without a repo lands on them.
+ */
+export const OWN = "own";
+
+/** The repo the agent's own skills are offered under. */
+export const ownRepo = (brand: Brand = DEFAULT_BRAND) => `${brand.id}-skills`;
 
 export const PACKAGED_SKILLS = import.meta.glob("./skills/**/*", {
   query: "?raw",
@@ -200,11 +207,15 @@ export class SkillRegistry {
   }
 }
 
-/** Every vendored corpus under `skills/`, olit's own first. */
-export function skillRegistry(files: Record<string, string> = PACKAGED_SKILLS): SkillRegistry {
+/** Every vendored corpus under `skills/`, the agent's own first, offered as `own`. */
+export function skillRegistry(
+  files: Record<string, string> = PACKAGED_SKILLS,
+  own = ownRepo(),
+): SkillRegistry {
   const corpora = new Map<string, Record<string, string>>();
   for (const [key, text] of Object.entries(files)) {
-    const [repo, ...rest] = key.replace(/^\.\/skills\//, "").split("/");
+    const [folder, ...rest] = key.replace(/^\.\/skills\//, "").split("/");
+    const repo = folder === OWN ? own : folder;
     if (rest.length && !repo.startsWith("_") && !repo.startsWith(".")) {
       const corpus = corpora.get(repo) ?? {};
       corpus[rest.join("/")] = text;
@@ -212,7 +223,7 @@ export function skillRegistry(files: Record<string, string> = PACKAGED_SKILLS): 
     }
   }
   const registry = new SkillRegistry();
-  const rank = (name: string) => Number(name !== DEFAULT_REPO);
+  const rank = (name: string) => Number(name !== own);
   [...corpora.keys()]
     .sort((a, b) => rank(a) - rank(b) || byCodePoint(a, b))
     .forEach((name) => registry.register(name, corpora.get(name)!));
@@ -221,7 +232,7 @@ export function skillRegistry(files: Record<string, string> = PACKAGED_SKILLS): 
 
 /** The packaged corpora with a flavor's own files merged over them. */
 export const flavoredSkills = (flavor?: AgentFlavor) =>
-  skillRegistry({ ...PACKAGED_SKILLS, ...flavor?.skills });
+  skillRegistry({ ...PACKAGED_SKILLS, ...flavor?.skills }, ownRepo(flavor?.brand));
 
 /** A path from the default repo, so the example is a call that works as written. */
 function examplePath(skills: SkillRegistry): string {

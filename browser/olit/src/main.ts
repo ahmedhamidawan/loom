@@ -7,6 +7,7 @@ import {
   type LaunchContext,
 } from "@galaxyproject/orbit-browser";
 import { OLIT_ARTIFACTS } from "./artifacts/renderers";
+import { OLIT_BRAND } from "./brand";
 import { parseIncoming } from "./incoming";
 import { NotYours, reportSavedState, savedSessions, type SavedSessions } from "./saved-session";
 import { resolveLaunch, summarize } from "./seed-dataset";
@@ -75,11 +76,11 @@ async function launch(
     return { saved: { id: visualizationId, document } };
   }
   if (!datasetId) {
-    return { ...(await currentHistoryLaunch(galaxy)), ...unopened };
+    return { ...(await currentHistoryLaunch(galaxy, OLIT_BRAND)), ...unopened };
   }
   const found = await resolveLaunch(galaxy, datasetId);
   if (!found.historyId) {
-    return { stop: cannotStart(`dataset ${datasetId}`, found.problem) };
+    return { stop: cannotStart(`dataset ${datasetId}`, found.problem, OLIT_BRAND) };
   }
   return {
     historyId: found.historyId,
@@ -108,6 +109,7 @@ async function main() {
     pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, document.baseURI).href,
     createWorker: () => new Worker(new URL("./worker.ts", import.meta.url), { type: "module" }),
     ...OLIT_ARTIFACTS,
+    brand: OLIT_BRAND,
     launch: (galaxy) => {
       saved = savedSessions(galaxy);
       return launch(galaxy, incoming.visualizationId, incoming.datasetId);

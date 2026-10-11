@@ -4,7 +4,8 @@ import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 
 import { artifactsOf, type Artifact } from "./artifacts/kinds";
 
-import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
+import { DEFAULT_BRAND, followUpMark, type Brand } from "./agent/brand";
+import { EMPTY_REPLY } from "./agent/markers";
 import { usageTotals } from "./agent/saved";
 import type { ChatPanel } from "../../../app/src/renderer/chat/chat-panel";
 import { StreamedReply } from "./streamed-reply";
@@ -49,7 +50,7 @@ export interface ViewHooks {
 }
 
 /** Why pi-durable left a user's message unanswered, as the user should hear it. */
-function unanswered(reason: string | undefined, detail: unknown): string {
+function unanswered(reason: string | undefined, detail: unknown, name: string): string {
   const why = typeof detail === "string" && detail ? `: ${detail}` : "";
   switch (reason) {
     case "model_error":
@@ -57,7 +58,7 @@ function unanswered(reason: string | undefined, detail: unknown): string {
     case "no_model":
       return "No model is configured for this conversation, so nothing could answer.";
     case "faulted":
-      return `Olit failed while answering${why}`;
+      return `${name} failed while answering${why}`;
     default:
       return `This message was not answered (${reason ?? "unknown reason"}${why}).`;
   }
@@ -84,6 +85,7 @@ export class ChatView {
   constructor(
     private readonly chat: Chat,
     private readonly hooks: ViewHooks,
+    private readonly brand: Brand = DEFAULT_BRAND,
   ) {}
 
   /** How the latest run went. */
@@ -121,9 +123,9 @@ export class ChatView {
         if (reason === "aborted") this.run.aborted = true;
         else if (reason === "turn_limit") this.run.exhausted = true;
         // A model error already reached the chat as its own entry; anything else says it here.
-        else this.run.error ??= unanswered(reason, detail);
+        else this.run.error ??= unanswered(reason, detail, this.brand.name);
       } else if (event.type === "task_failed") {
-        this.hooks.failed(`Olit's ${event.kind} task failed: ${event.message}`);
+        this.hooks.failed(`${this.brand.name}'s ${event.kind} task failed: ${event.message}`);
       } else if (event.type === "message_start" && event.message.role === "assistant") {
         this.stream(this.reply.start(event.message));
       } else if (event.type === "message_update") {
@@ -186,7 +188,7 @@ export class ChatView {
       this.hooks.info("Summarized the earlier conversation to make room.");
     } else if (message.role === "user") {
       const text = textOf(message);
-      if (text.startsWith(FOLLOW_UP_MARK)) {
+      if (text.startsWith(followUpMark(this.brand))) {
         this.hooks.info("Checking the Galaxy results that just landed.");
       } else if (text !== EMPTY_REPLY) {
         this.turns += 1;

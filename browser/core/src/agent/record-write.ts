@@ -2,7 +2,7 @@
  *
  * loom's poller advances the notebook itself (`persistJobUpdate`, galaxy-poller.ts): it
  * re-reads, applies the update, writes back, and retries when a concurrent writer got there
- * first. olit's record is a Galaxy Page and `update_page` replaces it wholesale, so the same
+ * first. the agent's record is a Galaxy Page and `update_page` replaces it wholesale, so the same
  * read-modify-write is needed here -- and for the same reason: a write that is not re-read
  * first silently drops whatever landed in between.
  *

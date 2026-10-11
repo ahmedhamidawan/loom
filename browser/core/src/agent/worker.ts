@@ -18,6 +18,7 @@ import { browserPython } from "./python";
 import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
 import type { SessionDocument } from "./saved";
 import type { RecordSummary } from "./notebook";
+import { DEFAULT_BRAND } from "./brand";
 import { holdStorage, openStorage } from "./storage";
 import type { AgentFlavor } from "./tools";
 import { WATCH_TASK, type Settled } from "./watch";
@@ -48,7 +49,7 @@ export type WorkerMessage =
       /** Why the history's earlier records could not be looked up. */
       recordsProblem?: string;
     }
-  /** No session kept here, but the launch history has Olit records to choose from. */
+  /** No session kept here, but the launch history has records of this brand to choose from. */
   | { type: "recoverable"; records: RecordSummary[] }
   | { type: "events"; events: readonly AgentEvent[] }
   /** Galaxy work the conversation watched has settled. */
@@ -161,6 +162,7 @@ async function attach(next: Conversation) {
 }
 
 async function open(request: OpenRequest) {
+  const brand = flavor.brand ?? DEFAULT_BRAND;
   const galaxy = connectGalaxy({
     root: request.config.galaxy_root,
     credentials: request.config.credentials,
@@ -178,7 +180,7 @@ async function open(request: OpenRequest) {
   let storage: Storage = new MemoryStorage();
   if (user !== undefined) {
     // The file pool is one per origin, whichever Galaxy user opens it, so the tab lock is too.
-    await holdStorage("storage", {
+    await holdStorage(`${brand.id}:storage`, {
       steal: request.steal,
       waiting: () => post({ type: "waiting" }),
       // Ending the worker lets go of the files it holds open, which the other tab needs.
@@ -187,7 +189,7 @@ async function open(request: OpenRequest) {
         self.close();
       },
     });
-    ({ storage, unkept } = await openStorage(`olit-${user}`));
+    ({ storage, unkept } = await openStorage(`${brand.id}-${user}`, brand.id));
   }
   runtime = await Runtime.open({
     storage,

@@ -1,13 +1,14 @@
 import { query, segment, type Galaxy } from "./galaxy";
 import { contentHash } from "@galaxyproject/galaxy-ops/browser";
 
+import { DEFAULT_BRAND, type Brand } from "./brand";
 import { pageBody } from "./page-edit";
 import { remember } from "./record-write";
 import { fail, Outcome, type Capability, type Context, type AgentTool } from "./tool";
 
-export const STARTER = `## Record
+export const starter = (brand: Brand = DEFAULT_BRAND) => `## Record
 
-This page is the running record for this analysis, maintained by Olit. It holds the
+This page is the running record for this analysis, maintained by ${brand.name}. It holds the
 plan, what was executed, and what the results showed.
 `;
 
@@ -20,9 +21,11 @@ export const CAPABILITY: Capability = "write";
 
 type Page = Record<string, any>;
 
-export const titleForSession = (sessionId: string) => `Olit Notebook (${sessionId.slice(0, 8)})`;
+export const titleForSession = (sessionId: string, brand: Brand = DEFAULT_BRAND) =>
+  `${brand.name} Notebook (${sessionId.slice(0, 8)})`;
 
-export const slugForSession = (sessionId: string) => `olit-${sessionId}`;
+export const slugForSession = (sessionId: string, brand: Brand = DEFAULT_BRAND) =>
+  `${brand.id}-${sessionId}`;
 
 /** The page at `pageId`, or undefined when Galaxy reports it gone; throws when unknown. */
 async function usable(galaxy: Galaxy, pageId: string): Promise<Page | undefined> {
@@ -149,7 +152,7 @@ ${fence}`;
 }
 
 /**
- * An Olit record attached to a history: the session that owns it, found again through the
+ * A record of this brand's attached to a history: the session that owns it, found again through the
  * history it was started on once the browser holds nothing of that session.
  */
 export interface RecordSummary {
@@ -160,14 +163,18 @@ export interface RecordSummary {
   updated: string;
 }
 
-const SESSION_SLUG = /^olit-(.+)$/;
-
-/** The Olit records Galaxy keeps attached to `historyId`, most recently updated first. */
-export async function recordsOn(galaxy: Galaxy, historyId: string): Promise<RecordSummary[]> {
+/** The brand's records Galaxy keeps attached to `historyId`, most recently updated first. */
+export async function recordsOn(
+  galaxy: Galaxy,
+  historyId: string,
+  brand: Brand = DEFAULT_BRAND,
+): Promise<RecordSummary[]> {
+  const prefix = slugForSession("", brand);
   const pages: unknown = await galaxy.get(`api/pages${query({ history_id: historyId })}`);
   return (Array.isArray(pages) ? (pages as Page[]) : [])
     .flatMap((page) => {
-      const session = typeof page.slug === "string" ? SESSION_SLUG.exec(page.slug)?.[1] : undefined;
+      const slug = typeof page.slug === "string" ? page.slug : "";
+      const session = slug.startsWith(prefix) ? slug.slice(prefix.length) || undefined : undefined;
       return session && !page.deleted
         ? [
             {
@@ -193,6 +200,7 @@ export async function resume(
   sessionId?: string,
   pageId?: string,
   historyId?: string,
+  brand: Brand = DEFAULT_BRAND,
 ): Promise<Outcome | Page> {
   if (!sessionId) {
     return fail(
@@ -214,9 +222,9 @@ export async function resume(
   }
 
   const created = await galaxy.post("api/pages", {
-    title: titleForSession(sessionId),
-    slug: slugForSession(sessionId),
-    content: STARTER,
+    title: titleForSession(sessionId, brand),
+    slug: slugForSession(sessionId, brand),
+    content: starter(brand),
     content_format: "markdown",
     ...(historyId ? { history_id: historyId } : {}),
   });
@@ -227,13 +235,13 @@ export async function resume(
     created: true,
     page_id: created.id,
     title: created.title ?? null,
-    content: STARTER,
-    content_hash: contentHash({ content_editor: STARTER }),
+    content: starter(brand),
+    content_hash: contentHash({ content_editor: starter(brand) }),
   };
 }
 
 /** `notebook_resume`: opens the session's record page, keeping its id on `ctx.binding`. */
-export function notebookTools(): AgentTool[] {
+export function notebookTools(brand: Brand = DEFAULT_BRAND): AgentTool[] {
   return [
     {
       name: "notebook_resume",
@@ -252,6 +260,7 @@ export function notebookTools(): AgentTool[] {
           ctx.binding.sessionId,
           ctx.binding.pageId,
           ctx.binding.historyId,
+          brand,
         );
         if (opened instanceof Outcome) {
           return opened;

@@ -32,11 +32,14 @@ import {
   type AgentTool,
 } from "./tool";
 import type { Watched } from "./watch";
+import { DEFAULT_BRAND, type Brand } from "./brand";
 
 export const MAX_STEPS = 100;
 export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "write"];
 
 export interface AgentHost {
+  /** The extension is installed under the brand's id. */
+  brand?: Brand;
   galaxy: Galaxy;
   /** Galaxy clients and Python for one call, ended by its abort signal. */
   clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
@@ -54,7 +57,7 @@ export interface AgentHost {
   watch: Task<Watched, any, any, object>;
 }
 
-/** What Olit remembers of one run: the guards' counts and the empty-answer retry. */
+/** What the agent remembers of one run: the guards' counts and the empty-answer retry. */
 interface Run {
   id: SubmissionId | undefined;
   guard: ReturnType<typeof guards>;
@@ -85,8 +88,8 @@ const replaced = (result: ToolExecutionResult, text: string, guard?: Guard) => (
 });
 
 /**
- * A request as Olit sends it: tool names without harmony control tokens, and the record excerpt
- * as an update of its own section just before the last user message.
+ * A request as the agent sends it: tool names without harmony control tokens, and the record
+ * excerpt as an update of its own section just before the last user message.
  */
 export function withRecord(messages: readonly Message[], text: string): Message[] {
   const out = messages.map((m) =>
@@ -101,7 +104,7 @@ export function withRecord(messages: readonly Message[], text: string): Message[
   return out;
 }
 
-/** Olit as a pi-durable extension: its tools, prompt and guards. */
+/** The agent as a pi-durable extension: its tools, prompt and guards. */
 export function agentExtension(host: AgentHost) {
   const granted = new Set(host.capabilities);
   const missing = (t: AgentTool) =>
@@ -155,7 +158,7 @@ export function agentExtension(host: AgentHost) {
   }
 
   const extension = defineExtension({
-    name: "olit",
+    name: (host.brand ?? DEFAULT_BRAND).id,
     tools: [...offered.map((t) => durableTool(t, host)), finish],
     sections: [
       section(

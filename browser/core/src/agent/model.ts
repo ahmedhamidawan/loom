@@ -92,7 +92,7 @@ function unlisted(id: string, provider: PiProvider<Api>): Model<Api> {
 }
 
 /**
- * The variable a headless run puts this provider's key in: Olit's own for a provider it
+ * The variable a headless run puts this provider's key in: the agent's own for a provider it
  * defines, else the API-key variable pi reads, learned by asking pi rather than copied.
  */
 export async function keyVariable(provider: Provider): Promise<string | undefined> {
@@ -125,14 +125,16 @@ export interface Connection {
 /**
  * One pi-ai `Models` for every model a host connects, each provider held to its own rate limit.
  * A provider pi defines is pi's own: its endpoint, wire API, compat, catalog and key variable, with
- * the user's key handed over as a stored credential. A provider Olit defines is described to pi
- * under its real id, so pi applies what it can.
+ * the user's key handed over as a stored credential. A provider the agent defines is described to
+ * pi under its real id, so pi applies what it can.
  */
 export function agentModels(env: Record<string, string | undefined> = {}) {
   const credentials = new InMemoryCredentialStore();
   const inner = createModels({ credentials, authContext: authContext(env) });
   const chosen = new Map<string, Model<Api>>();
-  /** One bucket per quota: a model at an endpoint, under one key and limit, kept across connects. */
+  /**
+   * One bucket per quota: a model at an endpoint, under one key and limit, kept across connects.
+   */
   const limits = new Map<string, (signal?: AbortSignal) => Promise<void>>();
   const quota = (m: Model<Api>, key: string | undefined, perMinute: number) =>
     JSON.stringify([m.provider, m.baseUrl, m.id, key ?? "", perMinute]);

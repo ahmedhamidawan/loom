@@ -91,7 +91,7 @@ export interface Call {
   arguments: Record<string, unknown>;
 }
 
-/** Olit's guards over one run's calls. */
+/** The agent's guards over one run's calls. */
 export function guards(options: GuardOptions) {
   const now = options.now ?? Date.now;
   const failures = new Map<string, number>();

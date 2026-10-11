@@ -1,13 +1,14 @@
 /** Orbit's layout chain, so Orbit's styles.css applies as-is. */
 
+import { DEFAULT_BRAND } from "./agent/brand";
+
 export const LAYOUT = `
       <div id="app-main">
         <div id="chat-pane" class="pane">
           <div id="messages"></div>
           <div id="input-area">
             <div class="composer-row">
-              <textarea id="input" rows="1" aria-label="Chat input"
-                placeholder="Ask Olit to run something..."></textarea>
+              <textarea id="input" rows="1" aria-label="Chat input"></textarea>
               <button id="send-btn" title="Send" aria-label="Send message">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -69,8 +70,13 @@ export interface Elements {
 }
 
 /** Write the layout into `container` and hand back the parts the shell drives. */
-export function mountLayout(container: HTMLElement, { save = true } = {}): Elements {
+export function mountLayout(
+  container: HTMLElement,
+  { save = true, name = DEFAULT_BRAND.name } = {},
+): Elements {
   container.innerHTML = LAYOUT;
+  container.querySelector<HTMLTextAreaElement>("#input")!.placeholder =
+    `Ask ${name} to run something...`;
   if (!save) container.querySelector("#save-btn")!.remove();
   const find = <T extends HTMLElement>(id: string) => container.querySelector<T>(id)!;
   return {

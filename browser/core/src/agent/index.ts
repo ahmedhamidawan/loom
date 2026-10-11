@@ -4,6 +4,7 @@
  * and the internals only tests reach for under `/testing`.
  */
 export type { Artifact, ArtifactOf } from "../artifacts/kinds";
+export { DEFAULT_BRAND, type Brand } from "./brand";
 export { query, segment, type Galaxy, type Web } from "./galaxy";
 export type { Annotate } from "./ops";
 export { quote } from "./quote";

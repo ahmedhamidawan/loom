@@ -2,6 +2,7 @@
  * Orbit's browser shell, as a page mounts it, and the few agent helpers a page needs. A page
  * imports from here rather than `/agent`, whose modules would otherwise land in its bundle.
  */
+export { DEFAULT_BRAND, type Brand } from "./agent/brand";
 export { segment, type Galaxy } from "./agent/galaxy";
 export { isSessionDocument, type SessionDocument } from "./agent/saved";
 export {

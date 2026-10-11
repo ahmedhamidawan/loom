@@ -10,7 +10,7 @@ export interface ProviderModel {
 
 /**
  * Overrides of pi-ai's openai-completions compat detection, which keys on provider id and
- * host, for the endpoints Olit defines itself. Each one names something such an endpoint was
+ * host, for the endpoints the agent defines itself. Each one names something such an endpoint was
  * seen to reject or require.
  */
 export interface ProviderCompat {
@@ -46,10 +46,10 @@ const PI: Record<string, () => Promise<PiProvider<Api>>> = {
   xai: () => import("@earendil-works/pi-ai/providers/xai").then((m) => m.xaiProvider()),
 };
 
-/** pi's definition of a provider, or undefined for one Olit defines itself. */
+/** pi's definition of a provider, or undefined for one the agent defines itself. */
 export const piProvider = (id: string) => PI[id]?.();
 
-/** Whether pi defines this provider, so Olit sets nothing of its wire behaviour. */
+/** Whether pi defines this provider, so the agent sets nothing of its wire behaviour. */
 export const isPiProvider = (id: string) => id in PI;
 
 export interface Provider {
@@ -58,7 +58,7 @@ export interface Provider {
   /** Suggestions for the picker; pi's catalog describes them. */
   models?: ProviderModel[];
   rateLimit?: number;
-  /** Below, only for a provider Olit defines itself. */
+  /** Below, only for a provider the agent defines itself. */
   compat?: ProviderCompat;
   baseUrl?: string;
   /** The environment variable a headless run reads the key from; none means no user key. */
@@ -144,9 +144,9 @@ export interface LlmConfig {
 export interface Target {
   provider: Provider;
   model: string;
-  /** A typed or proxied endpoint, or an Olit-defined provider's; pi's own otherwise. */
+  /** A typed or proxied endpoint, or an agent-defined provider's; pi's own otherwise. */
   baseUrl?: string;
-  /** The configured key, or for an Olit-defined provider the one its variable holds. */
+  /** The configured key, or for an agent-defined provider the one its variable holds. */
   apiKey?: string;
   /** Configured, probed, or listed here; otherwise pi's catalog or a default decides. */
   contextWindow?: number;

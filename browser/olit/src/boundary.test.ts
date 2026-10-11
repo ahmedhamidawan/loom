@@ -71,15 +71,8 @@ function coreProse(dir: string): string[] {
 
 describe("the core's prose", () => {
   // A tool only Olit has, named by the core, is a reference every other flavor ships without
-  // the tool behind it. The ones below predate the split: the notebook skill's aside, and the
-  // system prompt's Galaxy terminology, which sends a request to view a dataset to
-  // list_visualizations. Their text is pinned until the agent's prompts can change.
-  const KNOWN = {
-    "src/agent/prompt.ts": ["list_visualizations"],
-    "src/agent/skills/olit-skills/notebook/SKILL.md": ["get_visualization_details"],
-  };
-
-  it("names none of Olit's tools beyond the known ones", () => {
+  // the tool behind it. A term that needs one goes in through promptSections instead.
+  it("names none of Olit's tools", () => {
     const tools = olitFlavor.tools!().map((t) => t.name);
     const found: Record<string, string[]> = {};
     for (const file of coreProse(join(CORE, "src"))) {
@@ -87,6 +80,6 @@ describe("the core's prose", () => {
       const named = tools.filter((t) => new RegExp(`\\b${t}\\b`).test(text));
       if (named.length) found[relative(CORE, file)] = named.sort();
     }
-    expect(found).toEqual(KNOWN);
+    expect(found).toEqual({});
   });
 });

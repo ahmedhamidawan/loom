@@ -648,7 +648,7 @@ describe("the work a call submitted", () => {
     };
     const out = await upload([failed, queued]);
     expect(out).toBeInstanceOf(Outcome);
-    expect(out.text).toContain("[olit]");
+    expect(out.text).toContain("[orbit]");
     expect(submittedBy("upload_file", out)).toEqual([
       { kind: "dataset", id: "o1", label: "upload_file", state: "queued" },
     ]);

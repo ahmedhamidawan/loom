@@ -1,7 +1,7 @@
 /**
  * Vendor the galaxy-skills corpus into the agent at build time.
  *
- * Orbit fetches skills from GitHub on demand and caches them for 24h. olit ships
+ * Orbit fetches skills from GitHub on demand and caches them for 24h. The browser ships
  * them instead: the browser has no writable cache to persist across sessions, and a
  * per-turn fetch would put a GitHub round trip on the critical path of an agent that
  * is supposed to load like a web page. Vendoring also pins the corpus to the build,
@@ -41,7 +41,7 @@ const LOCK = join(ROOT, "skills.lock.json");
 const ALLOWED_OWNER = "galaxyproject";
 
 function headers() {
-  const h = { "User-Agent": "olit-skills-vendor", Accept: "application/vnd.github+json" };
+  const h = { "User-Agent": "orbit-browser-skills-vendor", Accept: "application/vnd.github+json" };
   if (process.env.GITHUB_TOKEN) {
     h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
@@ -112,7 +112,7 @@ async function listBlobs(sha) {
 
 async function download(sha, blob) {
   const url = `https://raw.githubusercontent.com/${REPO}/${sha}/${blob.path}`;
-  const res = await fetch(url, { headers: { "User-Agent": "olit-skills-vendor" } });
+  const res = await fetch(url, { headers: { "User-Agent": "orbit-browser-skills-vendor" } });
   if (!res.ok) {
     throw new Error(`fetch ${blob.path} failed: HTTP ${res.status}`);
   }

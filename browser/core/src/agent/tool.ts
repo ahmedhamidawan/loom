@@ -154,7 +154,7 @@ export interface Details {
 }
 
 /**
- * An Olit tool as a pi-durable tool. A read runs again after a reload; a write does not, so a
+ * An agent tool as a pi-durable tool. A read runs again after a reload; a write does not, so a
  * Galaxy effect is never repeated: the work it submitted is watched from the commit that records
  * the binding it changed. Artifacts travel in the result's details.
  */

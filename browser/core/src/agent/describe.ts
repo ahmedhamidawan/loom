@@ -10,13 +10,14 @@ import { DEFAULT_COMPACTION_POLICY } from "@earendil-works/pi-durable";
 import { MAX_AUTO_FOLLOW_UPS } from "./documents";
 import { MAX_STEPS } from "./extension";
 import { connect, keyVariable } from "./model";
-import { STARTER } from "./notebook";
+import { starter } from "./notebook";
 import { LOOP } from "./runtime";
 import { opsTools } from "./ops";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { GUARDS } from "./tool";
 import { agentTools, type AgentFlavor } from "./tools";
 import { flavoredSkills } from "./skills";
+import { DEFAULT_BRAND, type Brand } from "./brand";
 
 const SCHEMA = 1;
 const SOURCE = "src/agent";
@@ -63,7 +64,7 @@ function walk(dir: string): string[] {
   });
 }
 
-/** The galaxy-ops entry Olit imports, keyed as a module beside Olit's own. */
+/** The galaxy-ops entry the agent imports, keyed as a module beside the agent's own. */
 const GALAXY_OPS = "@galaxyproject/galaxy-ops/browser";
 
 /** Every name a module exports, by module. */
@@ -96,7 +97,7 @@ function symbols(sources: string[]): Record<string, string[]> {
   for (const rel of [...found.keys()].sort()) {
     out[`${SOURCE}/${rel}`] = [...found.get(rel)!].sort();
   }
-  // What Olit links against in galaxy-ops, so a seam can name where moved behaviour lives now.
+  // What the agent links against in galaxy-ops, so a seam can name where moved behaviour lives now.
   out[GALAXY_OPS] = Object.keys(galaxyOps).sort();
   return out;
 }
@@ -130,7 +131,7 @@ function typeOf(spec: Record<string, any>): string {
   return kind + enumerated + fallback;
 }
 
-function tools(flavor: AgentFlavor) {
+function tools(flavor: AgentFlavor, brand: Brand) {
   const delegated = new Set(opsTools().map((t) => t.name));
   // The result shape galaxy-ops declares for each operation and reads back in its own tests.
   const declared = new Map(allOperations.map((op) => [op.name, op.result ?? null]));
@@ -142,7 +143,7 @@ function tools(flavor: AgentFlavor) {
     const names = Object.keys(properties).sort();
     out[tool.name] = {
       capability: tool.capability ?? null,
-      runner: delegated.has(tool.name) ? "galaxy-ops" : "olit",
+      runner: delegated.has(tool.name) ? "galaxy-ops" : brand.id,
       signature: fingerprint(`${tool.description}|${names.join(",")}`),
       params: Object.fromEntries(
         names.map((n) => [n, typeOf(properties[n]) + (required.has(n) ? "!" : "")]),
@@ -241,21 +242,22 @@ async function providers() {
   );
 }
 
-/** The surface Olit exposes, as data, for an evaluator that does not read its source. */
+/** The surface the agent exposes, as data, for an evaluator that does not read its source. */
 export async function describe(layout: DescribeLayout, flavor: AgentFlavor) {
+  const brand = flavor.brand ?? DEFAULT_BRAND;
   const sources = agentSources(layout);
   const core = sources[0];
   return {
     schema: SCHEMA,
-    agent: "olit",
+    agent: brand.id,
     identity_prompt: identityPrompt(layout.identityPrompt),
     symbols: symbols(sources),
     prompt_blocks: promptBlocks(sources),
-    tools: tools(flavor),
+    tools: tools(flavor, brand),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
     providers: await providers(),
     follow_ups: followUps(),
     skills: skills(join(core, SOURCE, "skills", "galaxy-skills"), join(core, "skills.lock.json")),
-    record: { starter: STARTER, resume_tool: "notebook_resume" },
+    record: { starter: starter(brand), resume_tool: "notebook_resume" },
   };
 }

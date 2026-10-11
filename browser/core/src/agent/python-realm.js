@@ -1,4 +1,5 @@
-// The untrusted side of `run_python`: Pyodide in a realm that holds no Olit or Galaxy authority.
+// The untrusted side of `run_python`: Pyodide in a realm that holds none of the agent's or
+// Galaxy's authority.
 //
 // python.ts starts this file from its text. In the browser it is a data: URL worker, whose origin
 // is opaque: no Galaxy cookie is same-origin to it, it has no storage, and the agent's state and
@@ -18,7 +19,7 @@ from pyodide.http import pyfetch
 _ns = {"pyfetch": pyfetch}
 
 async def _run(code):
-    value = await eval_code_async(code, globals=_ns, filename="<olit>")
+    value = await eval_code_async(code, globals=_ns, filename="<python>")
     return None if value is None else repr(value)
 
 _run

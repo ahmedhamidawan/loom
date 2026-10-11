@@ -1,9 +1,9 @@
 /**
- * The chat's markdown, as Olit renders the model's replies: raw HTML shows as text, and an image
- * loads only from Galaxy's own origin or inline data. A reply can otherwise make the browser fetch
- * any URL, carrying whatever the reply puts in it, without the user clicking anything.
+ * The chat's markdown, as the shell renders the model's replies: raw HTML shows as text, and an
+ * image loads only from Galaxy's own origin or inline data. A reply can otherwise make the browser
+ * fetch any URL, carrying whatever the reply puts in it, without the user clicking anything.
  *
- * Orbit's chat UI renders through this `marked` instance, which nothing else in Olit uses.
+ * Orbit's chat UI renders through this `marked` instance, which nothing else in the shell uses.
  */
 import { marked } from "marked";
 

@@ -17,7 +17,7 @@ export interface ModelUse {
   model?: string;
 }
 
-/** The Olit build that wrote a document: its commit and when it was built. */
+/** The build that wrote a document: its commit and when it was built. */
 export interface Build {
   commit: string;
   built?: string;
