@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 # A server left running from an earlier run answers first, and the drivers then grade it
 # instead of this build. /dev/tcp rather than lsof, which CI images do not all carry.
-for port in 8099 5173; do
+for port in 8099 5173 5174; do
     if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
         echo "e2e: port $port is already in use; stop that process first" >&2
         exit 1
@@ -54,6 +54,21 @@ for d in confirm session reload tabs unsaved-changes approval-gate ratelimit vis
         failed "$d" "/tmp/olit-e2e-$d.log"
     fi
 done
+
+# The core under a flavor that adds nothing, launched on the current history. Every drive
+# above mounts Olit, so this is what fails when the core starts leaning on Olit.
+GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 \
+  LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
+  LLM_CONTEXT_WINDOW=64000 LLM_KEEP_RECENT_TOKENS=50 \
+  npm run dev -w @galaxyproject/orbit-browser-bare > /tmp/olit-e2e-bare-dev.log 2>&1 & pids+=($!)
+await http://localhost:5174/ 120 /tmp/olit-e2e-bare-dev.log
+ran="$ran bare"
+curl -sf -o /dev/null http://127.0.0.1:8099/__reset
+if node e2e/bare-drive.cjs > /tmp/olit-e2e-bare.log 2>&1; then
+    echo "PASS  bare"
+else
+    failed bare /tmp/olit-e2e-bare.log
+fi
 
 # The built bundle, served the way Galaxy serves it: the stub renders the host page and
 # the plugin static path, so these drivers get the credentials modal and the agent both.
