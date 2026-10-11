@@ -207,6 +207,8 @@ export function orbitBrowserVite({
         "/api": proxyGalaxy(env),
         // Galaxy serves its OpenAPI spec here; the scoped catalog fetches it.
         "/openapi.json": proxyGalaxy(env),
+        // The default launch (currentHistoryLaunch) asks which history is current here.
+        "/history/current_history_json": proxyGalaxy(env),
         ...Object.fromEntries(galaxyPaths.map((p) => [p, proxyGalaxy(env)])),
         // Dev LLM proxy; the key is attached here so it never reaches page JS.
         "/llm": {
