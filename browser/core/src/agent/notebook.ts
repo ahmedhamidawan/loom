@@ -3,7 +3,7 @@ import { contentHash } from "@galaxyproject/galaxy-ops/browser";
 
 import { pageBody } from "./page-edit";
 import { remember } from "./record-write";
-import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
+import { fail, Outcome, type Capability, type Context, type AgentTool } from "./tool";
 
 export const STARTER = `## Record
 
@@ -233,7 +233,7 @@ export async function resume(
 }
 
 /** `notebook_resume`: opens the session's record page, keeping its id on `ctx.binding`. */
-export function notebookTools(): OlitTool[] {
+export function notebookTools(): AgentTool[] {
   return [
     {
       name: "notebook_resume",

@@ -127,7 +127,7 @@ What still ties the two packages to this workspace, and why each waits:
     `skills.lock.json` from the installed package, so the bundle either keeps shipping those (a
     `files` entry) or describe's data gets generated at the core's build time. A flavor still lays
     its own sources out as `src/agent/*.ts`.
-  - The core reads build-time `process.env.*` defines (`credentials`, `olit_commit`/`olit_built`,
+  - The core reads build-time `process.env.*` defines (`credentials`, `build_commit`/`build_built`,
     the `llm_*` dev overrides) that the preset's `defines()` injects into the flavor's build. A
     pre-built bundle can't carry those: building them in would stamp the core's commit into every
     saved session and freeze the dev settings, and leaving them in throws on `process`. So they
@@ -150,9 +150,6 @@ What still ties the two packages to this workspace, and why each waits:
     by Olit" starter, `cannotStart`, the worker-failure fallback, the transcript's failure lines,
     the composer placeholder, the shell's status messages, and the `[olit]` prefix on its console
     lines.
-  - *Names in the API*: `OlitTool`, `olitTools`, and the `olit_commit`/`olit_built` defines.
-  - *Internal names* that only a rename touches: the stylesheet `olit.css` and its `olit-` classes,
-    `olitExtension`/`OlitHost` and `olitModels`.
 
   The persisted names are also why a second flavor can't share a Galaxy origin with Olit yet: it
   would open Olit's database, resume Olit's conversation on a history with its own tools, list

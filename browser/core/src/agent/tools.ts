@@ -11,7 +11,7 @@ import { opsTools, type Annotate } from "./ops";
 import { processTools } from "./processes";
 import { pythonTool } from "./python";
 import { flavoredSkills, skillsTool } from "./skills";
-import { fail, type Context, type OlitTool } from "./tool";
+import { fail, type Context, type AgentTool } from "./tool";
 
 /**
  * What a flavor adds to the agent: Olit's own seam until the agent runs on Orbit's extensions,
@@ -19,7 +19,7 @@ import { fail, type Context, type OlitTool } from "./tool";
  */
 export interface AgentFlavor {
   /** Placed right after Galaxy's tools: {{artifact}} placement, counted in misrouted()'s own set. */
-  tools?: () => OlitTool[];
+  tools?: () => AgentTool[];
   /** Raw files keyed "./skills/<repo>/<path>", merged over the packaged corpus. */
   skills?: Record<string, string>;
   /** Galaxy-op result notes, tried after IWC's and before invocation-outcome and fetch-failure. */
@@ -34,7 +34,7 @@ export interface AgentFlavor {
 }
 
 /** A tool whose string arguments may carry `{{artifact}}` tokens, resolved before it runs. */
-function placingArtifacts(tool: OlitTool): OlitTool {
+function placingArtifacts(tool: AgentTool): AgentTool {
   return {
     ...tool,
     run: async (args: Record<string, unknown>, ctx: Context) => {
@@ -53,7 +53,7 @@ function placingArtifacts(tool: OlitTool): OlitTool {
 }
 
 /** Every tool Olit can offer, before a session filters them by capability. */
-export function olitTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): OlitTool[] {
+export function agentTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): AgentTool[] {
   const python = pythonTool();
   const flavored = flavor.tools?.() ?? [];
   const rest = [
@@ -75,7 +75,7 @@ export function olitTools(skills = flavoredSkills(), flavor: AgentFlavor = {}): 
  * all, so say where the tool lives instead. A tool_id asks for it directly; a query hunts the
  * catalog for it.
  */
-function misrouted(tool: OlitTool, own: Set<string>): OlitTool {
+function misrouted(tool: AgentTool, own: Set<string>): AgentTool {
   return {
     ...tool,
     run: async (args: Record<string, unknown>, ctx: Context) => {

@@ -1,6 +1,6 @@
 import { parse } from "yaml";
 
-import { fail, type OlitTool } from "./tool";
+import { fail, type AgentTool } from "./tool";
 import type { AgentFlavor } from "./tools";
 
 /** Orbit's own surface tag, so the corpus offers the same skills it offers Orbit. */
@@ -229,7 +229,7 @@ function examplePath(skills: SkillRegistry): string {
 }
 
 /** Orbit's `skills_fetch`: addressed by repo-relative path, not by name. */
-export function skillsTool(skills: SkillRegistry): OlitTool {
+export function skillsTool(skills: SkillRegistry): AgentTool {
   return {
     name: "skills_fetch",
     description:

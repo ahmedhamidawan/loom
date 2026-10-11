@@ -100,8 +100,8 @@ function llmProxy(env: Env): { root: string; path: string } {
 export function defines(settings: Partial<Env> = {}): Record<string, string> {
   return {
     "process.env.credentials": JSON.stringify(settings.GALAXY_KEY ? "omit" : "include"),
-    "process.env.olit_commit": JSON.stringify(buildCommit()),
-    "process.env.olit_built": JSON.stringify(new Date().toISOString()),
+    "process.env.build_commit": JSON.stringify(buildCommit()),
+    "process.env.build_built": JSON.stringify(new Date().toISOString()),
     // Dev only: route the agent through the /llm proxy above, which attaches the key.
     "process.env.llm_base_url": JSON.stringify(
       settings.LLM_PROVIDER || settings.LLM_ROOT ? "/llm" : "",

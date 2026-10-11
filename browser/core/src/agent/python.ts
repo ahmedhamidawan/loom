@@ -1,5 +1,5 @@
 import REALM from "./python-realm.js?raw";
-import { fail, Outcome, type OlitTool, type Python } from "./tool";
+import { fail, Outcome, type AgentTool, type Python } from "./tool";
 
 export { REALM };
 
@@ -167,7 +167,7 @@ export async function serveAsset(
   }
 }
 
-export function pythonTool(): OlitTool {
+export function pythonTool(): AgentTool {
   return {
     name: "run_python",
     description:

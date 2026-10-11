@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable, olitModels } from "./model";
+import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable, agentModels } from "./model";
 import { piProvider, providerById, PROVIDERS, resolve, type LlmConfig } from "./providers";
 
 /** The model a connection serves, as pi-ai resolves it. */
@@ -138,7 +138,7 @@ describe("connect", () => {
   });
 
   it("does not carry a provider's earlier key over to a connection that gives none", async () => {
-    const { connect } = olitModels();
+    const { connect } = agentModels();
     await connect(resolve({ ai_provider: "openrouter", ai_model: "m", ai_api_key: "sk-first" }));
     const typed = await connect(
       resolve({ ai_provider: "openrouter", ai_model: "m", ai_base_url: "http://elsewhere/v1" }),
@@ -162,7 +162,7 @@ describe("the rate limit", () => {
 
   /** One request per minute to OpenRouter under `key`, through `connect`, and what reached it. */
   async function limited(
-    connect: ReturnType<typeof olitModels>["connect"],
+    connect: ReturnType<typeof agentModels>["connect"],
     key = "k1",
     model = "m",
   ) {
@@ -193,7 +193,7 @@ describe("the rate limit", () => {
   it("lets Stop end a waiting request at once, taking nothing from the bucket", async () => {
     vi.useFakeTimers();
     const reached = provider();
-    const send = await limited(olitModels().connect);
+    const send = await limited(agentModels().connect);
     await send();
     const stop = new AbortController();
     const stopped = send(stop.signal);
@@ -210,7 +210,7 @@ describe("the rate limit", () => {
   it("keeps a quota's state when the same model is connected again", async () => {
     vi.useFakeTimers();
     const reached = provider();
-    const { connect } = olitModels();
+    const { connect } = agentModels();
     await (
       await limited(connect)
     )();
@@ -225,7 +225,7 @@ describe("the rate limit", () => {
   it("gives another key or another model a quota of its own", async () => {
     vi.useFakeTimers();
     const reached = provider();
-    const { connect } = olitModels();
+    const { connect } = agentModels();
     await (
       await limited(connect, "k1", "m")
     )();

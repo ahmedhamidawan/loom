@@ -2,7 +2,7 @@ import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Context } from "@galaxyproject/orbit-browser/agent";
-import { connectGalaxy, olitTools } from "@galaxyproject/orbit-browser/testing";
+import { connectGalaxy, agentTools } from "@galaxyproject/orbit-browser/testing";
 import { connectWeb, Outcome } from "@galaxyproject/orbit-browser/testing";
 import { registerArtifactKinds, type Artifact } from "@galaxyproject/orbit-browser/artifacts";
 import { OLIT_KINDS } from "../artifacts/kinds";
@@ -48,7 +48,7 @@ const context = (sessionId: string): Context => ({
 });
 
 const call = (name: string, args: Record<string, unknown>, sessionId = "s1") =>
-  olitTools()
+  agentTools()
     .find((t) => t.name === name)!
     .run(args, context(sessionId)) as Promise<Outcome>;
 

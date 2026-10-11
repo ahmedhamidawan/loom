@@ -15,7 +15,7 @@ import { LOOP } from "./runtime";
 import { opsTools } from "./ops";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { GUARDS } from "./tool";
-import { olitTools, type AgentFlavor } from "./tools";
+import { agentTools, type AgentFlavor } from "./tools";
 import { flavoredSkills } from "./skills";
 
 const SCHEMA = 1;
@@ -135,7 +135,7 @@ function tools(flavor: AgentFlavor) {
   // The result shape galaxy-ops declares for each operation and reads back in its own tests.
   const declared = new Map(allOperations.map((op) => [op.name, op.result ?? null]));
   const out: Record<string, unknown> = {};
-  for (const tool of olitTools(flavoredSkills(flavor), flavor)) {
+  for (const tool of agentTools(flavoredSkills(flavor), flavor)) {
     const params = tool.parameters as { properties?: Record<string, any>; required?: string[] };
     const properties = params.properties ?? {};
     const required = new Set(params.required ?? []);

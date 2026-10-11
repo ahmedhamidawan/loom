@@ -1,4 +1,4 @@
-import { fail, Outcome, type Context, type OlitTool } from "./tool";
+import { fail, Outcome, type Context, type AgentTool } from "./tool";
 
 export const ENA_HOST = "www.ebi.ac.uk";
 export const FIELDS =
@@ -132,7 +132,7 @@ async function enaRuns(
 }
 
 /** ENA accession lookup: the real download URLs for a run, experiment, sample or study. */
-export function enaTools(): OlitTool[] {
+export function enaTools(): AgentTool[] {
   return [
     {
       name: "ena_runs",

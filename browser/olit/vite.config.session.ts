@@ -23,8 +23,8 @@ export default defineConfig({
     rollupOptions: { output: { entryFileNames: "session.mjs", inlineDynamicImports: true } },
   },
   define: {
-    "process.env.olit_commit": JSON.stringify(buildCommit()),
-    "process.env.olit_built": JSON.stringify(new Date().toISOString()),
+    "process.env.build_commit": JSON.stringify(buildCommit()),
+    "process.env.build_built": JSON.stringify(new Date().toISOString()),
   },
   // vega's Node build calls require(), which an ES module bundle cannot; Node loads it itself.
   ssr: { noExternal: true, external: ["pyodide", "vega", "vega-lite"] },

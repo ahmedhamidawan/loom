@@ -7,7 +7,7 @@ import { olitFlavor } from "./flavor";
 import { olitLayout } from "./layout";
 import { PROVIDERS } from "@galaxyproject/orbit-browser/testing";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/testing";
-import { olitTools } from "@galaxyproject/orbit-browser/testing";
+import { agentTools } from "@galaxyproject/orbit-browser/testing";
 import { GUARDS } from "@galaxyproject/orbit-browser/testing";
 
 // The workspace root, whichever directory vitest runs from.
@@ -38,7 +38,7 @@ describe("the description Olit publishes about itself", () => {
 
   it("describes every tool the model is shown", () => {
     expect(Object.keys(doc.tools).sort()).toEqual(
-      olitTools(flavoredSkills(olitFlavor), olitFlavor)
+      agentTools(flavoredSkills(olitFlavor), olitFlavor)
         .map((t) => t.name)
         .sort(),
     );

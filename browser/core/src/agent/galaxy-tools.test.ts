@@ -11,7 +11,7 @@ import {
   annotating,
 } from "./galaxy-tools";
 import { ELIDED } from "./notebook";
-import { olitTools } from "./tools";
+import { agentTools } from "./tools";
 import { Outcome, submittedBy, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
@@ -60,7 +60,7 @@ describe("tool surface", () => {
   });
 
   it("reads what each tool says of itself off galaxy-ops, Olit's policy and its own tools", () => {
-    const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+    const tools = new Map(agentTools().map((t) => [t.name, traitsOf(t)]));
     const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
     expect(settledOnes.sort()).toEqual(["search_tools_by_keywords", "search_tools_by_name"]);
     expect(tools.get("get_job_details")?.polls).toBe("dataset_id");
@@ -610,7 +610,7 @@ describe("a galaxy-ops failure, as the model reads it", () => {
     globalThis.fetch = async () =>
       new Response(page, { status: 500, headers: { "content-type": "text/html" } });
     try {
-      const details = olitTools().find((t) => t.name === "get_history_details")!;
+      const details = agentTools().find((t) => t.name === "get_history_details")!;
       const text = refused(await details.run({ history_id: "h1" }, context({})));
       expect(text).toContain("500 Internal Server Error");
       expect(text).not.toContain("<html");
@@ -668,7 +668,7 @@ describe("the work a call submitted", () => {
       );
     };
     try {
-      const runTool = olitTools().find((t) => t.name === "run_tool")!;
+      const runTool = agentTools().find((t) => t.name === "run_tool")!;
       const out = await runTool.run(
         { history_id: "h1", tool_id: "cat1", inputs: {} },
         context({ get: async () => null }),

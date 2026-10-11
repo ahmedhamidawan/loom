@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { classify, destructiveGate, type Ask } from "./destructive";
-import { olitTools } from "./tools";
+import { agentTools } from "./tools";
 import { traitsOf } from "./tool";
 
-const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+const TRAITS = new Map(agentTools().map((t) => [t.name, traitsOf(t)]));
 const DESTROYS = (name: string, args: Record<string, unknown>) =>
   TRAITS.get(name)?.destroys(args) === true;
 

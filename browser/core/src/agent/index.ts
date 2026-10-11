@@ -9,5 +9,5 @@ export type { Annotate } from "./ops";
 export { quote } from "./quote";
 export { isSessionDocument, SCHEMA, type SessionDocument } from "./saved";
 export * as tables from "./tables";
-export { fail, type Capability, type Context, type OlitTool, type Python } from "./tool";
+export { fail, type Capability, type Context, type AgentTool, type Python } from "./tool";
 export type { AgentFlavor } from "./tools";

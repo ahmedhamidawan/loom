@@ -13,7 +13,7 @@ import {
   fail,
   type Artifact,
   type Context,
-  type OlitTool,
+  type AgentTool,
 } from "@galaxyproject/orbit-browser/agent";
 import * as vega from "./vega";
 import { tables } from "@galaxyproject/orbit-browser/agent";
@@ -743,7 +743,7 @@ function schema(properties: Json, required: string[]): Json {
 }
 
 /** The visualization tools, in the order the catalogue lists them. */
-export function visualizationTools(resolveOptions: ResolveOptions = chartOptions): OlitTool[] {
+export function visualizationTools(resolveOptions: ResolveOptions = chartOptions): AgentTool[] {
   /** Options resolved for this call, its requests to other hosts ended with it. */
   const withWeb =
     (ctx: Context): Resolve =>

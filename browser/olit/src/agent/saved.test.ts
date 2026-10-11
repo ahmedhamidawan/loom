@@ -208,7 +208,7 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     world();
     const one = await machine();
     const { build } = (await one.export(await one.create({}))).session;
-    expect(build?.commit).toBe(process.env.olit_commit);
+    expect(build?.commit).toBe(process.env.build_commit);
     expect(build?.commit).toMatch(/^[0-9a-f]{7,}$/);
   });
 

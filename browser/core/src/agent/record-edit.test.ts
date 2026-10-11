@@ -5,7 +5,7 @@ import { connectGalaxy, connectWeb } from "./galaxy";
 import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { editRecord } from "./record-write";
 import { Outcome, type Context } from "./tool";
-import { olitTools } from "./tools";
+import { agentTools } from "./tools";
 
 const ROOT = "http://galaxy.test/";
 const RECORD =
@@ -37,7 +37,7 @@ const context = (sessionId: string): Context => ({
 });
 
 const call = (name: string, args: Record<string, unknown>, sessionId = "s1") =>
-  olitTools()
+  agentTools()
     .find((t) => t.name === name)!
     .run(args, context(sessionId)) as Promise<Outcome>;
 

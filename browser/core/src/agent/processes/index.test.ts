@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { Outcome, type Context, type OlitTool } from "../tool";
+import { Outcome, type Context, type AgentTool } from "../tool";
 import { PANE_ONLY_HINT, PROCESSES, processTools, type Process } from "./index";
 
 function context(galaxy: Record<string, unknown> = {}) {
@@ -8,10 +8,10 @@ function context(galaxy: Record<string, unknown> = {}) {
 }
 
 const tools = () => Object.fromEntries(processTools().map((t) => [t.name, t]));
-const params = (tool: OlitTool) =>
+const params = (tool: AgentTool) =>
   tool.parameters as { properties: Record<string, any>; required: string[] };
 
-async function call(tool: OlitTool, args: Record<string, unknown>, ctx = context()) {
+async function call(tool: AgentTool, args: Record<string, unknown>, ctx = context()) {
   const out = await tool.run(args, ctx);
   expect(out).toBeInstanceOf(Outcome);
   return out as Outcome;

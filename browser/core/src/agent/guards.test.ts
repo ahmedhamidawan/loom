@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { olitTools } from "./tools";
+import { agentTools } from "./tools";
 import { traitsOf } from "./tool";
 import type { Watched } from "./watch";
 
@@ -16,7 +16,7 @@ import {
 type Args = Record<string, unknown>;
 
 /** What each of Olit's tools says of itself, read off the real tool set. */
-const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+const TRAITS = new Map(agentTools().map((t) => [t.name, traitsOf(t)]));
 
 function session(overrides: Partial<GuardOptions> = {}, watched: Watched[] = []) {
   let clock = 1_000_000;

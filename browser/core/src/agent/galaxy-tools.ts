@@ -10,7 +10,7 @@ import { ELIDED } from "./notebook";
 import { pageBody, pageContentProblem } from "./page-edit";
 import { type Annotate, type OpPolicy } from "./ops";
 import { remember, sectionsHeaded, serialized, shownAs } from "./record-write";
-import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
+import { fail, Outcome, rendered, type Capability, type Context, type AgentTool } from "./tool";
 
 export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
@@ -482,7 +482,7 @@ function tool(
   properties: Record<string, unknown>,
   required: string[],
   run: Run,
-): OlitTool {
+): AgentTool {
   return {
     name,
     description: LOCAL_DOCS[name],
@@ -497,7 +497,7 @@ function tool(
   };
 }
 
-export function galaxyTools(): OlitTool[] {
+export function galaxyTools(): AgentTool[] {
   return [
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
     tool(

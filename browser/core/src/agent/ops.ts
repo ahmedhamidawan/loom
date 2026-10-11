@@ -9,7 +9,7 @@ import {
 } from "@galaxyproject/galaxy-ops/browser";
 
 import { briefly } from "./galaxy";
-import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
+import { fail, Outcome, rendered, type Context, type AgentTool } from "./tool";
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
@@ -45,7 +45,10 @@ export interface OpPolicy {
  * galaxy-ops operations under galaxy-mcp's names, snake_case at the top level, described as
  * galaxy-mcp advertises them to an MCP client: Orbit's model is told the same.
  */
-export function opsTools(annotate?: Annotate, policies: Record<string, OpPolicy> = {}): OlitTool[] {
+export function opsTools(
+  annotate?: Annotate,
+  policies: Record<string, OpPolicy> = {},
+): AgentTool[] {
   return allOperations.map((op) => opsTool(op, annotate, policies[op.name] ?? {}));
 }
 
@@ -53,7 +56,7 @@ export function opsTools(annotate?: Annotate, policies: Record<string, OpPolicy>
 const inputOf = (args: Record<string, unknown>, toInput: Map<string, string>) =>
   Object.fromEntries(Object.entries(args).map(([k, v]) => [toInput.get(k) ?? k, v]));
 
-function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPolicy): OlitTool {
+function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPolicy): AgentTool {
   const schema = z.toJSONSchema(z.strictObject(op.input), { io: "input" }) as {
     properties?: Record<string, unknown>;
     required?: string[];

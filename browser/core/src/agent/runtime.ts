@@ -16,9 +16,9 @@ import {
 import { artifactsOf, registerArtifactKinds, type Artifact } from "../artifacts/kinds";
 import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
-import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
+import { DEFAULT_CAPABILITIES, MAX_STEPS, agentExtension } from "./extension";
 import { connectGalaxy, connectWeb, type Galaxy } from "./galaxy";
-import { olitModels } from "./model";
+import { agentModels } from "./model";
 import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
@@ -26,7 +26,7 @@ import { editRecord } from "./record-write";
 import { modelsOf, SCHEMA, thisBuild, usageTotals, type SessionDocument } from "./saved";
 import { flavoredSkills } from "./skills";
 import type { Capability, Python } from "./tool";
-import { galaxyOps, olitTools, type AgentFlavor } from "./tools";
+import { galaxyOps, agentTools, type AgentFlavor } from "./tools";
 import { galaxyWatch, WATCH_TASK, type Watched } from "./watch";
 
 export const context = BACKGROUND_CONTEXT;
@@ -129,7 +129,7 @@ export class Runtime {
     readonly galaxy: Galaxy,
     readonly galaxyStatus: GalaxyStatus,
     private readonly current: Current,
-    private readonly connect: ReturnType<typeof olitModels>["connect"],
+    private readonly connect: ReturnType<typeof agentModels>["connect"],
     private readonly env: Record<string, string | undefined>,
   ) {}
 
@@ -141,7 +141,7 @@ export class Runtime {
       credentials: config.credentials,
     };
     const galaxy = connectGalaxy(galaxyOptions);
-    const { models, connect } = olitModels(env);
+    const { models, connect } = agentModels(env);
     const resolved = await target(config, env);
     const connected = await connect(resolved);
     const current: Current = { config, target: resolved, ...connected };
@@ -164,7 +164,7 @@ export class Runtime {
         return editRecord({ galaxy, pageId: bound?.pageId }, edit);
       },
     });
-    const extension = olitExtension({
+    const extension = agentExtension({
       galaxy,
       clients: (signal) => ({
         galaxy: connectGalaxy({ ...galaxyOptions, signal }),
@@ -177,7 +177,7 @@ export class Runtime {
         return conversation ? artifactsIn(conversation, ctx) : [];
       },
       watched: (id, ctx) => watchedBy(harness!, id, ctx),
-      tools: olitTools(skills, flavor),
+      tools: agentTools(skills, flavor),
       capabilities,
       secrets: () =>
         [current.apiKey, config.galaxy_key].filter((s): s is string => typeof s === "string"),

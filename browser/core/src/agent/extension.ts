@@ -29,14 +29,14 @@ import {
   type Capability,
   type Context,
   type Guard,
-  type OlitTool,
+  type AgentTool,
 } from "./tool";
 import type { Watched } from "./watch";
 
 export const MAX_STEPS = 100;
 export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "write"];
 
-export interface OlitHost {
+export interface AgentHost {
   galaxy: Galaxy;
   /** Galaxy clients and Python for one call, ended by its abort signal. */
   clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
@@ -44,7 +44,7 @@ export interface OlitHost {
   artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
   /** Galaxy work a conversation is watching, with the state last read. */
   watched(conversationId: ConversationId, context: Chord): Promise<Watched[]>;
-  tools: OlitTool[];
+  tools: AgentTool[];
   capabilities: Capability[];
   /** Keys a result must never show. */
   secrets: () => string[];
@@ -102,9 +102,9 @@ export function withRecord(messages: readonly Message[], text: string): Message[
 }
 
 /** Olit as a pi-durable extension: its tools, prompt and guards. */
-export function olitExtension(host: OlitHost) {
+export function agentExtension(host: AgentHost) {
   const granted = new Set(host.capabilities);
-  const missing = (t: OlitTool) =>
+  const missing = (t: AgentTool) =>
     [t.capability, ...(t.requires ?? [])].find((c) => c !== undefined && !granted.has(c));
   const offered = host.tools.filter((t) => missing(t) === undefined);
   const withheld = new Map(

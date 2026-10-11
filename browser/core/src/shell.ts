@@ -3,7 +3,7 @@
  * flavor mounts it with its own worker, artifact kinds, launch context and session store.
  */
 import "../../../app/src/renderer/styles.css";
-import "./olit.css";
+import "./shell.css";
 import { useChatMarkdown } from "./chat-markdown";
 import { settlePlanDrafts } from "./plan-drafts";
 
@@ -197,8 +197,8 @@ export async function mountOrbitBrowser(
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
-    commit: (process.env.olit_commit as string) || "",
-    built: (process.env.olit_built as string) || "",
+    commit: (process.env.build_commit as string) || "",
+    built: (process.env.build_built as string) || "",
     galaxy: config.galaxy_root,
     provider: config.ai_provider,
     model: config.ai_model || "",
@@ -408,7 +408,7 @@ export async function mountOrbitBrowser(
           (sessions?.reopenHint ? ` ${sessions.reopenHint}` : ""),
       );
       const choices = document.createElement("div");
-      choices.className = "olit-choices";
+      choices.className = "launch-choices";
       line.append(choices);
       const choose = (pageId?: string) => {
         choices.querySelectorAll("button").forEach((b) => (b.disabled = true));

@@ -1,4 +1,4 @@
-/* olit-owned styles, layered over Orbit's app/src/renderer/styles.css; additions belong here
+/* the shell's own styles, layered over Orbit's app/src/renderer/styles.css; additions belong here
    rather than in Orbit's file. */
 
 /* Credentials picker — reuses Orbit's modal shell. */
@@ -58,7 +58,7 @@
   margin-left: auto;
 }
 
-.olit-choices {
+.launch-choices {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

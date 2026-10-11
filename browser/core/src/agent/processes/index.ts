@@ -1,6 +1,6 @@
 import { isKind, pageWriter } from "../../artifacts/kinds";
 import { quote } from "../quote";
-import { claim, Outcome, type Capability, type OlitTool } from "../tool";
+import { claim, Outcome, type Capability, type AgentTool } from "../tool";
 import { lineageReport } from "./lineage-report";
 import { organizeDatasets } from "./organize-datasets";
 import { type Process } from "./process";
@@ -65,7 +65,7 @@ function withDefaults(process: Process, args: Record<string, unknown> = {}) {
 }
 
 /** One tool per process, named after it. */
-export function processTools(processes: Process[] = PROCESSES): OlitTool[] {
+export function processTools(processes: Process[] = PROCESSES): AgentTool[] {
   return [...processes]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((process) => ({

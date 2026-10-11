@@ -25,11 +25,11 @@ export interface Build {
 
 /** This bundle's build stamp, when the build recorded one. */
 export function thisBuild(): Build | undefined {
-  const commit = process.env.olit_commit;
+  const commit = process.env.build_commit;
   if (!commit) {
     return undefined;
   }
-  const built = process.env.olit_built;
+  const built = process.env.build_built;
   return built ? { commit, built } : { commit };
 }
 

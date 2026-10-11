@@ -128,7 +128,7 @@ export interface Connection {
  * the user's key handed over as a stored credential. A provider Olit defines is described to pi
  * under its real id, so pi applies what it can.
  */
-export function olitModels(env: Record<string, string | undefined> = {}) {
+export function agentModels(env: Record<string, string | undefined> = {}) {
   const credentials = new InMemoryCredentialStore();
   const inner = createModels({ credentials, authContext: authContext(env) });
   const chosen = new Map<string, Model<Api>>();
@@ -244,7 +244,7 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
 
 /** The model and stream for a single target. */
 export function connect(target: Target, env: Record<string, string | undefined> = {}) {
-  return olitModels(env).connect(target);
+  return agentModels(env).connect(target);
 }
 
 /** The message a request that never reached the provider ends with. */

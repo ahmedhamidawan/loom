@@ -81,7 +81,7 @@ export interface Context {
   artifacts: { prior: Artifact[]; produced: Artifact[] };
 }
 
-export interface OlitTool {
+export interface AgentTool {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
@@ -106,7 +106,7 @@ export interface ToolTraits {
   destroys: (args: Record<string, unknown>) => boolean;
 }
 
-export const traitsOf = (tool: OlitTool): ToolTraits => ({
+export const traitsOf = (tool: AgentTool): ToolTraits => ({
   settled: tool.settled === true,
   polls: tool.polls,
   destroys: (args) => tool.destructive === true || tool.destructiveWhen?.(args) === true,
@@ -158,7 +158,7 @@ export interface Details {
  * Galaxy effect is never repeated: the work it submitted is watched from the commit that records
  * the binding it changed. Artifacts travel in the result's details.
  */
-export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
+export function durableTool(tool: AgentTool, host: ToolHost): ToolRegistration {
   return defineTool({
     name: tool.name,
     description: tool.description,

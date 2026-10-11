@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import type { Python } from "@galaxyproject/orbit-browser/agent";
 import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
-import { flavoredSkills, json, olitTools, text } from "@galaxyproject/orbit-browser/testing";
+import { flavoredSkills, json, agentTools, text } from "@galaxyproject/orbit-browser/testing";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
@@ -74,7 +74,7 @@ describe("what the core offers on its own", () => {
   });
 
   it("composes the core's tools", async () => {
-    const tools = olitTools(flavoredSkills(BARE), BARE).map((t) => t.name);
+    const tools = agentTools(flavoredSkills(BARE), BARE).map((t) => t.name);
     await expect(pretty(tools)).toMatchFileSnapshot(`${SNAPSHOTS}/tools.json`);
   });
 });

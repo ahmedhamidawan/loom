@@ -1,4 +1,4 @@
-import { fail, Outcome, type Context, type OlitTool } from "./tool";
+import { fail, Outcome, type Context, type AgentTool } from "./tool";
 
 export const GTN_HOST = "training.galaxyproject.org";
 export const GTN_BASE = `https://${GTN_HOST}`;
@@ -305,7 +305,7 @@ async function gtnFetch(args: { url?: string }, ctx: Context): Promise<Outcome> 
 }
 
 /** Galaxy Training Network discovery: `gtn_search` and `gtn_fetch`. */
-export function gtnTools(): OlitTool[] {
+export function gtnTools(): AgentTool[] {
   return [
     {
       name: "gtn_search",

@@ -12,7 +12,7 @@ import type { Galaxy } from "@galaxyproject/orbit-browser/agent";
 import { Headless, type HeadlessConfig } from "@galaxyproject/orbit-browser/node";
 import { flavoredSkills } from "@galaxyproject/orbit-browser/testing";
 import type { Context, Python } from "@galaxyproject/orbit-browser/agent";
-import { olitTools } from "@galaxyproject/orbit-browser/testing";
+import { agentTools } from "@galaxyproject/orbit-browser/testing";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
@@ -129,7 +129,7 @@ describe("the first request a launch sends", () => {
 describe("the skills the agent is offered", () => {
   it("routes to the same corpus", async () => {
     const skills = flavoredSkills(olitFlavor);
-    const fetch = olitTools(skills, olitFlavor).find((t) => t.name === "skills_fetch")!;
+    const fetch = agentTools(skills, olitFlavor).find((t) => t.name === "skills_fetch")!;
     await expect(
       pretty({
         router: skills.routerText(),
@@ -142,7 +142,7 @@ describe("the skills the agent is offered", () => {
 
 describe("the composed tools", () => {
   it("keep their order, capabilities and traits", async () => {
-    const traits = olitTools(flavoredSkills(olitFlavor), olitFlavor).map((t) => ({
+    const traits = agentTools(flavoredSkills(olitFlavor), olitFlavor).map((t) => ({
       name: t.name,
       capability: t.capability ?? null,
       requires: t.requires ?? null,

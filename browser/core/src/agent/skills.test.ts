@@ -13,7 +13,7 @@ import {
   type SkillEntry,
 } from "./skills";
 import { Outcome, type Context } from "./tool";
-import { olitTools } from "./tools";
+import { agentTools } from "./tools";
 
 const SKILL = `---
 name: galaxy-transform-collection
@@ -194,7 +194,7 @@ describe("Olit's own skills", () => {
   it("call each tool only with arguments the tool takes", () => {
     const root = join(__dirname, "skills", "olit-skills");
     const params = new Map(
-      olitTools().map((t) => [t.name, Object.keys(t.parameters.properties ?? {})]),
+      agentTools().map((t) => [t.name, Object.keys(t.parameters.properties ?? {})]),
     );
     const wrong: string[] = [];
     for (const skill of readdirSync(root)) {
