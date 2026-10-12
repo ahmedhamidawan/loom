@@ -120,6 +120,15 @@ describe("galaxyCredentials and the transport", () => {
     setGalaxyFetchOverride(null);
     expect(isGalaxyFetchOverridden()).toBe(false);
   });
+
+  it("leaves installed credentials alone when a fetch override comes and goes", () => {
+    delete process.env.GALAXY_URL;
+    setGalaxyTransport({ credentials: () => ({ url: "https://worker.example", apiKey: "wk" }) });
+    setGalaxyFetchOverride(async () => new Response("{}"));
+    expect(galaxyCredentials().url).toBe("https://worker.example");
+    setGalaxyFetchOverride(null);
+    expect(galaxyCredentials().url).toBe("https://worker.example");
+  });
 });
 
 describe("job details and listing requests", () => {

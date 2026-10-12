@@ -164,9 +164,14 @@ export function setGalaxyTransport(next: GalaxyTransport | null): void {
  * Set only by the Tier-1 fixture seam (galaxy-fixture.ts) and by tests: the
  * capture scenarios have to exercise reconcile and enrichment against recorded
  * responses, and there is no other layer every one of those calls shares.
+ * Swaps only the fetch, so installed credentials survive both setting and
+ * clearing it.
  */
 export function setGalaxyFetchOverride(fetchImpl: GalaxyFetch | null): void {
-  setGalaxyTransport(fetchImpl ? { fetch: fetchImpl, fixture: true } : null);
+  const { credentials } = transport;
+  setGalaxyTransport(
+    fetchImpl ? { credentials, fetch: fetchImpl, fixture: true } : { credentials },
+  );
 }
 
 /** Whether Galaxy answers are coming from a recorded fixture rather than a server. */
