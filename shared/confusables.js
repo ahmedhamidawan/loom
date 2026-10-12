@@ -75,7 +75,7 @@ export function hasConfusables(s) {
  * Look up a folded match for `badName` against `candidateNames`. Returns
  * the canonical name iff `badName` actually contains a confusable AND its
  * folded form equals one of the candidates' folded forms. Returns
- * undefined when there's nothing to suggest — including the case where
+ * undefined when there's nothing to suggest -- including the case where
  * `badName` is already pure ASCII and doesn't match anything (a real
  * hallucination, not a confusables issue).
  *
