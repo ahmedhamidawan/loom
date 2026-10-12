@@ -50,7 +50,7 @@ afterEach(() => {
 
 /** The exports prompt.ts marks as copies, with the loom source each comment names. */
 function markedCopies(): Array<{ name: string; source: string }> {
-  const lines = fs.readFileSync(PROMPT_TS, "utf-8").split("\n");
+  const lines = fs.readFileSync(PROMPT_TS, "utf-8").split(/\r?\n/);
   const found: Array<{ name: string; source: string }> = [];
   lines.forEach((line, i) => {
     const marker = line.match(/^(?:\/\/|\/\*\*) loom: (.*?)(?: \*\/)?$/);
