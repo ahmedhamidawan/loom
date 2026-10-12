@@ -37,9 +37,7 @@ import {
   takeShadowNotices,
 } from "./user-instructions.js";
 import { readEnv } from "../../shared/orbit-env.js";
-
-const NOTEBOOK_HEAD_MAX_CHARS = 2000;
-const NOTEBOOK_TAIL_MAX_CHARS = 4000;
+import { excerptHeadTail } from "../../shared/record-excerpt.js";
 
 /** customType for the per-turn live notebook context message (E1/E2 cache fix). */
 const LOOM_NOTEBOOK_CONTEXT_TYPE = "loom-notebook-context";
@@ -71,14 +69,7 @@ context, plans, and progress notes into this file via Edit/Write.
 `;
   }
 
-  let excerpt = content;
-  let truncated = false;
-  if (content.length > NOTEBOOK_HEAD_MAX_CHARS + NOTEBOOK_TAIL_MAX_CHARS + 100) {
-    const head = content.slice(0, NOTEBOOK_HEAD_MAX_CHARS);
-    const tail = content.slice(-NOTEBOOK_TAIL_MAX_CHARS);
-    excerpt = `${head}\n\n_(... middle elided ...)_\n\n${tail}`;
-    truncated = true;
-  }
+  const { text: excerpt, elided: truncated } = excerptHeadTail(content);
 
   return `
 ## Notebook (project log)
