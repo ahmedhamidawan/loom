@@ -59,6 +59,30 @@ describe("galaxyFetch", () => {
     expect(response.status).toBe(503);
     expect(methods).toEqual(["POST"]);
   });
+
+  // Target for #567 2.1: with a key set, the headless transport must not let the key follow a
+  // redirect to another origin, as shared/redirect-guard.js keeps Orbit's from doing.
+  it.skip("never carries the key across a redirect to another origin (until #567 2.1)", async () => {
+    const sent: Array<{ url: string; key: string | null }> = [];
+    // Node's fetch: a followed redirect keeps every header but a few, x-api-key among them.
+    const send = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const request = new Request(input, init);
+      sent.push({ url: request.url, key: request.headers.get("x-api-key") });
+      if (new URL(request.url).origin !== "http://galaxy.test") {
+        return new Response("{}", { status: 200 });
+      }
+      const location = "http://elsewhere.test/x";
+      return request.redirect === "follow"
+        ? send(new Request(location, { headers: request.headers }))
+        : new Response(null, { status: 302, headers: { location } });
+    };
+    vi.stubGlobal("fetch", send);
+    await galaxyFetch({ root: "http://galaxy.test/", key: "secret" })(
+      "http://galaxy.test/api/datasets/d1/display",
+    ).catch(() => undefined);
+    expect(sent[0]).toEqual({ url: "http://galaxy.test/api/datasets/d1/display", key: "secret" });
+    expect(sent.filter((s) => !s.url.startsWith("http://galaxy.test/") && s.key)).toEqual([]);
+  });
 });
 
 describe("connectGalaxy", () => {
