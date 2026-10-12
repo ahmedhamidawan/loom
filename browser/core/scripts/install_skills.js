@@ -169,14 +169,14 @@ async function vendorLocal(manifest) {
   const lock = { repo, ref: plugin.upstream.ref, sha };
   let relock = false;
   const existing = await readJson(LOCK);
-  if (JSON.stringify(existing) !== JSON.stringify(lock)) {
-    // CI builds before it checks, so a rewrite here would hide a stale committed lock.
-    if (process.env.CI) {
-      throw new Error(
-        `core/skills.lock.json pins ${existing?.repo}@${existing?.sha}, but Orbit vendors ` +
-          `${repo}@${sha}; rebuild locally and commit the rewritten lock`,
-      );
-    }
+  // CI builds before it checks, so a rewrite here would hide a stale committed lock.
+  if (process.env.CI && (existing?.repo !== repo || existing?.sha !== sha)) {
+    throw new Error(
+      `core/skills.lock.json pins ${existing?.repo}@${existing?.sha}, but Orbit vendors ` +
+        `${repo}@${sha}; rebuild locally and commit the rewritten lock`,
+    );
+  }
+  if (!process.env.CI && JSON.stringify(existing) !== JSON.stringify(lock)) {
     relock = true;
   }
   console.log(
