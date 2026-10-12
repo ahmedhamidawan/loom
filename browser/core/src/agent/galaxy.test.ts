@@ -60,9 +60,9 @@ describe("galaxyFetch", () => {
     expect(methods).toEqual(["POST"]);
   });
 
-  // Target for #567 2.1: with a key set, the headless transport must not let the key follow a
-  // redirect to another origin, as shared/redirect-guard.js keeps Orbit's from doing.
-  it.skip("never carries the key across a redirect to another origin (until #567 2.1)", async () => {
+  // With a key set, the headless transport must not let the key follow a redirect to another
+  // origin, as shared/redirect-guard.js keeps Orbit's from doing.
+  it("never carries the key across a redirect to another origin", async () => {
     const sent: Array<{ url: string; key: string | null }> = [];
     // Node's fetch: a followed redirect drops only a few headers (authorization, cookie), so
     // x-api-key goes along.
