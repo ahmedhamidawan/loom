@@ -159,12 +159,17 @@ export function orbitBrowserVite({
   command,
   flavorRoot,
   galaxyPaths = [],
+  page = "src/main.ts",
+  worker = "src/worker.ts",
 }: {
   command: "build" | "serve";
   /** The flavor package's directory: where static/ is built and served from. */
   flavorRoot: string;
   /** More paths the dev server forwards to Galaxy, for what only the flavor fetches. */
   galaxyPaths?: string[];
+  /** The flavor's page and agent worker entries, relative to flavorRoot. */
+  page?: string;
+  worker?: string;
 }): UserConfig {
   const { env, missing } = readEnv();
   // Only the dev server reads these; a build is compiled without them.
@@ -233,6 +238,13 @@ export function orbitBrowserVite({
       rollupOptions: { output: { inlineDynamicImports: true } },
     },
     // The optimizer moves SQLite's module away from the .wasm it loads beside itself.
-    optimizeDeps: { exclude: ["@sqlite.org/sqlite-wasm"] },
+    optimizeDeps: {
+      // Named outright: the scan doesn't follow a script tag with a query (Olit's
+      // main.ts?container=app) or the page's `new URL` to its worker. Whatever it misses is found
+      // once the page or the worker loads it, and the dev server then reloads the page under
+      // whatever is using it.
+      entries: ["index.html", page, worker],
+      exclude: ["@sqlite.org/sqlite-wasm"],
+    },
   };
 }
