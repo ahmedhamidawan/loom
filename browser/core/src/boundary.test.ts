@@ -137,10 +137,14 @@ describe("the core", () => {
     // Shipped code only: build scripts and tests run in Node and may use what they like.
     const shipped = sources(join(CORE, "src")).filter((file) => !/\.test\.ts$/.test(file));
     const reached = sharedImports(shipped);
-    // The core reaches shared/ today only through Orbit's chat panel; a walk that stops at the
-    // core's own imports would find nothing and pass vacuously.
+    // Pin both ways in: the agent's direct imports, and the contracts reached only through Orbit's
+    // chat panel, which a walk that stopped at the core's own imports would miss.
     expect(reached).toEqual(
       expect.arrayContaining([
+        join(SHARED, "confusables.js"),
+        join(SHARED, "sra-import.js"),
+        join(SHARED, "record-excerpt.js"),
+        join(SHARED, "galaxy-page-cells.js"),
         join(SHARED, "team-dispatch-contract.js"),
         join(SHARED, "loom-shell-contract.js"),
       ]),
