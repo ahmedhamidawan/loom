@@ -44,10 +44,12 @@ export function registerGalaxyRepeatGuard(pi: ExtensionAPI): void {
   });
 
   // A blocked call never reaches tool_result, so only calls that ran count.
-  pi.on("tool_result", (event) => {
+  pi.on("tool_result", (event, ctx) => {
     const k = checked.get(event.toolCallId);
     if (k === undefined) return;
     checked.delete(event.toolCallId);
+    // A user Stop rejects the call with isError set, but the call didn't fail.
+    if (ctx?.signal?.aborted) return;
     if (event.isError) failures.set(k, (failures.get(k) ?? 0) + 1);
   });
 }

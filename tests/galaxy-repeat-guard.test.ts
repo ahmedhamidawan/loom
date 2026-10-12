@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
 
-type Handler = (event: unknown) => unknown;
+type Handler = (event: unknown, ctx?: unknown) => unknown;
 
 function guard() {
   const on = new Map<string, Handler>();
@@ -12,8 +12,8 @@ function guard() {
     const toolCallId = `c${++n}`;
     return { toolCallId, refused: on.get("tool_call")!({ toolName, toolCallId, input }) };
   };
-  const result = (toolName: string, toolCallId: string, isError: boolean) =>
-    on.get("tool_result")!({ toolName, toolCallId, input: {}, content: [], isError });
+  const result = (toolName: string, toolCallId: string, isError: boolean, signal?: AbortSignal) =>
+    on.get("tool_result")!({ toolName, toolCallId, input: {}, content: [], isError }, { signal });
   const fail = (toolName: string, input: Record<string, unknown>) => {
     const { toolCallId, refused } = call(toolName, input);
     expect(refused).toBeFalsy();
@@ -44,6 +44,17 @@ describe("registerGalaxyRepeatGuard", () => {
     for (let i = 0; i < 3; i++) {
       const { toolCallId } = g.call(RUN, { a: 1 });
       g.result(RUN, toolCallId, false);
+    }
+    expect(g.call(RUN, { a: 1 }).refused).toBeFalsy();
+  });
+
+  it("does not count calls the user stopped", () => {
+    const g = guard();
+    const stopped = new AbortController();
+    stopped.abort();
+    for (let i = 0; i < 3; i++) {
+      const { toolCallId } = g.call(RUN, { a: 1 });
+      g.result(RUN, toolCallId, true, stopped.signal);
     }
     expect(g.call(RUN, { a: 1 }).refused).toBeFalsy();
   });
