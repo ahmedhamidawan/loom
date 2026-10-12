@@ -4,13 +4,14 @@
  * the flavor that adds it. Olit's name itself still appears in the core; LAYOUT.md's "Not split
  * yet" says where and why.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { specifiers } from "./flavor-boundary";
 
 const CORE = join(__dirname, "..");
+const SHARED = resolve(CORE, "..", "..", "shared");
 const FLAVOR_ONLY = [
   "galaxy-charts",
   "galaxy-charts-xml-parser",
@@ -51,6 +52,50 @@ function flavored(file: string, spec: string): string | undefined {
   return FLAVOR_ONLY.includes(name) ? `${name}, which only a visualization flavor uses` : undefined;
 }
 
+const inShared = (path: string) => path.startsWith(`${SHARED}/`);
+
+function resolved(file: string, spec: string): string {
+  const path = resolve(dirname(file), spec);
+  return existsSync(path) || !existsSync(`${path}.js`) ? path : `${path}.js`;
+}
+
+/** The shared modules `files` import directly. */
+function sharedImports(files: string[]): string[] {
+  return files.flatMap((file) =>
+    specifiers(readFileSync(file, "utf8"))
+      .filter((spec) => spec.startsWith("."))
+      .map((spec) => resolved(file, spec))
+      .filter(inShared),
+  );
+}
+
+/**
+ * What the shared modules reachable from `start` name that a browser can't load: a node:
+ * builtin, a bare package (which a browser-only install doesn't have), or a path out of shared/.
+ */
+function unloadable(start: string[]): string[] {
+  const queue = [...start];
+  const seen = new Set<string>();
+  const found: string[] = [];
+  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const where = relative(join(SHARED, ".."), file);
+    for (const spec of specifiers(readFileSync(file, "utf8"))) {
+      if (!spec.startsWith(".")) {
+        found.push(
+          `${where}: ${spec} (${spec.startsWith("node:") ? "a node builtin" : "a package"})`,
+        );
+      } else if (inShared(resolved(file, spec))) {
+        queue.push(resolved(file, spec));
+      } else {
+        found.push(`${where}: ${spec} (a path out of shared/)`);
+      }
+    }
+  }
+  return found;
+}
+
 describe("the core", () => {
   it("imports no flavor and nothing only a flavor needs", () => {
     // This file's own fixtures name the reaches on purpose.
@@ -63,6 +108,16 @@ describe("the core", () => {
         }),
       );
     expect(found).toEqual([]);
+  });
+
+  it("reaches only shared modules a browser can load, all the way down", () => {
+    // src/ only: a build script under scripts/ runs in Node and may use what it likes.
+    const shipped = sources(join(CORE, "src")).filter((file) => file !== __filename);
+    expect(unloadable(sharedImports(shipped))).toEqual([]);
+    // The walk itself, started at a shared module that is Node-only.
+    expect(unloadable([join(SHARED, "loom-config.js")])).toContain(
+      "shared/loom-config.js: node:fs (a node builtin)",
+    );
   });
 
   it("catches each way of naming one", () => {
