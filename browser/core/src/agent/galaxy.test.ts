@@ -78,11 +78,44 @@ describe("galaxyFetch", () => {
         : new Response(null, { status: 302, headers: { location } });
     };
     vi.stubGlobal("fetch", send);
-    await galaxyFetch({ root: "http://galaxy.test/", key: "secret" })(
-      "http://galaxy.test/api/datasets/d1/display",
-    ).catch(() => undefined);
+    await expect(
+      galaxyFetch({ root: "http://galaxy.test/", key: "secret" })(
+        "http://galaxy.test/api/datasets/d1/display",
+      ),
+    ).rejects.toMatchObject({ name: "RedirectRefusedError", kind: "cross-origin" });
     expect(sent[0]).toEqual({ url: "http://galaxy.test/api/datasets/d1/display", key: "secret" });
     expect(sent.filter((s) => !s.url.startsWith("http://galaxy.test/") && s.key)).toEqual([]);
+  });
+
+  // The keyed path reads a write's body once up front, so it must survive both resends.
+  it("resends a keyed write's body across a same-origin hop and a rate limit", async () => {
+    const sent: Array<{ url: string; type: string | null; body: string }> = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      sent.push({
+        url: request.url,
+        type: request.headers.get("content-type"),
+        body: await request.text(),
+      });
+      if (sent.length === 1) {
+        return new Response(null, { status: 307, headers: { location: "/api/tools/fetch" } });
+      }
+      return sent.length === 2
+        ? new Response("slow down", { status: 429, headers: { "retry-after": "0" } })
+        : new Response("{}", { status: 200 });
+    });
+    const body = JSON.stringify({ tool_id: "cat1", inputs: { input1: "d1" } });
+    const response = await galaxyFetch({ root: "http://galaxy.test/", key: "secret" })(
+      "http://galaxy.test/api/tools",
+      { method: "POST", headers: { "content-type": "application/json" }, body },
+    );
+    expect(response.status).toBe(200);
+    const sentAs = { type: "application/json", body };
+    expect(sent).toEqual([
+      { url: "http://galaxy.test/api/tools", ...sentAs },
+      { url: "http://galaxy.test/api/tools/fetch", ...sentAs },
+      { url: "http://galaxy.test/api/tools", ...sentAs },
+    ]);
   });
 });
 
