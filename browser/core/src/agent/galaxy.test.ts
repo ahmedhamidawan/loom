@@ -64,7 +64,8 @@ describe("galaxyFetch", () => {
   // redirect to another origin, as shared/redirect-guard.js keeps Orbit's from doing.
   it.skip("never carries the key across a redirect to another origin (until #567 2.1)", async () => {
     const sent: Array<{ url: string; key: string | null }> = [];
-    // Node's fetch: a followed redirect keeps every header but a few, x-api-key among them.
+    // Node's fetch: a followed redirect drops only a few headers (authorization, cookie), so
+    // x-api-key goes along.
     const send = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const request = new Request(input, init);
       sent.push({ url: request.url, key: request.headers.get("x-api-key") });
