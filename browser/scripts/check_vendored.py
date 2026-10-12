@@ -75,8 +75,11 @@ def lock(argv: list[str]) -> int:
         print(f'{ORBIT_MANIFEST} has no plugin vendored as "skills"')
         return 1
     upstream = plugin.get("upstream") or {}
-    repo = upstream.get("repository", "").removeprefix("https://github.com/").removesuffix(".git")
+    repo = upstream.get("repository", "").removeprefix("https://github.com/").rstrip("/").removesuffix(".git")
     want = upstream.get("commit")
+    if not want:
+        print(f'{ORBIT_MANIFEST} names no upstream commit for the plugin vendored as "skills"')
+        return 1
     pinned = json.loads(SKILLS_LOCK.read_text())
     if pinned.get("sha") == want and pinned.get("repo") == repo:
         print(f"skills.lock.json matches Orbit's vendored {repo}@{want[:8]}")
