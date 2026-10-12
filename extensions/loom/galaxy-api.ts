@@ -155,9 +155,12 @@ export interface GalaxyTransport {
 }
 
 let transport: GalaxyTransport = {};
+// The transport's own fetch while a fixture stands in for it.
+let liveFetch: GalaxyFetch | undefined;
 
 export function setGalaxyTransport(next: GalaxyTransport | null): void {
   transport = next ?? {};
+  liveFetch = undefined;
 }
 
 /**
@@ -165,13 +168,13 @@ export function setGalaxyTransport(next: GalaxyTransport | null): void {
  * capture scenarios have to exercise reconcile and enrichment against recorded
  * responses, and there is no other layer every one of those calls shares.
  * Swaps only the fetch, so installed credentials survive both setting and
- * clearing it.
+ * clearing it, and clearing it puts back whatever fetch the transport had.
  */
 export function setGalaxyFetchOverride(fetchImpl: GalaxyFetch | null): void {
-  const { credentials } = transport;
-  setGalaxyTransport(
-    fetchImpl ? { credentials, fetch: fetchImpl, fixture: true } : { credentials },
-  );
+  if (transport.fixture !== true) liveFetch = transport.fetch;
+  transport = fetchImpl
+    ? { ...transport, fetch: fetchImpl, fixture: true }
+    : { ...transport, fetch: liveFetch, fixture: false };
 }
 
 /** Whether Galaxy answers are coming from a recorded fixture rather than a server. */

@@ -129,6 +129,27 @@ describe("galaxyCredentials and the transport", () => {
     setGalaxyFetchOverride(null);
     expect(galaxyCredentials().url).toBe("https://worker.example");
   });
+
+  it("puts the transport's own fetch back when a fetch override is cleared", async () => {
+    process.env.GALAXY_URL = "https://galaxy.example";
+    process.env.GALAXY_API_KEY = "k";
+    const seen: string[] = [];
+    const tagged = (tag: string) => async (url: string) => {
+      seen.push(`${tag} ${url}`);
+      return new Response("{}", { status: 200 });
+    };
+    setGalaxyTransport({ fetch: tagged("live") });
+    setGalaxyFetchOverride(tagged("fixture"));
+    setGalaxyFetchOverride(tagged("fixture2"));
+    await galaxyGet("/a");
+    setGalaxyFetchOverride(null);
+    await galaxyGet("/b");
+    expect(seen).toEqual([
+      "fixture2 https://galaxy.example/api/a",
+      "live https://galaxy.example/api/b",
+    ]);
+    expect(isGalaxyFetchOverridden()).toBe(false);
+  });
 });
 
 describe("job details and listing requests", () => {
