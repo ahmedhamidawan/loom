@@ -18,6 +18,7 @@ import {
   IWC_CANDIDATES_HINT,
   applySkillTriggers,
   iwcCandidatesHint,
+  registerSkillTriggers,
   skillTriggers,
 } from "../extensions/loom/skill-triggers";
 
@@ -195,5 +196,21 @@ describe("guards under the bare family", () => {
       skillTriggers(BARE_FAMILY),
     );
     expect(out?.content[0].text).toContain("`get_iwc_workflow_details`");
+  });
+
+  it("registerSkillTriggers hands its family to the IWC hint", () => {
+    const on = vi.fn();
+    registerSkillTriggers({ on, getActiveTools: () => [] } as unknown as ExtensionAPI, BARE_FAMILY);
+    const messageEnd = on.mock.calls.find(([n]) => n === "message_end")![1];
+    const out = messageEnd({
+      message: {
+        role: "toolResult",
+        toolName: "search_iwc_workflows",
+        toolCallId: "c1",
+        isError: false,
+        content: [{ type: "text", text: "[]" }],
+      },
+    });
+    expect(out?.message.content[0].text).toContain("`get_iwc_workflow_details`");
   });
 });
