@@ -46,6 +46,7 @@ import { registerProposalCommands } from "./proposal-commands";
 import { registerExecGuard } from "./exec-guard";
 import { registerSandbox } from "./sandbox";
 import { isLocalExecDisabled } from "./local-exec";
+import { profileFromEnv } from "../../shared/capability-profile.js";
 import { registerSecretRedaction } from "./secret-redaction";
 import { registerObservationTriggers } from "./observation-triggers";
 import { registerObservationsCommand } from "./observations-command";
@@ -98,7 +99,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // action. Skipping both keeps the shell's gate the single tool_call authority.
   // Shells WITH a local exec surface (desktop, CLI) set LOOM_LOCAL_EXEC
   // authoritatively at spawn so an ambient value can't toggle this off here.
-  if (!isLocalExecDisabled()) {
+  if (profileFromEnv().files) {
     // Register the gate first so its tool_call decision is the authoritative
     // boundary before anything else runs.
     registerExecGuard(pi);
