@@ -376,6 +376,7 @@
             <button class="pane-tab active" data-tab="notebook">Notebook</button>
             <button class="pane-tab" data-tab="activity">Activity</button>
             <button class="pane-tab" data-tab="dashboard">Dashboard</button>
+            <button class="pane-tab" data-tab="whats-happening">What's Happening</button>
             <button class="pane-tab pane-tab-closeable" data-tab="file" hidden>
               <span class="pane-tab-label">File</span>
               <span class="pane-tab-close" id="file-tab-close" title="Close file">×</span>
@@ -396,6 +397,11 @@
               </div>
             </div>
             <div id="dashboard-view" class="pane-body hidden"></div>
+            <div id="whats-happening-view" class="pane-body hidden">
+              <div class="empty-state">
+                <p>When Orbit starts working, each step will show up here.</p>
+              </div>
+            </div>
             <div id="activity-view" class="pane-body hidden">
               <div id="activity-galaxy-history-section" class="hidden">
                 <div class="activity-section-header">

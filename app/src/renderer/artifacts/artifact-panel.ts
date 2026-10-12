@@ -58,12 +58,13 @@ const NOTEBOOK_EMPTY_HTML = `
   </div>
 `;
 
-type TabKey = "notebook" | "activity" | "dashboard" | "file";
+type TabKey = "notebook" | "activity" | "dashboard" | "whats-happening" | "file";
 
 export class ArtifactPanel {
   private notebookEl: HTMLElement;
   private activityEl: HTMLElement;
   private dashboardEl: HTMLElement;
+  private whatsHappeningEl: HTMLElement;
   private fileEl: HTMLElement;
   private fileTabBtn: HTMLButtonElement;
   private tabButtons: HTMLButtonElement[];
@@ -77,6 +78,7 @@ export class ArtifactPanel {
     this.notebookEl = document.getElementById("notebook-view")!;
     this.activityEl = document.getElementById("activity-view")!;
     this.dashboardEl = document.getElementById("dashboard-view")!;
+    this.whatsHappeningEl = document.getElementById("whats-happening-view")!;
     this.fileEl = document.getElementById("file-view")!;
     this.tabButtons = Array.from(
       document.querySelectorAll<HTMLButtonElement>("#artifact-tabs .pane-tab"),
@@ -106,6 +108,11 @@ export class ArtifactPanel {
   /** Returns the Dashboard tab container so the dashboard host can mount its DOM. */
   getDashboardContainer(): HTMLElement {
     return this.dashboardEl;
+  }
+
+  /** Returns the What's Happening tab container so the narration view can mount its DOM. */
+  getWhatsHappeningContainer(): HTMLElement {
+    return this.whatsHappeningEl;
   }
 
   /** Returns the File tab container so the FileViewer can mount its DOM. */
@@ -172,6 +179,7 @@ export class ArtifactPanel {
     this.notebookEl.classList.toggle("hidden", tab !== "notebook");
     this.activityEl.classList.toggle("hidden", tab !== "activity");
     this.dashboardEl.classList.toggle("hidden", tab !== "dashboard");
+    this.whatsHappeningEl.classList.toggle("hidden", tab !== "whats-happening");
     this.fileEl.classList.toggle("hidden", tab !== "file");
   }
 

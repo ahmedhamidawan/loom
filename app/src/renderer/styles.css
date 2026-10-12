@@ -2718,7 +2718,8 @@ body.platform-darwin #files-title {
 }
 
 #notebook-view,
-#activity-view {
+#activity-view,
+#whats-happening-view {
   position: absolute;
   inset: 0;
   overflow-y: auto;
@@ -2733,18 +2734,21 @@ body.platform-darwin #files-title {
 
 #notebook-view.hidden,
 #activity-view.hidden,
+#whats-happening-view.hidden,
 #file-view.hidden {
   display: none;
 }
 
 #notebook-view::-webkit-scrollbar,
 #activity-view::-webkit-scrollbar,
+#whats-happening-view::-webkit-scrollbar,
 #file-view::-webkit-scrollbar {
   width: 6px;
 }
 
 #notebook-view::-webkit-scrollbar-thumb,
 #activity-view::-webkit-scrollbar-thumb,
+#whats-happening-view::-webkit-scrollbar-thumb,
 #file-view::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 3px;
