@@ -16,6 +16,9 @@ describe("browser skills lock", () => {
       .replace(/\/$/, "")
       .replace(/\.git$/, "");
     const lock = read("browser/core/skills.lock.json");
-    expect({ repo: lock.repo, sha: lock.sha }).toEqual({ repo, sha: plugin.upstream.commit });
+    expect(
+      { repo: lock.repo, sha: lock.sha },
+      "browser/core/skills.lock.json is behind Orbit's skills manifest -- run node browser/core/scripts/install_skills.js and commit the lock",
+    ).toEqual({ repo, sha: plugin.upstream.commit });
   });
 });

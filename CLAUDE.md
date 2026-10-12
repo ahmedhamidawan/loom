@@ -49,6 +49,8 @@ cd app && npm start
   hand-edit the vendored files. `npm run check:skills` is the CI drift gate. The browser shell
   copies its galaxy-skills corpus from the same tree (`browser/core/scripts/install_skills.js`), so
   a manifest bump moves both shells; rebuild the browser and commit its `core/skills.lock.json`.
+  Orbit's system-prompt goldens carry the skills catalog too, so a bump that changes a description
+  also needs `npx vitest run -u tests/system-prompt-surface.test.ts`.
 
 ## Validation bias
 
