@@ -102,14 +102,27 @@ function symbols(sources: string[]): Record<string, string[]> {
   return out;
 }
 
+/** The shared modules a prompt module imports, which hold blocks it builds its constants from. */
+function sharedPromptModules(prompt: string, text: string): string[] {
+  return [...text.matchAll(/^import [^;]*? from "(\.[^"]*\/shared\/[^"]+\.js)";$/gm)]
+    .map((m) => absolute(dirname(prompt), m[1]))
+    .filter(existsSync);
+}
+
 /** The blocks each package's `src/agent/prompt.ts` defines, so a flavor's sections are named too. */
 function promptBlocks(sources: string[]): string[] {
-  const text = sources
+  const prompts = sources
     .map((source) => join(source, SOURCE, "prompt.ts"))
     .filter(existsSync)
-    .map((prompt) => readFileSync(prompt, "utf8"))
-    .join("\n");
-  const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = `/gm)].map((m) => m[1]);
+    .map((prompt) => ({ prompt, text: readFileSync(prompt, "utf8") }));
+  const shared = new Set(prompts.flatMap(({ prompt, text }) => sharedPromptModules(prompt, text)));
+  const text = [
+    ...prompts.map((p) => p.text),
+    ...[...shared].map((m) => readFileSync(m, "utf8")),
+  ].join("\n");
+  const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = (?:`|\w+\()/gm)].map(
+    (m) => m[1],
+  );
   const builders = [...text.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
   return [...new Set([...blocks, ...builders])].sort();
 }

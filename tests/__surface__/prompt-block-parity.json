@@ -83,15 +83,9 @@
     {
       "browser": "INVOKING_WORKFLOW",
       "loom": "buildGalaxyContextBlock(), \"Invoking a Galaxy workflow\".",
-      "identical": false,
-      "similarity": 0.991,
-      "diff": [
-        "@@ -5,3 +5,3 @@",
-        " - Data **and** non-data slots both belong in `inputs`, keyed by step index: a collection slot takes `{\"src\":\"hdca\",\"id\":\"<collection_id>\"}`, an integer/text/genome slot takes the bare scalar (`5`, `\"hg38\"`). Slots the template marks `optional` may be left out.",
-        " - Pass `inputs_by=\"step_index|step_uuid\"` verbatim -- the pipe-separated form is one valid value, not a choice between two.",
-        "-- **Don't route workflow inputs through `params`.** It is the legacy per-step tool-override map, typed `dict[str, dict]`, so a scalar value fails with `Input should be a valid dictionary in ('body','parameters',<key>)`. Re-keying by label, index, or uuid won't fix that -- the key was never the problem. Put the value in `inputs`.",
-        "+- **Don't route workflow inputs through `params`.** It's the legacy per-step tool-override map, typed `dict[str, dict]`, so a scalar value fails with `Input should be a valid dictionary in ('body','parameters',<key>)`. Re-keying by label, index, or uuid won't fix that -- the key was never the problem. Put the value in `inputs`."
-      ]
+      "identical": true,
+      "similarity": 1,
+      "diff": []
     },
     {
       "browser": "EXECUTING_A_STEP",

@@ -1,3 +1,4 @@
+import { findingAWorkflow, invokingWorkflow } from "../../../../shared/galaxy-guidance.js";
 import { DEFAULT_BRAND } from "./brand";
 
 // System-prompt blocks, adopted from Orbit's `extensions/loom/context.ts`.
@@ -81,24 +82,7 @@ failed or missing outputs. Never delete prior outputs merely to hide clutter;
 reuse them and preserve provenance.`;
 
 // loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow".
-export const INVOKING_WORKFLOW = `### Invoking a Galaxy workflow
-
-Call \`get_workflow_input_template\` before \`invoke_workflow\`. Take the
-\`inputs_template\` map out of what it returns -- that field, not the whole wrapper --
-keep its keys, replace every placeholder (\`<value>\`, \`<dataset_id>\`,
-\`<collection_id>\`) with a real value, and pass that map as \`inputs\`:
-
-- Data **and** non-data slots both belong in \`inputs\`, keyed by step index: a
-  collection slot takes \`{"src":"hdca","id":"<collection_id>"}\`, an
-  integer/text/genome slot takes the bare scalar (\`5\`, \`"hg38"\`). Slots the template
-  marks \`optional\` may be left out.
-- Pass \`inputs_by="step_index|step_uuid"\` verbatim -- the pipe-separated form is one
-  valid value, not a choice between two.
-- **Don't route workflow inputs through \`params\`.** It is the legacy per-step
-  tool-override map, typed \`dict[str, dict]\`, so a scalar value fails with
-  \`Input should be a valid dictionary in ('body','parameters',<key>)\`. Re-keying by
-  label, index, or uuid won't fix that -- the key was never the problem. Put the
-  value in \`inputs\`.`;
+export const INVOKING_WORKFLOW = invokingWorkflow();
 
 // loom: buildGalaxyContextBlock(), "Executing a Galaxy step".
 export const EXECUTING_A_STEP = `### Executing a Galaxy step
@@ -135,27 +119,7 @@ itself. Repeated reads of a resource the monitor is already watching are refused
 minutes, because they cannot answer anything new.`;
 
 // loom: buildGalaxyContextBlock(), "Finding a community workflow (IWC)".
-export const FINDING_A_WORKFLOW = `### Finding a community workflow (IWC)
-
-When the user describes an analysis they want run on their data -- even as
-a question ("which genes changed between my samples?") rather than a
-request for a plan -- check the IWC registry before assembling tools by hand:
-
-1. \`recommend_iwc_workflows({ intent, limit: 5 })\` with their goal in
-   plain words. It ranks by word overlap and always returns something, so a
-   ranked hit is a candidate, not a match.
-2. \`get_iwc_workflow_details({ trs_id })\` on the plausible ones, for
-   the **inputs**. Compare them with the data the user actually has (reads vs
-   count tables, paired vs single-end, collection vs dataset). The right
-   analysis with the wrong starting point is not a match -- though it may be
-   the second half of one, after a workflow that produces its inputs.
-3. Offer the one or two that fit, in plain language: what each does and what
-   it needs from them. If none fit, say so and draft step-by-step.
-4. Once they choose: \`import_workflow_from_iwc({ trs_id })\`, then invoke
-   it as below.
-
-\`search_iwc_workflows\` is plain keyword search for when the user
-names a workflow or tool; it has no limit, so prefer recommend for a goal.`;
+export const FINDING_A_WORKFLOW = findingAWorkflow();
 
 // loom: buildGalaxyContextBlock(), the "Drafting a new plan" section.
 export const DRAFTING_A_PLAN = `### Drafting a new plan
