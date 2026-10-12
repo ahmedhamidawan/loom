@@ -16,15 +16,18 @@
  * The corpus itself is a build artifact (gitignored), but `skills.lock.json` beside
  * this package's package.json is committed and pins the exact commit. Without the lock every build
  * would silently take whatever `main` points at that day, which is a poor foundation
- * for a project whose claim is reproducibility. Pass GALAXY_SKILLS_REF to move the
- * pin deliberately; the lock is rewritten and the change shows up in review.
+ * for a project whose claim is reproducibility.
  *
  * In this repo the corpus comes from Orbit's own vendor tree instead: scripts/sync-skills.mjs
  * copies galaxy-skills out of galaxyproject/agentic-plugins into extensions/loom/vendor/skills,
  * and when that tree's _manifest.json is present this copies the same files from it and pins
  * the lock to the manifest's upstream commit. One manifest bump then moves both shells, and the
- * build makes no GitHub round trip. GitHub stays the fallback for a checkout of browser/ alone,
- * and for an explicit GALAXY_SKILLS_REPO or GALAXY_SKILLS_REF.
+ * build makes no GitHub round trip, so in this repo the pin moves through
+ * scripts/skills.manifest.json only: a lock moved any other way fails check_vendored.py and the
+ * next build puts it back. Under CI the build refuses a lock that disagrees instead of rewriting
+ * it. GitHub stays the fallback for an explicit GALAXY_SKILLS_REPO or GALAXY_SKILLS_REF, and for
+ * a checkout of browser/ alone, where GALAXY_SKILLS_REF is how the pin moves: the lock is
+ * rewritten and the change shows up in review.
  *
  * Env:
  *   GALAXY_SKILLS_REPO  owner/repo      (default galaxyproject/galaxy-skills)
@@ -163,6 +166,19 @@ async function vendorLocal(manifest) {
   if (!files.length || files.some((f) => !f.target.startsWith(prefix))) {
     throw new Error(`${VENDOR_MANIFEST} lists no files for ${plugin.plugin} under ${prefix}`);
   }
+  const lock = { repo, ref: plugin.upstream.ref, sha };
+  let relock = false;
+  const existing = await readJson(LOCK);
+  if (JSON.stringify(existing) !== JSON.stringify(lock)) {
+    // CI builds before it checks, so a rewrite here would hide a stale committed lock.
+    if (process.env.CI) {
+      throw new Error(
+        `core/skills.lock.json pins ${existing?.repo}@${existing?.sha}, but Orbit vendors ` +
+          `${repo}@${sha}; rebuild locally and commit the rewritten lock`,
+      );
+    }
+    relock = true;
+  }
   console.log(
     `[skills] copying ${files.length} files of ${repo}@${sha.slice(0, 8)} from ` +
       `${manifest.repo}@${manifest.commit.slice(0, 8)}'s vendor tree`,
@@ -209,9 +225,7 @@ async function vendorLocal(manifest) {
       2,
     ) + "\n",
   );
-  const lock = { repo, ref: plugin.upstream.ref, sha };
-  const existing = await readJson(LOCK);
-  if (JSON.stringify(existing) !== JSON.stringify(lock)) {
+  if (relock) {
     await writeFile(LOCK, JSON.stringify(lock, null, 2) + "\n");
     console.log(`[skills] pinned skills.lock.json to ${sha.slice(0, 8)}`);
   }

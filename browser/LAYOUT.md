@@ -142,7 +142,7 @@ What still ties the two packages to this workspace, and why each waits:
     become `mountOrbitBrowser` options (a build stamp, the credentials mode, the dev model
     overrides), with the build stamp handed to the worker in its open request.
 - **Durable format names that still say olit.** A flavor names itself with a `Brand` (`{ id,
-  name }`, on `AgentFlavor` and `mountOrbitBrowser`; `DEFAULT_BRAND` is Orbit), and everything
+name }`, on `AgentFlavor` and `mountOrbitBrowser`; `DEFAULT_BRAND` is Orbit), and everything
   that tells flavors apart follows it: the identity line, the follow-up mark, the tag on result
   notes, the misroute refusal, run_python's description, the extension name, describe's `agent`
   and `runner`, the skills repo the core's own skills are offered under (`skills/own/` becomes
@@ -192,7 +192,8 @@ Both shells take it from one source: `core/scripts/install_skills.js` copies the
 vendors `as: "skills"` out of `extensions/loom/vendor/skills/` and pins `core/skills.lock.json` to
 that plugin's upstream commit, so bumping `scripts/skills.manifest.json` at the repo root and
 running `npm run sync:skills` moves Orbit and the browser together. The check below fails while the
-lock and Orbit's manifest disagree. Outside this repo, with no vendor tree beside it, the install
+lock and Orbit's manifest disagree, and under CI the build refuses to rewrite a lock that disagrees,
+so a stale committed lock fails there instead of being quietly corrected. Outside this repo, with no vendor tree beside it, the install
 falls back to fetching the locked commit from GitHub.
 
 Orbit's chat UI is not copied: it is imported from `app/src/renderer` in this repo.
