@@ -12,6 +12,7 @@ import { specifiers } from "./flavor-boundary";
 
 const CORE = join(__dirname, "..");
 const SHARED = resolve(CORE, "..", "..", "shared");
+const RENDERER = resolve(CORE, "..", "..", "app", "src", "renderer");
 const FLAVOR_ONLY = [
   "galaxy-charts",
   "galaxy-charts-xml-parser",
@@ -59,14 +60,36 @@ function resolved(file: string, spec: string): string {
   return existsSync(path) || !existsSync(`${path}.js`) ? path : `${path}.js`;
 }
 
-/** The shared modules `files` import directly. */
-function sharedImports(files: string[]): string[] {
-  return files.flatMap((file) =>
-    specifiers(readFileSync(file, "utf8"))
-      .filter((spec) => spec.startsWith("."))
-      .map((spec) => resolved(file, spec))
-      .filter(inShared),
+/** The renderer source a relative import names: `.js` specifiers there are compiled from `.ts`. */
+function rendererSource(path: string): string | undefined {
+  return [path, path.replace(/\.js$/, ".ts"), `${path}.ts`].find(
+    (candidate) => /\.(ts|js)$/.test(candidate) && existsSync(candidate),
   );
+}
+
+/**
+ * The shared modules `files` import, directly or through Orbit's renderer, which the core
+ * mounts and so ships alongside its own code.
+ */
+function sharedImports(files: string[]): string[] {
+  const queue = [...files];
+  const seen = new Set<string>();
+  const found = new Set<string>();
+  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    for (const spec of specifiers(readFileSync(file, "utf8"))) {
+      if (!spec.startsWith(".")) continue;
+      const path = resolved(file, spec);
+      if (inShared(path)) {
+        found.add(path);
+      } else if (path.startsWith(`${RENDERER}/`)) {
+        const source = rendererSource(path);
+        if (source) queue.push(source);
+      }
+    }
+  }
+  return [...found];
 }
 
 /**
@@ -111,9 +134,18 @@ describe("the core", () => {
   });
 
   it("reaches only shared modules a browser can load, all the way down", () => {
-    // src/ only: a build script under scripts/ runs in Node and may use what it likes.
-    const shipped = sources(join(CORE, "src")).filter((file) => file !== __filename);
-    expect(unloadable(sharedImports(shipped))).toEqual([]);
+    // Shipped code only: build scripts and tests run in Node and may use what they like.
+    const shipped = sources(join(CORE, "src")).filter((file) => !/\.test\.ts$/.test(file));
+    const reached = sharedImports(shipped);
+    // The core reaches shared/ today only through Orbit's chat panel; a walk that stops at the
+    // core's own imports would find nothing and pass vacuously.
+    expect(reached).toEqual(
+      expect.arrayContaining([
+        join(SHARED, "team-dispatch-contract.js"),
+        join(SHARED, "loom-shell-contract.js"),
+      ]),
+    );
+    expect(unloadable(reached)).toEqual([]);
     // The walk itself, started at a shared module that is Node-only.
     expect(unloadable([join(SHARED, "loom-config.js")])).toContain(
       "shared/loom-config.js: node:fs (a node builtin)",
