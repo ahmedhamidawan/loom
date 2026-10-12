@@ -3,12 +3,12 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
+import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
 
-// Two guards the browser has and loom doesn't yet (#567 "Guards"). These pin the
-// target behavior with the browser's refusal text, verbatim from
-// browser/core/src/agent/guards.ts (repeated failure) and galaxy-tools.ts
-// (cross-history input). They are skipped until the port lands; the port
-// un-skips them and swaps the lazy imports below for static ones.
+// Guards ported from the browser (#567 "Guards"), pinned with the browser's
+// refusal text verbatim from browser/core/src/agent/guards.ts (repeated
+// failure) and galaxy-tools.ts (cross-history input). The history guard is
+// still skipped until its port lands, which swaps its lazy import for a static one.
 
 vi.mock("../extensions/loom/state", () => ({ getNotebookPath: () => null }));
 
@@ -20,8 +20,12 @@ async function register(module: string, fn: string): Promise<Map<string, Handler
     string,
     (pi: ExtensionAPI) => void
   >;
+  return handlersOf(mod[fn]);
+}
+
+function handlersOf(register: (pi: ExtensionAPI) => void): Map<string, Handler> {
   const handlers = new Map<string, Handler>();
-  mod[fn]({ on: (event: string, h: Handler) => handlers.set(event, h) } as never);
+  register({ on: (event: string, h: Handler) => handlers.set(event, h) } as never);
   return handlers;
 }
 
@@ -39,8 +43,8 @@ afterEach(() => {
 });
 
 describe("loom's port of the browser's Galaxy guards", () => {
-  it.skip("refuses the 4th identical call after three failures (until the repeat guard is ported)", async () => {
-    const on = await register("galaxy-repeat-guard", "registerGalaxyRepeatGuard");
+  it("refuses the 4th identical call after three failures", async () => {
+    const on = handlersOf(registerGalaxyRepeatGuard);
     for (let i = 1; i <= 3; i++) {
       expect(
         await on.get("tool_call")!({ toolName: RUN_TOOL, toolCallId: `c${i}`, input: ARGS }),

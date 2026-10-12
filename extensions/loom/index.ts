@@ -38,6 +38,7 @@ import { isSessionIndexEnabled } from "./session-index/is-enabled";
 import { registerSkillTriggers } from "./skill-triggers";
 import { registerIwcPlanCheck } from "./iwc-plan-check";
 import { registerSraImportGate } from "./sra-import-gate";
+import { registerGalaxyRepeatGuard } from "./galaxy-repeat-guard";
 import { registerEvidenceGate } from "./evidence-gate";
 import { registerEvidenceOverrideCommand } from "./evidence-override-command";
 import { registerProposalCommands } from "./proposal-commands";
@@ -177,6 +178,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   registerIwcPlanCheck(pi);
   registerEvidenceGate(pi);
   registerSraImportGate(pi);
+  registerGalaxyRepeatGuard(pi);
   registerEvidenceOverrideCommand(pi);
   // ── Approval registry (#476): the model proposes with loom_propose; the user
   // approves with /approve (or revokes, or lists with /pending). The registry
