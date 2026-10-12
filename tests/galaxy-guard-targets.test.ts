@@ -3,25 +3,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
+import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
 
 // Guards ported from the browser (#567 "Guards"), pinned with the browser's
 // refusal text verbatim from browser/core/src/agent/guards.ts (repeated
-// failure) and galaxy-tools.ts (cross-history input). The history guard is
-// still skipped until its port lands, which swaps its lazy import for a static one.
+// failure) and galaxy-tools.ts (cross-history input).
 
 vi.mock("../extensions/loom/state", () => ({ getNotebookPath: () => null }));
 
 type Handler = (event: unknown, ctx?: unknown) => unknown;
-
-/** A guard module by name, loaded only when a test runs, since it doesn't exist yet. */
-async function register(module: string, fn: string): Promise<Map<string, Handler>> {
-  const mod = (await import(/* @vite-ignore */ `../extensions/loom/${module}`)) as Record<
-    string,
-    (pi: ExtensionAPI) => void
-  >;
-  return handlersOf(mod[fn]);
-}
 
 function handlersOf(register: (pi: ExtensionAPI) => void): Map<string, Handler> {
   const handlers = new Map<string, Handler>();
@@ -67,7 +58,7 @@ describe("loom's port of the browser's Galaxy guards", () => {
     });
   });
 
-  it.skip("refuses a run whose input is in another history (until the history guard is ported)", async () => {
+  it("refuses a run whose input is in another history", async () => {
     setGalaxyFetchOverride(
       fixtureFetch([
         {
@@ -78,7 +69,7 @@ describe("loom's port of the browser's Galaxy guards", () => {
         },
       ]),
     );
-    const on = await register("galaxy-history-guard", "registerGalaxyHistoryGuard");
+    const on = handlersOf(registerGalaxyHistoryGuard);
     const foreign = [
       { input: "input1", supplied_id: "d1", history_id: "elsewhere", name: "reads.fastq" },
     ];
