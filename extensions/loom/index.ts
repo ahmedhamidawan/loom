@@ -53,7 +53,7 @@ import { registerObservationTriggers } from "./observation-triggers";
 import { registerObservationsCommand } from "./observations-command";
 import { registerMcpOutputRecovery } from "./mcp-output";
 import { registerLoomMcpServers } from "./mcp-servers";
-import { galaxyMcpToolName } from "../../shared/galaxy-mcp-tools.js";
+import { MCP_FAMILY } from "../../shared/galaxy-mcp-tools.js";
 import { galaxyCall, registerMcpRecovery } from "./mcp-recovery";
 import { registerGalaxyPollGuard } from "./galaxy-poll-guard";
 import { registerProgressUpdates } from "./progress-updates";
@@ -82,7 +82,7 @@ import { LoomWidgetKey, encodeMarkdownWidget } from "../../shared/loom-shell-con
 
 /** Status-bar label for a Galaxy tool -- galaxy-mcp's or Loom's own -- else undefined. */
 function galaxyToolLabel(toolName: string | undefined): string | undefined {
-  const bare = galaxyMcpToolName(toolName) ?? toolName?.match(/^galaxy_(.+)/)?.[1];
+  const bare = MCP_FAMILY.toolName(toolName) ?? toolName?.match(/^galaxy_(.+)/)?.[1];
   return bare?.replace(/_/g, " ");
 }
 
@@ -509,7 +509,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
       }
     }
 
-    if (event.toolName === "mcp__galaxy__connect" && !event.isError) {
+    if (MCP_FAMILY.toolName(event.toolName) === "connect" && !event.isError) {
       // A non-error mcp__galaxy__connect means we're now bound to the current env
       // creds (galaxy-mcp raises on failure -> isError), so advance the
       // credential-drift baseline. Keyed off isError, not the loose success
@@ -528,7 +528,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
       }
     }
 
-    if (event.toolName === "mcp__galaxy__create_history" && !event.isError) {
+    if (MCP_FAMILY.toolName(event.toolName) === "create_history" && !event.isError) {
       try {
         const resultText =
           typeof event.result === "string" ? event.result : JSON.stringify(event.result);
@@ -575,7 +575,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
       /* stale/headless context -- a dropped reconnect hint is fine */
     }
 
-    if (event.toolName === "mcp__galaxy__connect") {
+    if (MCP_FAMILY.toolName(event.toolName) === "connect") {
       try {
         const firstContent = event.content?.[0];
         const resultText = firstContent && "text" in firstContent ? firstContent.text : undefined;
@@ -588,7 +588,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
       }
     }
 
-    if (event.toolName === "mcp__galaxy__create_history") {
+    if (MCP_FAMILY.toolName(event.toolName) === "create_history") {
       try {
         const firstContent = event.content?.[0];
         const resultText = firstContent && "text" in firstContent ? firstContent.text : undefined;
