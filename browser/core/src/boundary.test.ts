@@ -146,6 +146,7 @@ describe("the core", () => {
         join(SHARED, "record-excerpt.js"),
         join(SHARED, "galaxy-page-cells.js"),
         join(SHARED, "redirect-guard.js"),
+        join(SHARED, "skills-router.js"),
         join(SHARED, "team-dispatch-contract.js"),
         join(SHARED, "loom-shell-contract.js"),
       ]),

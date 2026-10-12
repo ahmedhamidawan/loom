@@ -38,6 +38,7 @@ import {
 } from "./user-instructions.js";
 import { readEnv } from "../../shared/orbit-env.js";
 import { excerptHeadTail } from "../../shared/record-excerpt.js";
+import { renderSkillsRouter } from "../../shared/skills-router.js";
 
 /** customType for the per-turn live notebook context message (E1/E2 cache fix). */
 const LOOM_NOTEBOOK_CONTEXT_TYPE = "loom-notebook-context";
@@ -1120,10 +1121,6 @@ export function renderSkillsSection(
   entriesByRepo: Map<string, SkillEntry[]>,
   bundled: ReadonlySet<string> = new Set(),
 ): string {
-  if (repos.length === 0) return "";
-  const sections: string[] = [];
-  sections.push(`## Skills repositories (operational know-how)`);
-  sections.push("");
   // Only promise a refresh when something here is actually fetched. A bundled
   // repo is read from the package, so "refreshes each session" would be a
   // description of machinery that no longer runs for it.
@@ -1131,40 +1128,19 @@ export function renderSkillsSection(
   const freshness = allBundled
     ? `The catalog below ships with Loom and reads from disk, so it works offline.`
     : `The catalog below refreshes each session; deep reference docs cache for 24h.`;
-  sections.push(
-    `Use the \`skills_fetch({ repo, path })\` tool to load a skill on demand. ` +
-      `**Don't guess operational patterns from training data — fetch the relevant ` +
-      `skill first.** ${freshness} When \`repo\` is omitted, the first enabled repo is used.`,
+  return renderSkillsRouter(
+    repos.map((r) => ({
+      name: r.name,
+      label: `${r.url} (${bundled.has(r.name) ? "bundled" : `branch: ${r.branch || "main"}`})`,
+    })),
+    new Map(
+      [...entriesByRepo].map(([name, entries]) => [
+        name,
+        entries.map((e) => ({ ...e, whenToUse: e.when_to_use })),
+      ]),
+    ),
+    { freshness, defaultRepoPhrase: "the first enabled repo" },
   );
-  sections.push("");
-
-  sections.push(`### Configured repos`);
-  sections.push("");
-  for (const r of repos) {
-    const where = bundled.has(r.name) ? "bundled" : `branch: ${r.branch || "main"}`;
-    sections.push(`- **${r.name}** — ${r.url} (${where})`);
-  }
-  sections.push("");
-
-  const defaultRepo = repos[0]?.name;
-  for (const r of repos) {
-    const entries = entriesByRepo.get(r.name) ?? [];
-    if (entries.length === 0) continue;
-    sections.push(`### ${r.name} skills`);
-    sections.push("");
-    for (const e of entries) {
-      const repoArg = r.name === defaultRepo ? "" : `repo: "${r.name}", `;
-      sections.push(
-        `- **${e.name}** — ${e.description} → \`skills_fetch({ ${repoArg}path: "${e.path}" })\``,
-      );
-      if (e.when_to_use) sections.push(`  When to use: ${e.when_to_use}`);
-    }
-    sections.push("");
-  }
-
-  sections.push(`Read the SKILL.md fully before acting on what it teaches.`);
-  sections.push("");
-  return sections.join("\n");
 }
 
 /** Exported so a test can measure the section the system prompt actually gets. */
