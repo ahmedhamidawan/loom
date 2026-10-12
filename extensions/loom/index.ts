@@ -47,6 +47,7 @@ import { registerExecGuard } from "./exec-guard";
 import { registerSandbox } from "./sandbox";
 import { isLocalExecDisabled } from "./local-exec";
 import { profileFromEnv } from "../../shared/capability-profile.js";
+import { galaxyCredentials } from "./galaxy-api";
 import { registerSecretRedaction } from "./secret-redaction";
 import { registerObservationTriggers } from "./observation-triggers";
 import { registerObservationsCommand } from "./observations-command";
@@ -219,6 +220,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
       }
       const { profiles, active } = loadProfiles();
       const profileNames = Object.keys(profiles);
+      const current = galaxyCredentials();
 
       async function reloadOrMessage(url: string) {
         if (typeof ctx.reload === "function") {
@@ -267,12 +269,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
           await reloadOrMessage(profiles[name].url);
           return;
         }
-      } else if (
-        profileNames.length === 1 &&
-        active &&
-        process.env.GALAXY_URL &&
-        process.env.GALAXY_API_KEY
-      ) {
+      } else if (profileNames.length === 1 && active && current.url && current.apiKey) {
         ctx.ui.notify(`Connecting to ${profiles[active].url}...`, "info");
         await reloadOrMessage(profiles[active].url);
         return;
