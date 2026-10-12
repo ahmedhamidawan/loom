@@ -52,7 +52,7 @@ async function skills() {
   return (
     `skills     BEHIND by ${cmp.total_commits} commit(s): ${lock.sha.slice(0, 8)} -> ${head.sha.slice(0, 8)}\n` +
     `           ${touched} file(s) changed under skills/, the subtree olit vendors\n` +
-    `           update: edit core/skills.lock.json, node core/scripts/install_skills.js`
+    `           update: bump scripts/skills.manifest.json at the repo root, npm run sync:skills, node core/scripts/install_skills.js`
   );
 }
 

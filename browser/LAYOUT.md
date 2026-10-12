@@ -19,8 +19,9 @@ dist/session.mjs          the Node build of the agent (npm run build:session)
 core/                     @galaxyproject/orbit-browser, TypeScript source behind package exports
   vite.ts                   the Vite preset a flavor builds with: proxies, defines, worker, Pyodide
   scripts/install_assets.js the orbit-browser-assets bin a flavor's build runs first: fetches
-                            Pyodide's wheels into temp/ and the galaxy-skills corpus into src/
-  skills.lock.json          the galaxy-skills revision the core vendors
+                            Pyodide's wheels into temp/ and copies the galaxy-skills corpus into
+                            src/ from Orbit's extensions/loom/vendor/skills (GitHub without it)
+  skills.lock.json          the galaxy-skills revision the core vendors, the commit Orbit vendors
   pyodide.requirements.txt  the Python packages run_python loads
   src/index.ts              the page entry: mountOrbitBrowser and what a page needs
   src/shell.ts              mounts Orbit's ChatPanel, starts the flavor's worker, drives the chat
@@ -50,8 +51,8 @@ core/                     @galaxyproject/orbit-browser, TypeScript source behind
     prompt.ts skills.ts notebook.ts   the system prompt, SKILL.md routers, the record page
     python.ts python-realm.js python-node.ts   `run_python` and the realm Pyodide runs in
     processes/                deterministic procedures (lineage_report, organize_datasets)
-    skills/                   own/notebook, the brand's own skills, and galaxy-skills fetched at
-                              build time
+    skills/                   own/notebook, the brand's own skills, and galaxy-skills copied in
+                              at build time
     describe.ts               what the agent publishes about itself, for an outside evaluator
 
 olit/                     @galaxyproject/olit: files ["static"]
@@ -187,6 +188,13 @@ what `--describe` returns, and `olit/src/agent/surface.test.ts` pins what the ag
 
 The galaxy-skills corpus under `core/src/agent/skills/` is a copy of files owned elsewhere. It is
 synced by copy, which works only while the copy stays byte-identical, so its hashes are pinned.
+Both shells take it from one source: `core/scripts/install_skills.js` copies the plugin Orbit
+vendors `as: "skills"` out of `extensions/loom/vendor/skills/` and pins `core/skills.lock.json` to
+that plugin's upstream commit, so bumping `scripts/skills.manifest.json` at the repo root and
+running `npm run sync:skills` moves Orbit and the browser together. The check below fails while the
+lock and Orbit's manifest disagree. Outside this repo, with no vendor tree beside it, the install
+falls back to fetching the locked commit from GitHub.
+
 Orbit's chat UI is not copied: it is imported from `app/src/renderer` in this repo.
 
 ```bash
