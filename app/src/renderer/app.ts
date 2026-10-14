@@ -53,11 +53,18 @@ import type { ProviderAuthCaps } from "../../../shared/provider-auth-caps.js";
 import { splitApprovalPrompt } from "../../../shared/approval-prompt.js";
 import { openReleaseWithFallback, clearReleaseFallback } from "./update-banner.js";
 import { createModalClaim } from "./ext-modal-claim.js";
+import { abortAgent, onAgentEvent, onUiRequest, sendPrompt } from "./agent-transport.js";
 
 declare global {
   interface Window {
     orbit: import("../preload/preload.js").OrbitAPI;
   }
+}
+
+// Dev builds only: window.orbitMock, to record the brain's traffic or replay
+// it without a model (see dev/agent-mock.ts). Stripped from production builds.
+if (import.meta.env.DEV) {
+  void import("./dev/agent-mock.js").then((mock) => mock.installAgentMock());
 }
 
 let cleanupThemeListener: (() => void) | null = null;
@@ -1928,7 +1935,7 @@ function dispatchSubmittedText(text: string): void {
 function promptAgent(message: string): void {
   // The renderer's streaming flag can lag behind Pi during model retries.
   // This policy works for both a fresh prompt and one that arrives mid-turn.
-  void window.orbit.prompt(message, { streamingBehavior: "followUp" }).catch((error: unknown) => {
+  void sendPrompt(message, { streamingBehavior: "followUp" }).catch((error: unknown) => {
     chat.hideThinking();
     chat.addErrorMessage(error instanceof Error ? error.message : String(error));
     streaming = false;
@@ -2731,7 +2738,7 @@ sendBtn.addEventListener("click", submit);
 
 function abortCurrentTurn(): void {
   clearQueue();
-  window.orbit.abort();
+  abortAgent();
 }
 
 abortBtn.addEventListener("click", abortCurrentTurn);
@@ -2746,7 +2753,7 @@ document.addEventListener("keydown", (e) => {
 
 let handledPromptPending = false;
 
-window.orbit.onAgentEvent((event) => {
+onAgentEvent((event) => {
   const type = event.type as string;
   console.log("[orbit] event:", type, JSON.stringify(event).slice(0, 150));
 
@@ -3123,7 +3130,7 @@ function openExtConfirm(id: string, title: string, message: string): void {
   document.addEventListener("keydown", onKey);
 }
 
-window.orbit.onUiRequest((request) => {
+onUiRequest((request) => {
   console.log(
     "[orbit] UI request:",
     request.method,

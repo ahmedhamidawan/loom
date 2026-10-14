@@ -1,0 +1,2 @@
+# Recorded and converted scripts hold real Galaxy data (ids, names, user info).
+*.jsonl
