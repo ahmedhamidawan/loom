@@ -123,7 +123,10 @@ function promptBlocks(sources: string[]): string[] {
   const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = (?:`|\w+\()/gm)].map(
     (m) => m[1],
   );
-  const builders = [...text.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
+  // A builder is the flavor's when its prompt module exports it; the shared modules' builders
+  // only show through the constants built from them.
+  const own = prompts.map((p) => p.text).join("\n");
+  const builders = [...own.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
   return [...new Set([...blocks, ...builders])].sort();
 }
 

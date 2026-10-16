@@ -373,25 +373,14 @@
     },
     {
       "browser": "PARAMETER_REVIEW",
-      "loom": "buildParameterReviewBlock().",
+      "loom": "buildParameterReviewBlock(). Shared text; approval here means the plan's gate.",
       "identical": false,
-      "similarity": 0.648,
+      "similarity": 0.846,
       "diff": [
-        "@@ -1,5 +1,5 @@",
-        " ## Parameter review",
-        " ",
-        "-When the user asks to review/show/list parameters for a tool, **show every parameter the tool exposes** -- do not silently filter to a \"critical\" or \"biology-relevant\" subset. The user is the domain expert; let them decide what to ignore.",
-        "+When the user asks to review/show/list parameters for a plan or for a tool, **show every parameter the tool exposes** -- do not silently filter to a \"critical\" or \"biology-relevant\" subset. The user is the domain expert; let them decide what to ignore.",
-        " ",
-        " Format: a single markdown table per tool, columns `Parameter | Default | Value | Description`. `Value` mirrors `Default` until the user edits it. Keep `Description` to one line.",
-        "@@ -7,3 +7,9 @@",
-        " If the table would be unwieldy (>30 rows for a single tool), still show all rows -- but offer at the end: *\"That's the complete set. If you want a curated view focused on biology-relevant knobs only, say 'show critical only' and I'll filter.\"* Default = full set.",
-        " ",
-        "-After each edit batch, re-show the table with the modified values in **bold** so the user can confirm they took.",
-        "+Editing flow:",
-        "+",
-        "+- The user edits values inline by saying things like *\"set min_qual to 30, leave others\"* or by pasting an updated table back at you.",
-        "+- After each edit batch, re-show the table with the new values highlighted (e.g. wrap modified values in **bold**) so the user can confirm they took.",
+        "@@ -11,3 +11,5 @@",
+        " - The user edits values inline by saying things like *\"set min_qual to 30, leave others\"* or by pasting an updated table back at you.",
+        " - After each edit batch, re-show the table with the new values highlighted (e.g. wrap modified values in **bold**) so the user can confirm they took.",
+        "-- When the user approves (\"looks good\", \"go\", etc.), proceed to the approval gate (see Plans and the approval gate).",
         "+- When the user approves (\"looks good\", \"go\", etc.), proceed to the notebook write + execute gate (see Plan lifecycle).",
         "+",
         "+Do not put the parameter table into `notebook.md` until the plan itself has cleared the four-stage approval gate. The chat exchange is the working surface for parameters; the notebook is the durable record once everything is settled."
@@ -561,36 +550,23 @@
     },
     {
       "browser": "currentDateBlock",
-      "loom": "buildCurrentDateBlock(). Verbatim apart from the source of the clock.",
+      "loom": "buildCurrentDateBlock(). Shared text; the durable record here is the record.",
       "identical": false,
-      "similarity": 0.852,
+      "similarity": 0.988,
       "diff": [
-        "@@ -1,7 +1,7 @@",
-        " ## Current date",
+        "@@ -5,3 +5,3 @@",
+        " When you stamp *today's* date -- an \"Analysis date\" or \"Run date\" header, a progress note you're writing now, a Galaxy page timestamp -- use this exact value. **Never guess, infer, or fabricate today's date**: your training data doesn't tell you what today is, so a date written from memory will be wrong and quietly corrupt the auditable record (issue #268).",
         " ",
-        "-Today's date is **2026-10-11**.",
-        "+Today's date, from the host system clock, is **2026-10-11**.",
-        " ",
-        "-When you stamp *today's* date -- an \"Analysis date\" or \"Run date\" header, a progress note you're writing now, a Galaxy page timestamp -- use this exact value. **Never guess, infer, or fabricate today's date**: your training data doesn't tell you what today is, so a date written from memory will be wrong.",
-        "+When you stamp *today's* date -- an \"Analysis date\" or \"Run date\" header, a progress note you're writing now, a Galaxy page timestamp -- use this exact value. **Never guess, infer, or fabricate today's date**: your training data doesn't tell you what today is, so a date written from memory will be wrong and quietly corrupt the auditable record (issue #268).",
-        " ",
-        "-This applies only to dates that mean \"now.\" Leave every other date as-is -- dataset creation dates, publication dates, and dates the user gives you are recorded verbatim, never overwritten with today's.",
+        "-This applies only to dates that mean \"now.\" Leave every other date as-is -- dataset creation dates, publication dates, dates already written in the record, and dates the user gives you are recorded verbatim, never overwritten with today's.",
         "+This applies only to dates that mean \"now.\" Leave every other date as-is -- dataset creation dates, publication dates, dates already written in the notebook, and dates the user gives you are recorded verbatim, never overwritten with today's."
       ]
     },
     {
       "browser": "activeModelBlock",
-      "loom": "buildActiveModelBlock(). Omitted when the shell did not name a model.",
-      "identical": false,
-      "similarity": 0.882,
-      "diff": [
-        "@@ -1,3 +1,3 @@",
-        "-## Active model",
-        "+## Active LLM",
-        " ",
-        "-You are **claude-test-model** via the **anthropic** provider. That is your identity for this session: state it accurately when asked, and do not claim to be a different model or provider.",
-        "+You are **claude-test-model** running via the **anthropic** provider. This is your current identity for this session -- state it accurately when asked and do not claim to be a different model or provider."
-      ]
+      "loom": "buildActiveModelBlock(). Shared text; omitted with no model named, since the Galaxy proxy picks its own.",
+      "identical": true,
+      "similarity": 1,
+      "diff": []
     }
   ]
 }

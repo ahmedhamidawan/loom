@@ -207,14 +207,14 @@ describe("other blocks", () => {
 
   it("names the resolved model and provider", () => {
     const text = systemText({ model: "gpt-oss-120b", provider: "jetstream2" });
-    expect(text).toContain("## Active model");
+    expect(text).toContain("## Active LLM");
     expect(text).toContain("**gpt-oss-120b**");
     expect(text).toContain("**jetstream2**");
   });
 
   it("omits the model block when no model is known", () => {
-    expect(systemText()).not.toContain("## Active model");
-    expect(systemText({ provider: "jetstream2" })).not.toContain("## Active model");
+    expect(systemText()).not.toContain("## Active LLM");
+    expect(systemText({ provider: "jetstream2" })).not.toContain("## Active LLM");
   });
 
   it("consults IWC before drafting step by step", () => {

@@ -41,6 +41,11 @@ import { readEnv } from "../../shared/orbit-env.js";
 import { excerptHeadTail } from "../../shared/record-excerpt.js";
 import { renderSkillsRouter } from "../../shared/skills-router.js";
 import { findingAWorkflow, invokingWorkflow } from "../../shared/galaxy-guidance.js";
+import {
+  activeModelBlock,
+  currentDateBlock,
+  parameterReviewBlock,
+} from "../../shared/prompt-blocks.js";
 import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
 import {
   buildReproductionLessonsContext,
@@ -162,12 +167,8 @@ function buildActiveModelBlock(): string {
   const cfg = loadConfig();
   const active = cfg.llm?.active;
   const model = active ? cfg.llm?.providers?.[active]?.model : undefined;
-  if (!active) return "";
-  const modelStr = model ? `${model}` : "unknown model";
-  return `## Active LLM
-
-You are **${modelStr}** running via the **${active}** provider. This is your current identity for this session — state it accurately when asked and do not claim to be a different model or provider.
-`;
+  const block = activeModelBlock({ model, provider: active });
+  return block ? `${block}\n` : "";
 }
 
 /**
@@ -205,25 +206,7 @@ opaque, non-secret code that rides along on feedback submissions.
  * date on the next turn rather than going stale.
  */
 export function buildCurrentDateBlock(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const date = `${y}-${m}-${d}`;
-  return `## Current date
-
-Today's date, from the host system clock, is **${date}**.
-
-When you stamp *today's* date -- an "Analysis date" or "Run date" header, a
-progress note you're writing now, a Galaxy page timestamp -- use this exact
-value. **Never guess, infer, or fabricate today's date**: your training data
-doesn't tell you what today is, so a date written from memory will be wrong and
-quietly corrupt the auditable record (issue #268).
-
-This applies only to dates that mean "now." Leave every other date as-is --
-dataset creation dates, publication dates, dates already written in the
-notebook, and dates the user gives you are recorded verbatim, never
-overwritten with today's.
-`;
+  return `${currentDateBlock(now)}\n`;
 }
 
 export function buildExecutionModeBlock(): string {
@@ -1022,31 +1005,7 @@ ${GALAXY_ARTIFACT_LINK_GUIDANCE}
  * default; let the user opt into a curated view.
  */
 function buildParameterReviewBlock(): string {
-  return `## Parameter review
-
-When the user asks to review/show/list parameters for a plan or for a
-tool, **show every parameter the tool exposes** — do not silently
-filter to a "critical" or "biology-relevant" subset. The user is the
-domain expert; let them decide what to ignore.
-
-Format: a single markdown table per tool, columns
-\`Parameter | Default | Value | Description\`. \`Value\` mirrors
-\`Default\` until the user edits it. Keep \`Description\` to one line.
-
-If the table would be unwieldy (>30 rows for a single tool), still
-show all rows — but offer at the end: *"That's the complete set. If
-you want a curated view focused on biology-relevant knobs only, say
-'show critical only' and I'll filter."* Default = full set.
-
-Editing flow:
-
-- The user edits values inline by saying things like *"set min_qual
-  to 30, leave others"* or by pasting an updated table back at you.
-- After each edit batch, re-show the table with the new values
-  highlighted (e.g. wrap modified values in **bold**) so the user
-  can confirm they took.
-- When the user approves ("looks good", "go", etc.), proceed to the
-  notebook write + execute gate (see Plan lifecycle).
+  return `${parameterReviewBlock()}
 
 Do not put the parameter table into \`notebook.md\` until the plan
 itself has cleared the four-stage approval gate. The chat exchange is

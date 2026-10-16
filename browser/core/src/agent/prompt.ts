@@ -1,4 +1,9 @@
 import { findingAWorkflow, invokingWorkflow } from "../../../../shared/galaxy-guidance.js";
+import {
+  activeModelBlock as sharedActiveModelBlock,
+  currentDateBlock as sharedCurrentDateBlock,
+  parameterReviewBlock,
+} from "../../../../shared/prompt-blocks.js";
 import { DEFAULT_BRAND } from "./brand";
 
 // System-prompt blocks, adopted from Orbit's `extensions/loom/context.ts`.
@@ -368,24 +373,10 @@ Conventions:
 - Keep the \`\`\`plan fence when you draft or re-draft a plan in chat; it is what makes
   the card render.`;
 
-// loom: buildParameterReviewBlock().
-export const PARAMETER_REVIEW = `## Parameter review
-
-When the user asks to review/show/list parameters for a tool, **show every parameter
-the tool exposes** -- do not silently filter to a "critical" or "biology-relevant"
-subset. The user is the domain expert; let them decide what to ignore.
-
-Format: a single markdown table per tool, columns
-\`Parameter | Default | Value | Description\`. \`Value\` mirrors \`Default\` until the user
-edits it. Keep \`Description\` to one line.
-
-If the table would be unwieldy (>30 rows for a single tool), still show all rows --
-but offer at the end: *"That's the complete set. If you want a curated view focused
-on biology-relevant knobs only, say 'show critical only' and I'll filter."*
-Default = full set.
-
-After each edit batch, re-show the table with the modified values in **bold** so the
-user can confirm they took.`;
+// loom: buildParameterReviewBlock(). Shared text; approval here means the plan's gate.
+export const PARAMETER_REVIEW = parameterReviewBlock({
+  approved: "proceed to the approval gate (see Plans and the approval gate)",
+});
 
 // loom: buildChatFormattingBlock(), the record wording retargeted to the page.
 export const CHAT_FORMATTING = `## Chat formatting
@@ -516,38 +507,17 @@ To put a chart or visualization from this session on the page, write \`{{artifac
 line, or \`{{artifact: <title>}}\` for an earlier one; the cell is built for you from what the
 user saw. Never write that cell, or an embed of your own invention, yourself.`;
 
-function localDate(now: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-/** loom: buildCurrentDateBlock(). Verbatim apart from the source of the clock. */
+/** loom: buildCurrentDateBlock(). Shared text; the durable record here is the record. */
 export function currentDateBlock(today: Date = new Date()): string {
-  const stamp = localDate(today);
-  return `## Current date
-
-Today's date is **${stamp}**.
-
-When you stamp *today's* date -- an "Analysis date" or "Run date" header, a progress
-note you're writing now, a Galaxy page timestamp -- use this exact value. **Never
-guess, infer, or fabricate today's date**: your training data doesn't tell you what
-today is, so a date written from memory will be wrong.
-
-This applies only to dates that mean "now." Leave every other date as-is -- dataset
-creation dates, publication dates, and dates the user gives you are recorded
-verbatim, never overwritten with today's.`;
+  return sharedCurrentDateBlock(today, { record: "record" });
 }
 
-/** loom: buildActiveModelBlock(). Omitted when the shell did not name a model. */
+/** loom: buildActiveModelBlock(). Shared text; omitted with no model named, since the Galaxy proxy picks its own. */
 export function activeModelBlock(model?: string, provider?: string): string {
   if (!model) {
     return "";
   }
-  const via = provider ? ` via the **${provider}** provider` : "";
-  return `## Active model
-
-You are **${model}**${via}. That is your identity for this session: state it
-accurately when asked, and do not claim to be a different model or provider.`;
+  return sharedActiveModelBlock({ model, provider });
 }
 
 export interface PromptOptions {
