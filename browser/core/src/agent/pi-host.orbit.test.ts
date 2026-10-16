@@ -1,0 +1,651 @@
+// @vitest-environment node
+/**
+ * The conformance run: Orbit's whole brain (extensions/loom) booted on pi-host under the browser's
+ * capability profile, with a tripwire on every Node reach. The run is pinned as a file snapshot
+ * (pi-host.orbit.golden.json): every fs/child_process/chokidar/better-sqlite3 call site Orbit makes,
+ * by phase, plus the shim's own notes. Slices 1 and 2 shrink that list; a change that grows it fails
+ * here. With ONE_BRAIN_REPORT=<path> the run also writes a markdown report with file:line detail.
+ */
+import cp from "node:child_process";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import zlib from "node:zlib";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import { Type } from "@sinclair/typebox";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { json, text, toolCall } from "./fake-model";
+import { sources, specifiers, withoutTypeImports } from "../flavor-boundary";
+import { agentModels } from "./model";
+import { createPiHost, type HostNote, type PiHost } from "./pi-host";
+import { resolve as resolveTarget } from "./providers";
+import { LOOP } from "./runtime";
+
+// ── tripwire ─────────────────────────────────────────────────────────────────────────────────────
+
+const tripwire = vi.hoisted(() => {
+  const ledger = {
+    phase: "import",
+    hits: new Map<string, { count: number; lines: Set<string> }>(),
+  };
+  const FRAME = /\/(extensions\/loom|shared|lessons)\/([^\s):]+)(?::(\d+))?/;
+  /** Node's own frames: the module loader resolving an import, or fs calling fs (writeFileSync -> openSync). */
+  const NODE = /\(node:|^\s*at node:/;
+  /** The runner's frames: vite transforming a source is not Orbit reading a file. */
+  const RUNNER = /\/(vite|vitest|vite-node|@vitest)\//;
+  const PACKAGE = /node_modules\/((?:@[^/]+\/)?[^/]+)/;
+  /**
+   * Count a reach against the Orbit, shared or lessons source that made it. The immediate caller
+   * past the spy decides whether it is Orbit's reach at all: Node's own internals and the runner
+   * are not; a package Orbit called is, on Orbit's behalf, and is tagged `via` the package. A
+   * Node frame between that package and Orbit means the call is Node's own (graceful-fs patches
+   * fs.closeSync, so writeFileSync's close shows up under its frame), not the package's.
+   */
+  function record(label: string, api: string) {
+    const frames = (new Error().stack ?? "")
+      .split("\n")
+      .slice(1)
+      .filter((line) => !line.includes("pi-host.orbit.test.ts") && !line.includes("/@vitest/spy/"));
+    const caller = frames[0];
+    if (caller === undefined || NODE.test(caller) || RUNNER.test(caller)) return;
+    const at = frames.findIndex((line) => !line.includes("/node_modules/") && FRAME.test(line));
+    if (at < 0 || frames.slice(1, at).some((line) => NODE.test(line))) return;
+    const owner = frames[at];
+    const m = FRAME.exec(owner);
+    if (!m) return;
+    const via = caller === owner ? "" : ` via ${PACKAGE.exec(caller)?.[1] ?? "?"}`;
+    const file = `${m[1]}/${m[2]}${via}`;
+    const key = `${ledger.phase} | ${label}.${api} @ ${file}`;
+    const hit = ledger.hits.get(key) ?? { count: 0, lines: new Set<string>() };
+    hit.count += 1;
+    if (m[3]) hit.lines.add(m[3]);
+    ledger.hits.set(key, hit);
+  }
+  /** A module that records every member reached and answers with more of itself. */
+  function recordingProxy(label: string, path = ""): any {
+    const target = function () {};
+    return new Proxy(target, {
+      get(_t, prop) {
+        if (typeof prop === "symbol" || prop === "then") return undefined;
+        if (prop === "__esModule") return true;
+        return recordingProxy(label, path ? `${path}.${String(prop)}` : String(prop));
+      },
+      apply(_t, _this, _args) {
+        record(label, path || "call");
+        return recordingProxy(label, path);
+      },
+      construct() {
+        record(label, path ? `new ${path}` : "new");
+        return recordingProxy(label, path);
+      },
+    });
+  }
+  return { ledger, record, recordingProxy };
+});
+
+vi.mock("chokidar", () => {
+  const chokidar = tripwire.recordingProxy("chokidar");
+  return { default: chokidar, watch: chokidar.watch };
+});
+vi.mock("better-sqlite3", () => ({ default: tripwire.recordingProxy("better-sqlite3") }));
+
+const { ledger, record } = tripwire;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFn = (...args: any[]) => any;
+const originals = new Map<string, AnyFn>();
+
+/** Record every call of the module's functions, then run the real one. */
+function spyAll(mod: object, label: string) {
+  for (const key of Object.keys(mod)) {
+    const original = (mod as Record<string, unknown>)[key];
+    if (typeof original !== "function") continue;
+    try {
+      vi.spyOn(mod as Record<string, AnyFn>, key).mockImplementation(function (
+        this: unknown,
+        ...a: unknown[]
+      ) {
+        record(label, key);
+        return (original as AnyFn).apply(this, a);
+      });
+    } catch {
+      // A non-configurable member; it is not one Orbit calls.
+    }
+  }
+}
+
+/** Record, never spawn: a unit test must not shell out. Orbit only uses execFileSync. */
+function stubAll(mod: typeof cp, label: string) {
+  // The answers pick which branch git.ts takes: a fresh temp dir is not a repo, so Orbit's init,
+  // config and commit path runs, and from then on the repo reports itself as loom-managed.
+  let initialised = false;
+  const answers: Record<string, (...a: unknown[]) => unknown> = {
+    execFileSync: (file, args) => {
+      const line = [file, ...(Array.isArray(args) ? args : [])].join(" ");
+      if (line === "git rev-parse --is-inside-work-tree" && !initialised) {
+        throw new Error("fatal: not a git repository");
+      }
+      if (line === "git init") initialised = true;
+      if (line === "git config --bool loom.managed") return initialised ? "true" : "";
+      return "";
+    },
+    execSync: () => "",
+    spawnSync: () => ({ status: 0, stdout: "", stderr: "", signal: null, pid: 0, output: [] }),
+  };
+  for (const key of [
+    "execFileSync",
+    "execSync",
+    "spawnSync",
+    "exec",
+    "execFile",
+    "spawn",
+    "fork",
+  ]) {
+    originals.set(key, (mod as unknown as Record<string, AnyFn>)[key]);
+    vi.spyOn(mod as unknown as Record<string, AnyFn>, key).mockImplementation((...a: unknown[]) => {
+      record(label, key);
+      const answer = answers[key];
+      if (answer) return answer(...a);
+      throw new Error(`child_process.${key} stubbed by pi-host.orbit.test.ts: ${String(a[0])}`);
+    });
+  }
+}
+
+spyAll(fs, "fs");
+spyAll(fsp, "fs/promises");
+spyAll(os, "os");
+spyAll(zlib, "zlib");
+spyAll(crypto, "crypto");
+stubAll(cp, "child_process");
+syncBuiltinESMExports();
+
+// ── env: the browser profile as far as env can say it ───────────────────────────────────────────
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = resolve(HERE, "..", "..", "..", "..");
+const LOOM = join(REPO, "extensions", "loom");
+const SHARED = join(REPO, "shared");
+// shared/lesson-rules.js imports lessons/validate.mjs, so the validator's top level runs under Orbit.
+const LESSONS = join(REPO, "lessons");
+const ORIGINAL_CWD = process.cwd();
+const ORIGINAL_ENV = { ...process.env };
+
+const ENV: Record<string, string> = {
+  ORBIT_LOCAL_EXEC: "off",
+  LOOM_LOCAL_EXEC: "off",
+  ORBIT_LOCAL_SHELL: "off",
+  LOOM_LOCAL_SHELL: "off",
+  ORBIT_SHELL_KIND: "orbit",
+  ORBIT_TEAM_DISPATCH: "0",
+  ORBIT_SESSION_INDEX: "0",
+  ORBIT_LESSONS: "off",
+  ORBIT_AUTO_RESUME: "0",
+  ORBIT_GALAXY_PAGE_SYNC: "off",
+};
+const EVAL_SEAMS =
+  /_(SUBMISSION_REPLAY|LESSON_REPLAY|OBSERVATION_REPLAY|LESSON_PROPOSAL_REPLAY|GALAXY_FIXTURE|MODEL_SCRIPT|TEMPLATE_REPLAY|FRESH_SESSION)$/;
+
+const tmp = fs.realpathSync(fs.mkdtempSync(join(os.tmpdir(), "one-brain-")));
+for (const key of Object.keys(process.env)) {
+  if (/^(ORBIT|LOOM)_/.test(key) && EVAL_SEAMS.test(key)) delete process.env[key];
+}
+delete process.env.GALAXY_URL;
+delete process.env.GALAXY_API_KEY;
+Object.assign(process.env, ENV, {
+  HOME: tmp,
+  USERPROFILE: tmp,
+  PI_CODING_AGENT_DIR: join(tmp, ".pi", "agent"),
+});
+// state.ts, registry.ts and activity.ts write beside process.cwd(); the forks pool allows the move.
+process.chdir(tmp);
+
+// ── the run ──────────────────────────────────────────────────────────────────────────────────────
+
+const LLM = "http://llm.test/v1";
+const ctx = BACKGROUND_CONTEXT;
+
+const until = async (done: () => boolean) => {
+  for (let i = 0; i < 500 && !done(); i++) await new Promise((r) => setTimeout(r, 10));
+  expect(done()).toBe(true);
+};
+
+const textOf = (content: unknown) =>
+  typeof content === "string"
+    ? content
+    : (content as Array<{ type: string; text?: string }>)
+        .filter((c) => c.type === "text")
+        .map((c) => c.text)
+        .join("");
+
+type Seen = { event: string; toolCallId?: string; toolName?: string };
+
+const script: Array<() => Response> = [];
+const requests: Array<Record<string, any>> = [];
+const seen: Seen[] = [];
+const notices: Array<[string, string]> = [];
+const notes: HostNote[] = [];
+let host: PiHost;
+let harness: Harness;
+let conversation: Awaited<ReturnType<Harness["createConversation"]>>;
+const runs = { started: 0, ended: 0, settled: 0 };
+
+const idle = () => runs.started === runs.ended;
+
+/** My own recorders, registered before Orbit so they see every event first. */
+function recorders(api: ExtensionAPI) {
+  // pi's on() is an overload per event name; one loose signature serves a loop over names.
+  const on = api.on as unknown as (
+    event: string,
+    handler: (e: { toolCallId: string; toolName: string }) => void,
+  ) => () => void;
+  api.on("agent_start", () => void (runs.started += 1));
+  api.on("agent_end", () => void (runs.ended += 1));
+  api.on("agent_settled", () => void (runs.settled += 1));
+  for (const event of [
+    "tool_execution_start",
+    "tool_call",
+    "tool_result",
+    "tool_execution_end",
+  ] as const) {
+    on(event, (e) => void seen.push({ event, toolCallId: e.toolCallId, toolName: e.toolName }));
+  }
+}
+
+const probe = {
+  name: "probe",
+  label: "Probe",
+  description: "pins how a @sinclair/typebox schema is validated on this runtime",
+  parameters: Type.Object({ n: Type.Number() }),
+  execute: async (_id: string, params: { n: number }) => ({
+    content: [{ type: "text" as const, text: `probe ${params.n}` }],
+    details: {},
+  }),
+};
+
+beforeAll(async () => {
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    if (!request.url.startsWith(LLM)) return json({});
+    requests.push(JSON.parse(await request.text()));
+    return (script.shift() ?? (() => text("ok")))();
+  });
+
+  ledger.phase = "import";
+  const loom = await import("../../../../extensions/loom/index");
+  const { setGalaxyTransport } = await import("../../../../extensions/loom/galaxy-api");
+  setGalaxyTransport({
+    fetch: async () => json({}),
+    credentials: () => ({ url: "http://galaxy.test", apiKey: "k" }),
+  });
+
+  ledger.phase = "register";
+  host = createPiHost({
+    name: "orbit",
+    cwd: tmp,
+    phase: () => ledger.phase,
+    model: () => ({ provider: "custom", id: "m" }),
+    // No `ask`, so hasUI is false: the worker's confirm bridge is slice 3.
+    ui: { notify: (t, l) => void notices.push([l, t]) },
+    onNote: (n) => void notes.push(n),
+  });
+  recorders(host.api);
+  loom.default(host.api);
+  host.api.registerTool(probe as never);
+
+  ledger.phase = "seal";
+  const extension = host.seal();
+
+  ledger.phase = "open";
+  const registry = createRegistry();
+  registry.install(extension);
+  const { models, model } = await agentModels().connect(
+    resolveTarget({ ai_base_url: LLM, ai_model: "m", ai_api_key: "k" }),
+  );
+  harness = await Harness.open(
+    new MemoryStorage(),
+    {
+      models,
+      registry,
+      settings: { ...LOOP, maxTurns: 6 },
+      onReport: (e) =>
+        notes.push({ kind: "handler-error", event: "report", error: e, phase: ledger.phase }),
+    },
+    ctx,
+  );
+  conversation = await harness.createConversation(
+    { ownership: { kind: "ownerless" }, agent: { model } },
+    ctx,
+  );
+  await host.attach(harness, conversation, ctx);
+});
+
+afterAll(async () => {
+  await harness?.close(ctx).catch(() => {});
+  vi.unstubAllGlobals();
+  process.chdir(ORIGINAL_CWD);
+  for (const key of Object.keys(process.env)) if (!(key in ORIGINAL_ENV)) delete process.env[key];
+  Object.assign(process.env, ORIGINAL_ENV);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+// ── what the run reports ─────────────────────────────────────────────────────────────────────────
+
+const ASSERTED = /^(fs|fs\/promises|child_process|chokidar|better-sqlite3)\./;
+const INFORMATIONAL = /^(os|zlib|crypto)\./;
+// Node built-ins the worker cannot have, and the npm packages that are Node-only themselves:
+// pi's own runtime and TUI, the sandbox, and the tus client's file reader.
+const EDGE_ASSERTED =
+  /^(node:)?(fs|fs\/promises|child_process|zlib)$|^(chokidar|better-sqlite3|@earendil-works\/pi-coding-agent|@earendil-works\/pi-tui|@anthropic-ai\/sandbox-runtime|tus-js-client)(\/|$)/;
+const EDGE_INFORMATIONAL = /^(node:)?(os|crypto|url)$/;
+
+const unique = (items: string[]) => [...new Set(items)].sort();
+
+/**
+ * Every reach as `api @ file`, without phase or line: the phase of Orbit's un-awaited work (the
+ * poller's first tick, reconcile's follow-through) is a race against the test's own progress,
+ * and lines move on every Orbit edit. Both stay in the markdown report.
+ */
+const reaches = (filter: RegExp) =>
+  unique(
+    [...ledger.hits.keys()].map((key) => key.split(" | ")[1]).filter((rest) => filter.test(rest)),
+  );
+
+/** The static import graph: every Orbit, shared or lessons source naming a Node-only module. */
+function edges() {
+  const files = [
+    ...sources(LOOM, ["vendor"]),
+    ...sources(SHARED),
+    ...sources(LESSONS, [], /\.(ts|js|mjs)$/),
+  ].filter((file) => !/\.test\.ts$/.test(file));
+  const asserted: string[] = [];
+  const informational: string[] = [];
+  for (const file of files) {
+    for (const spec of specifiers(withoutTypeImports(fs.readFileSync(file, "utf8")))) {
+      const edge = `${relative(REPO, file)} -> ${spec}`;
+      if (EDGE_ASSERTED.test(spec)) asserted.push(edge);
+      else if (EDGE_INFORMATIONAL.test(spec)) informational.push(edge);
+    }
+  }
+  return { asserted: unique(asserted), informational: unique(informational) };
+}
+
+function noteKey(n: HostNote): string {
+  switch (n.kind) {
+    case "silent":
+      return `seal | silent ${n.event} (${n.handlers})`;
+    case "refused":
+      return `${n.phase} | refused ${n.member}${n.detail ? ` ${n.detail}` : ""}`;
+    case "dropped":
+      return `${n.phase} | dropped ${n.member}`;
+    case "busy":
+      return `${n.phase} | busy ${n.member}`;
+    case "handler-error":
+      return `${n.phase} | handler-error ${n.event}: ${(n.error as Error)?.message ?? n.error}`;
+  }
+}
+
+const golden = () => ({
+  reaches: reaches(ASSERTED),
+  informational: reaches(INFORMATIONAL),
+  edges: edges().asserted,
+  notes: unique(notes.map(noteKey)),
+});
+
+/** The markdown report: the golden with file:line detail and counts, and a decision table to fill in. */
+function report(): string {
+  const byPhase = (filter: RegExp) => {
+    const groups = new Map<string, string[]>();
+    for (const [key, hit] of [...ledger.hits].sort(([a], [b]) => a.localeCompare(b))) {
+      const [phase, rest] = key.split(" | ");
+      const [api, file] = rest.split(" @ ");
+      if (!filter.test(api)) continue;
+      const lines = [...hit.lines]
+        .map(Number)
+        .sort((a, b) => a - b)
+        .join(",");
+      const list = groups.get(phase) ?? [];
+      list.push(`- ${api} @ ${file}${lines ? `:${lines}` : ""} (${hit.count})`);
+      groups.set(phase, list);
+    }
+    return (
+      [...groups].map(([phase, list]) => `### ${phase}\n${list.join("\n")}`).join("\n\n") ||
+      "(none)"
+    );
+  };
+  const noteCounts = new Map<string, number>();
+  for (const n of notes) noteCounts.set(noteKey(n), (noteCounts.get(noteKey(n)) ?? 0) + 1);
+  const files = unique(
+    [...ledger.hits.keys()]
+      .filter((k) => ASSERTED.test(k.split(" | ")[1]))
+      .map((k) => k.split(" @ ")[1]),
+  );
+  const perFile = files.map((file) => {
+    const apis = new Map<string, number>();
+    for (const [key, hit] of ledger.hits) {
+      if (!key.endsWith(` @ ${file}`)) continue;
+      const api = key.split(" | ")[1].split(" @ ")[0];
+      if (!ASSERTED.test(api)) continue;
+      const module = api.split(".")[0];
+      apis.set(module, (apis.get(module) ?? 0) + hit.count);
+    }
+    const summary = [...apis].map(([m, c]) => `${m} x${c}`).join(", ");
+    return `| ${file} | ${summary} |  |  |`;
+  });
+  const rev = (() => {
+    try {
+      return String(
+        originals.get("execFileSync")!("git", ["rev-parse", "--short", "HEAD"], {
+          cwd: REPO,
+          encoding: "utf8",
+        }),
+      ).trim();
+    } catch {
+      return "unknown";
+    }
+  })();
+  const vitest = JSON.parse(
+    fs.readFileSync(join(REPO, "browser", "node_modules", "vitest", "package.json"), "utf8"),
+  ).version;
+  const registration = `on ${[...host.handlers.values()].reduce((a, b) => a + b, 0)}, registerTool ${host.tools.length}, registerCommand ${host.commands.size}`;
+  const refusedAtRegister = notes
+    .flatMap((n) =>
+      n.kind === "refused" && n.phase === "register"
+        ? [`${n.member}${n.detail ? ` ${n.detail}` : ""}`]
+        : [],
+    )
+    .join(", ");
+  const e = edges();
+  return [
+    `run: ${new Date().toISOString()}, ${rev}, vitest ${vitest}`,
+    `env: ${Object.entries(ENV)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(
+        " ",
+      )} (GALAXY_URL/GALAXY_API_KEY unset, HOME/PI_CODING_AGENT_DIR in a temp dir, cwd = that dir)`,
+    `registration: ${registration}; refused at register: ${refusedAtRegister || "(none)"}`,
+    "",
+    "## Reaches by phase (asserted: fs, fs/promises, child_process, chokidar, better-sqlite3)",
+    "",
+    byPhase(ASSERTED),
+    "",
+    "## Informational (os, zlib, crypto)",
+    "",
+    byPhase(INFORMATIONAL),
+    "",
+    "## Static edges (file -> specifier; Node built-ins and Node-only packages, type imports excluded)",
+    "",
+    ...e.asserted.map((edge) => `- ${edge}`),
+    "",
+    "Informational edges (os, crypto, url):",
+    "",
+    ...e.informational.map((edge) => `- ${edge}`),
+    "",
+    "## Refused / silent / dropped / busy (by phase)",
+    "",
+    ...[...noteCounts]
+      .filter(([k]) => !k.includes("| handler-error"))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, c]) => `- ${k} (${c})`),
+    "",
+    "## Handler errors",
+    "",
+    ...([...noteCounts]
+      .filter(([k]) => k.includes("| handler-error"))
+      .map(([k, c]) => `- ${k} (${c})`) || []),
+    ...(notes.some((n) => n.kind === "handler-error") ? [] : ["(none)"]),
+    "",
+    '## Per-module decision (fill in; feeds TASKS.md "port, gate, or replace")',
+    "",
+    "| module | reaches | decision | slice |",
+    "| --- | --- | --- | --- |",
+    ...perFile,
+    "",
+  ].join("\n");
+}
+
+const TITLE = "# Slice 0 conformance: Orbit on pi-host";
+const RAW_MARKER = "Raw run output (written by the test)";
+
+/** Rewrite the report's data section, keeping whatever narrative a person wrote above the marker. */
+function writeReport(path: string) {
+  const existing = fs.existsSync(path) ? fs.readFileSync(path, "utf8") : "";
+  const at = existing.indexOf(RAW_MARKER);
+  if (at < 0) {
+    fs.writeFileSync(path, `${TITLE}\n\n${report()}`);
+    return;
+  }
+  // One title per note: under a person's narrative the run's sections sit one level down.
+  const line = existing.lastIndexOf("\n", at) + 1;
+  const demoted = report().replace(/^(#+ )/gm, "#$1");
+  fs.writeFileSync(path, `${existing.slice(0, line)}## ${RAW_MARKER}\n\n${demoted}`);
+}
+
+// ── assertions ───────────────────────────────────────────────────────────────────────────────────
+
+describe("Orbit on pi-host", () => {
+  it("registers through the shim without reaching Node", () => {
+    const total = [...host.handlers.values()].reduce((a, b) => a + b, 0);
+    expect({ on: total, tools: host.tools.length, commands: host.commands.size }).toEqual({
+      on: 74 + 7,
+      tools: 19 + 1,
+      commands: 22,
+    });
+    expect(notes.filter((n) => n.kind !== "silent" && n.phase === "register")).toEqual([
+      { kind: "refused", member: "registerMcpServer", detail: "brc-analytics", phase: "register" },
+    ]);
+    expect([...ledger.hits.keys()].filter((k) => k.startsWith("register |"))).toEqual([]);
+    // The one import-time reach: lessons/validate.mjs decides at its top level whether it is the
+    // CLI entry (realpathSync of argv[1]), and shared/lesson-rules.js pulls it in.
+    expect([...ledger.hits.keys()].filter((k) => k.startsWith("import |"))).toEqual([
+      "import | fs.realpathSync @ lessons/validate.mjs",
+    ]);
+  });
+
+  it("names the handlers no seam fires", () => {
+    const silent = Object.fromEntries(
+      notes.flatMap((n) => (n.kind === "silent" ? [[n.event, n.handlers]] : [])),
+    );
+    expect(silent).toEqual({ session_tree: 4 });
+  });
+
+  /**
+   * Orbit launches work at session_start that nothing awaits: the poller's first tick and
+   * reconcile's follow-through. Run both to completion so their reaches land in the phase that
+   * started them, not in whichever one the test has moved on to.
+   */
+  async function drain() {
+    const { pollGalaxyNow } = await import("../../../../extensions/loom/galaxy-poller");
+    const { followThrough } = await import("../../../../extensions/loom/galaxy-reconcile");
+    await pollGalaxyNow();
+    await followThrough("enrich");
+  }
+
+  it("starts the session and lets the greeting run settle", async () => {
+    ledger.phase = "session_start";
+    // pi's session_start precedes any run; only then does the scheduler start.
+    await host.start("startup");
+    harness.resume();
+    // Galaxy credentials are configured, so the greeting is a model turn, sent fire-and-forget.
+    await until(() => runs.started >= 1);
+    await harness.waitForIdle(ctx);
+    await until(() => runs.settled >= 1 && idle());
+    expect(runs.started).toBe(1);
+    await drain();
+  });
+
+  it("runs a tool turn: prompt from before_agent_start, notebook from context, pi's tool events", async () => {
+    ledger.phase = "turn";
+    const before = requests.length;
+    script.push(
+      () => toolCall("dashboard_read", {}),
+      () => text("done"),
+    );
+    const s = await host.submit("read the dashboard");
+    await s!.wait(ctx);
+    await until(() => runs.settled >= 2);
+    const request = requests[before];
+    expect(request.messages[0].role).toBe("system");
+    // A sentence shared/prompt-blocks.js owns, so the section text is Orbit's whole prompt.
+    expect(request.messages[0].content).toContain("Compaction (shrinking the");
+    const roles = request.messages.map((m: { role: string; content: unknown }) => ({
+      role: m.role,
+      text: textOf(m.content),
+    }));
+    const lastUser = roles.findLastIndex((m: { text: string }) => m.text === "read the dashboard");
+    expect(lastUser).toBeGreaterThan(0);
+    expect(roles[lastUser - 1].role).toBe("user");
+    expect(roles[lastUser - 1].text).toContain("## Notebook (project log)");
+    expect(seen.filter((e) => e.toolCallId === "call_1").map((e) => e.event)).toEqual([
+      "tool_execution_start",
+      "tool_call",
+      "tool_result",
+      "tool_execution_end",
+    ]);
+  });
+
+  it("validates a @sinclair/typebox schema strictly, as Orbit does today", async () => {
+    // Orbit's 0.34 schema carries Symbol.for("TypeBox.Kind"), so pi-ai skips its own JSON-schema
+    // coercion: "2" stays a string and fails Type.Number(). Making the browser lenient here is a
+    // slice 2 decision, not a side effect of the shim.
+    script.push(
+      () => toolCall("probe", { n: "2" }),
+      () => text("ok"),
+    );
+    const s = await host.submit("probe it");
+    await s!.wait(ctx);
+    await until(() => runs.settled >= 3);
+    const results = (await conversation.context(ctx)).messages.filter(
+      (m) => m.role === "toolResult",
+    );
+    const last = results.at(-1)!;
+    expect(last.toolName).toBe("probe");
+    expect(last.isError).toBe(true);
+    expect(JSON.stringify(last)).toMatch(/number/i);
+  });
+
+  it("runs commands and shuts down", async () => {
+    ledger.phase = "command";
+    expect(await host.command("notebook", "")).toBe(true);
+    expect(await host.command("status", "")).toBe(true);
+    await drain();
+    ledger.phase = "shutdown";
+    await host.shutdown("quit");
+  });
+
+  it("ran every handler without a missing ctx member", () => {
+    expect(notes.filter((n) => n.kind === "handler-error")).toEqual([]);
+  });
+
+  it("matches the pinned reach list", async () => {
+    if (process.env.ONE_BRAIN_REPORT) writeReport(process.env.ONE_BRAIN_REPORT);
+    await expect(JSON.stringify(golden(), null, 2) + "\n").toMatchFileSnapshot(
+      "./pi-host.orbit.golden.json",
+    );
+  });
+});
