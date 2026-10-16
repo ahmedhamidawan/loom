@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { specifiers } from "./flavor-boundary";
+import { specifiers, withoutTypeImports } from "./flavor-boundary";
 
 const CORE = join(__dirname, "..");
 const SHARED = resolve(CORE, "..", "..", "shared");
@@ -159,6 +159,30 @@ describe("the core", () => {
     expect(unloadable([join(SHARED, "loom-config.js")])).toContain(
       "shared/loom-config.js: node:fs (a node builtin)",
     );
+  });
+
+  it("ships no value import of pi's Node runtime", () => {
+    // pi-host.ts speaks pi-coding-agent's ExtensionAPI, which a browser-only install does not
+    // have: its imports from there are types only, erased at build. pi-tui is the TUI itself.
+    const shipped = sources(join(CORE, "src")).filter((file) => !/\.test\.ts$/.test(file));
+    const PI = /^@earendil-works\/pi-(coding-agent|tui)(\/|$)/;
+    // Every way of naming a module (static, dynamic, side-effect, mock), minus the type-only ones.
+    const found = shipped.filter((file) =>
+      specifiers(withoutTypeImports(readFileSync(file, "utf8"))).some((spec) => PI.test(spec)),
+    );
+    expect(found.map((file) => relative(CORE, file))).toEqual([]);
+    expect(
+      specifiers(
+        withoutTypeImports(
+          [
+            'import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";',
+            'import { type Theme, type Other } from "@earendil-works/pi-coding-agent";',
+            'import "@earendil-works/pi-tui";',
+            'await import("@earendil-works/pi-coding-agent");',
+          ].join("\n"),
+        ),
+      ),
+    ).toEqual(["@earendil-works/pi-tui", "@earendil-works/pi-coding-agent"]);
   });
 
   it("catches each way of naming one", () => {
