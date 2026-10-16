@@ -230,6 +230,8 @@ const requests: Array<Record<string, any>> = [];
 const seen: Seen[] = [];
 const notices: Array<[string, string]> = [];
 const notes: HostNote[] = [];
+/** Calls the page record store made for its page, so the run can prove the record came from it. */
+const pageCalls = { GET: 0, PUT: 0 };
 let host: PiHost;
 let harness: Harness;
 let conversation: Awaited<ReturnType<Harness["createConversation"]>>;
@@ -280,9 +282,17 @@ beforeAll(async () => {
   const loom = await import("../../../../extensions/loom/index");
   const { setGalaxyTransport } = await import("../../../../extensions/loom/galaxy-api");
   setGalaxyTransport({
-    fetch: async () => json({}),
+    fetch: async (url, init) => {
+      if (url.endsWith("/api/pages/p1")) pageCalls[init.method === "PUT" ? "PUT" : "GET"]++;
+      return json({});
+    },
     credentials: () => ({ url: "http://galaxy.test", apiKey: "k" }),
   });
+  // The record is a Galaxy page, not a file. The key stays under the temp dir so the side stores
+  // keyed by its dirname (activity log, template replay) land where they did.
+  const { setRecordStore } = await import("../../../../extensions/loom/record-store");
+  const { createPageRecordStore } = await import("../../../../extensions/loom/record-store-page");
+  setRecordStore(createPageRecordStore({ key: join(tmp, "notebook.md"), pageId: "p1" }));
 
   ledger.phase = "register";
   host = createPiHost({
@@ -577,6 +587,10 @@ describe("Orbit on pi-host", () => {
     await until(() => runs.settled >= 1 && idle());
     expect(runs.started).toBe(1);
     await drain();
+    // The record was served by the page store, not by a file store that happened to resolve
+    // from a different key: the absence of record-store-file.ts reaches in the golden is the
+    // other half of this.
+    expect(pageCalls.GET).toBeGreaterThan(0);
   });
 
   it("runs a tool turn: prompt from before_agent_start, notebook from context, pi's tool events", async () => {
