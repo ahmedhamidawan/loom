@@ -3,7 +3,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..");
+// The plugin package: its manifest and the static/ Galaxy serves.
+const ROOT = path.join(__dirname, "..", "olit");
 // Where Galaxy serves a visualization plugin from, and the host page it renders.
 const PLUGIN_HREF = "/static/plugins/visualizations/olit/static";
 // The history a dataset lives in, as Galaxy reports it on the dataset: drives choose a history

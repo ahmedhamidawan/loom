@@ -53,7 +53,11 @@ flowchart LR
 - Python runs in its own worker with an opaque origin: it has no Galaxy session, no page storage
   and no model key.
 
-`LAYOUT.md` maps the source tree.
+The code is two packages. `@galaxyproject/orbit-browser` (`core/`) is Orbit's shell for the
+browser: the agent, its providers, the chat and artifact panes and the Galaxy transport. Olit
+(`olit/`, published as `@galaxyproject/olit`) extends it with what makes it a Galaxy visualization:
+the plugin manifest, the visualization and chart tools and their artifacts, launching on a dataset
+and saving a conversation as a visualization. `LAYOUT.md` maps the tree and the seams between them.
 
 ## Olit and Orbit
 
@@ -80,7 +84,7 @@ call.
 ## Development
 
 ```bash
-npm install
+npm install        # the whole workspace, from browser/
 npm run dev        # builds (fetching Pyodide and the skills corpus on first run), then serves
 npm test           # unit tests, linting, type checks, vendored-file checks, browser tests
 npm run stale      # where the pinned upstreams stand
@@ -95,8 +99,8 @@ npm run dev
 ```
 
 `GALAXY_KEY` is needed only because the dev server runs outside Galaxy. Leave `LLM_PROVIDER` unset
-to get the provider picker, as in production. Providers are listed in `src/agent/providers.ts`.
+to get the provider picker, as in production. Providers are listed in `core/src/agent/providers.ts`.
 
 The browser tests run against a stub Galaxy and model (`e2e/README.md`). The eval harness drives
 a Node build of the agent: `npm run build:session`, and `node dist/session.mjs --describe --root .`
-prints the tools, guards and policies the agent is given.
+(from browser/, as before the split) prints the tools, guards and policies the agent is given.

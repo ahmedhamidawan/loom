@@ -1,0 +1,40 @@
+{
+  "name": "@galaxyproject/olit",
+  "version": "0.0.3",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "static"
+  ],
+  "playwrightBrowsers": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "scripts": {
+    "build": "orbit-browser-assets && vite build --configLoader runner",
+    "dev": "npm run build && vite --configLoader runner",
+    "preview": "vite preview --configLoader runner",
+    "test:unit": "vitest run --configLoader runner",
+    "test:watch": "vitest --watch --configLoader runner",
+    "test:ui": "vitest --ui --configLoader runner",
+    "typecheck": "tsc --noEmit",
+    "build:session": "orbit-browser-assets && vite build --config vite.config.session.ts"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^1.0.4",
+    "@earendil-works/pi-durable": "https://github.com/guerler/pi/releases/download/durable-v1.0.4-olit.2/earendil-works-pi-durable-1.0.4-olit.2.tgz",
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.3.2-ops.3/galaxyproject-galaxy-ops-0.3.2-ops.3.tgz",
+    "@galaxyproject/orbit-browser": "0.1.0",
+    "@types/node": "^22.9.0",
+    "galaxy-charts": "^0.1.17",
+    "galaxy-charts-xml-parser": "^1.0.3",
+    "happy-dom": "^20.0.11",
+    "typescript": "^5.9.3",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.3.0",
+    "vega-lite": "^6.4.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
+  }
+}

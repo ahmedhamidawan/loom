@@ -1,22 +1,14 @@
 name: browser
 
-# browser/ is its own package (own lockfile, own lint and test scripts) and is
-# not part of the root build, so it gets its own workflow. It runs when browser/
-# changes, or Orbit's chat UI and the shared contracts it imports from there.
+# browser/ is its own npm workspace (the core, olit and the bare test flavor, with their own
+# lockfile, lint and test scripts) and is not part of the root build, so it gets its own
+# workflow. It starts on every PR so the "browser" check always reports and can be required,
+# and runs the suite when browser/ changes, or Orbit's chat UI and the shared contracts it
+# imports from there.
 on:
   push:
     branches: [main]
-    paths:
-      - "browser/**"
-      - "app/src/renderer/**"
-      - "shared/**"
-      - ".github/workflows/browser.yml"
   pull_request:
-    paths:
-      - "browser/**"
-      - "app/src/renderer/**"
-      - "shared/**"
-      - ".github/workflows/browser.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +18,30 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      browser: ${{ steps.filter.outputs.browser }}
+    steps:
+      - uses: actions/checkout@v7
+      # Orbit's chat UI and the shared contracts are part of what the browser builds, so a change
+      # there runs the browser suite as well as Orbit's.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            browser:
+              - "browser/**"
+              - "app/src/renderer/**"
+              - "shared/**"
+              - ".github/workflows/browser.yml"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -77,6 +92,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The agents repo drives dist/session.mjs, and its build crosses into the core's package
+      # exports; --describe loads the bundle and resolves the flavor and the core from it.
+      - name: Build the Node session bundle
+        run: npm run build:session
+
+      - name: Smoke the session bundle
+        run: node dist/session.mjs --describe --root . > /dev/null
+
       - name: Test
         run: npm test
 
@@ -88,3 +111,16 @@ jobs:
           path: /tmp/olit-e2e-*.log
           retention-days: 7
           if-no-files-found: ignore
+
+  # The one check to require: green when the suite passed or had nothing to run, red otherwise.
+  browser:
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Browser suite
+        run: |
+          case "${{ needs.changes.result }}/${{ needs.test.result }}" in
+            success/success|success/skipped) echo "ok" ;;
+            *) echo "changes: ${{ needs.changes.result }}, test: ${{ needs.test.result }}"; exit 1 ;;
+          esac
