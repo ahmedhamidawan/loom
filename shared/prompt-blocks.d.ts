@@ -12,3 +12,14 @@ export function draftingAPlan(options?: {
   resume?: string;
 }): string;
 export function chatFormatting(options?: { results?: string }): string;
+export function galaxyTerminology(options?: {
+  tool?: (name: string) => string;
+  more?: string[];
+  invocationNote?: string;
+  routing?: boolean;
+}): string;
+export function artifactLinkGuidance(options?: {
+  record?: string;
+  blocks?: string;
+  root?: string;
+}): string;

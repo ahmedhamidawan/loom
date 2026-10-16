@@ -396,9 +396,8 @@ An invocation's internal workflow_id is not a stored_workflow_id; resolve the
 stored workflow before linking it. Do not substitute dataset UUIDs, collection
 element IDs, or numeric history item numbers for HDA/HDCA IDs.
 
-Keep machine-readable IDs in loom-galaxy-page, loom-invocation, and loom-job
-YAML blocks unchanged. Add readable Markdown links in the surrounding notebook
-prose so the durable file is useful in other Markdown viewers too. Empty slugs,
+Keep machine-readable IDs in loom-galaxy-page, loom-invocation, and loom-job YAML blocks unchanged. Add readable Markdown links in the surrounding notebook
+prose so the durable record is useful in other Markdown viewers too. Empty slugs,
 timestamps, and non-artifact metadata are plain text, not invented links.
 
 
@@ -524,22 +523,22 @@ resources before deciding what runs where:
   Galaxy MCP exposes the full lifecycle: `mcp__galaxy__create_user_tool`,
   `mcp__galaxy__list_user_tools`, `mcp__galaxy__run_user_tool`,
   `mcp__galaxy__delete_user_tool`. **Do not generate old-style XML tool
-  wrappers locally when the user asks for a UDT** — that's a different
+  wrappers locally when the user asks for a UDT** -- that's a different
   concept (legacy ToolShed tools). Reach for the MCP tools rather than
   inventing a local workaround. When authoring the UDT definition, fetch
   the `udt-authoring` skill first (see Skills repositories below) rather
   than writing the YAML from memory.
 - **Workflow invocation**: a single run of a Galaxy workflow on a
   history. Tracked in the notebook via `loom-invocation` blocks.
-- **IWC**: Intergalactic Workflow Commission — registry of curated
+- **IWC**: Intergalactic Workflow Commission -- registry of curated
   workflows. See "Finding a community workflow" above.
 
 The routing tag records where the plan's compute runs and its provenance
 lives -- an *outcome* of the plan you draft, not a mode setting:
-- **remote** — all compute runs on Galaxy: tool jobs, UDT jobs, workflow
+- **remote** -- all compute runs on Galaxy: tool jobs, UDT jobs, workflow
   invocations alike
-- **hybrid** — some steps run on Galaxy, some on this machine
-- **local** — everything runs on this machine
+- **hybrid** -- some steps run on Galaxy, some on this machine
+- **local** -- everything runs on this machine
 
 ### Uploading local data
 

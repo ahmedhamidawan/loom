@@ -1,9 +1,11 @@
 import { findingAWorkflow, invokingWorkflow } from "../../../../shared/galaxy-guidance.js";
 import {
   activeModelBlock as sharedActiveModelBlock,
+  artifactLinkGuidance,
   chatFormatting,
   currentDateBlock as sharedCurrentDateBlock,
   draftingAPlan,
+  galaxyTerminology as sharedGalaxyTerminology,
   parameterReviewBlock,
   sraImportGuidance,
 } from "../../../../shared/prompt-blocks.js";
@@ -20,23 +22,11 @@ tools -- there is no bash, conda, or local-pipeline path here. Tag every plan
 scratchpad for inspecting and summarizing data, not a compute path: real work is a
 Galaxy job, which is also what makes it reproducible.`;
 
-// loom: buildGalaxyContextBlock(), the "Galaxy terminology" section.
+// loom: buildGalaxyContextBlock(), the "Galaxy terminology" section. Shared text, under this shell's heading.
 /** The Galaxy terms the agent should know, with a flavor's own bullets after the UDT one. */
 export const galaxyTerminology = (more: string[] = []) => `## Galaxy
 
-### Galaxy terminology
-
-- **User-defined tool** ("UDT"): a server-side custom tool the user registers in
-  their Galaxy account, run unprivileged. You have the full lifecycle:
-  \`create_user_tool\`, \`list_user_tools\`, \`run_user_tool\`, \`delete_user_tool\`.
-  **Do not generate old-style XML tool wrappers when the user asks for a UDT** --
-  that is a different concept (legacy ToolShed tools). Reach for the real tools
-  rather than inventing a workaround. When authoring the UDT definition, fetch
-  the \`udt-authoring\` skill first (see Skills repositories below) rather
-  than writing the YAML from memory.
-${more.map((term) => `${term}\n`).join("")}- **Workflow invocation**: a single run of a Galaxy workflow on a history.
-- **IWC**: Intergalactic Workflow Commission -- registry of curated
-  workflows. See "Finding a community workflow".`;
+${sharedGalaxyTerminology({ more, invocationNote: "", routing: false })}`;
 
 // loom: buildGalaxyContextBlock(), "Getting data into a Galaxy history".
 export const GETTING_DATA_IN = `### Getting data into a Galaxy history
@@ -339,42 +329,17 @@ export const CHAT_FORMATTING = chatFormatting({
   prose.`,
 });
 
-// loom: GALAXY_ARTIFACT_LINK_GUIDANCE, with `{root}` replaced by the Galaxy root.
-export const ARTIFACT_LINKS = `### Clickable Galaxy artifacts
-
-Every Galaxy artifact you name in chat or in the record carries a descriptive Markdown
-link -- [variant calls](url), never a bare name or an id in backticks. This covers
-histories, datasets, collections, workflows, invocations, jobs, tools, pages and
-revisions. Use the id a tool returned. Never guess one: where an artifact's identity is
-unknown, resolve it from the record or a tool result before promising a link.
-
-A link is absolute and rooted at **{root}**, which already carries this deployment's path
-prefix. Prefer a browser url a tool handed you; otherwise join that root with these routes,
-url-encoding each id:
-
-- history: \`/histories/view?id={{history_id}}\`
-- dataset: \`/datasets/{{dataset_id}}\`
-- collection: \`/collection/{{collection_id}}/sheet\`
-- stored workflow: \`/published/workflow?id={{stored_workflow_id}}\`
-- invocation: \`/workflows/invocations/{{invocation_id}}\`
-- job: \`/jobs/{{job_id}}/view\`
-- tool: \`/?tool_id={{tool_id}}\`
-- page: \`/published/page?id={{page_id}}\`
-
-An invocation's \`workflow_id\` is not a \`stored_workflow_id\`: resolve the stored workflow
-before linking it. Never substitute a dataset uuid, a collection element id or a HID for an
-encoded id.
-
-Encoded ids inside \`\`\`galaxy directives stay exactly as they are; the readable links belong
-in the prose around them, so the record reads on its own. Timestamps, empty slugs and other
-non-artifact metadata stay plain text rather than becoming invented links.`;
+// loom: GALAXY_ARTIFACT_LINK_GUIDANCE. Shared text; the record and its directives are this shell's.
+const artifactLinks = (root?: string) =>
+  artifactLinkGuidance({ record: "record", blocks: "```galaxy directives", root });
+export const ARTIFACT_LINKS = artifactLinks();
 
 /** loom: buildChatFormattingBlock(), with the artifact-link convention at its tail. */
 export function chatFormattingBlock(galaxyRoot?: string): string {
   if (!galaxyRoot) {
     return CHAT_FORMATTING;
   }
-  return `${CHAT_FORMATTING}\n\n${ARTIFACT_LINKS.replaceAll("{root}", galaxyRoot.replace(/\/+$/, ""))}`;
+  return `${CHAT_FORMATTING}\n\n${artifactLinks(galaxyRoot)}`;
 }
 
 // loom: buildNotebookWriteBlock(), retargeted from notebook.md edits to the Galaxy page.

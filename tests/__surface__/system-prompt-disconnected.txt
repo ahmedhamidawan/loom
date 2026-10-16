@@ -396,9 +396,8 @@ An invocation's internal workflow_id is not a stored_workflow_id; resolve the
 stored workflow before linking it. Do not substitute dataset UUIDs, collection
 element IDs, or numeric history item numbers for HDA/HDCA IDs.
 
-Keep machine-readable IDs in loom-galaxy-page, loom-invocation, and loom-job
-YAML blocks unchanged. Add readable Markdown links in the surrounding notebook
-prose so the durable file is useful in other Markdown viewers too. Empty slugs,
+Keep machine-readable IDs in loom-galaxy-page, loom-invocation, and loom-job YAML blocks unchanged. Add readable Markdown links in the surrounding notebook
+prose so the durable record is useful in other Markdown viewers too. Empty slugs,
 timestamps, and non-artifact metadata are plain text, not invented links.
 
 

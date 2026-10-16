@@ -46,6 +46,7 @@ import {
   chatFormatting,
   currentDateBlock,
   draftingAPlan,
+  galaxyTerminology,
   parameterReviewBlock,
 } from "../../shared/prompt-blocks.js";
 import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
@@ -311,29 +312,7 @@ ${findingAWorkflow({ tool: galaxyMcpTool })}
 
 ${draftingAPlan({ tool: galaxyMcpTool })}
 
-### Galaxy terminology
-
-- **User-defined tool** ("UDT"): a server-side custom tool the user
-  registers in their Galaxy account, runs unprivileged. The connected
-  Galaxy MCP exposes the full lifecycle: \`mcp__galaxy__create_user_tool\`,
-  \`mcp__galaxy__list_user_tools\`, \`mcp__galaxy__run_user_tool\`,
-  \`mcp__galaxy__delete_user_tool\`. **Do not generate old-style XML tool
-  wrappers locally when the user asks for a UDT** — that's a different
-  concept (legacy ToolShed tools). Reach for the MCP tools rather than
-  inventing a local workaround. When authoring the UDT definition, fetch
-  the \`udt-authoring\` skill first (see Skills repositories below) rather
-  than writing the YAML from memory.
-- **Workflow invocation**: a single run of a Galaxy workflow on a
-  history. Tracked in the notebook via \`loom-invocation\` blocks.
-- **IWC**: Intergalactic Workflow Commission — registry of curated
-  workflows. See "Finding a community workflow" above.
-
-The routing tag records where the plan's compute runs and its provenance
-lives -- an *outcome* of the plan you draft, not a mode setting:
-- **remote** — all compute runs on Galaxy: tool jobs, UDT jobs, workflow
-  invocations alike
-- **hybrid** — some steps run on Galaxy, some on this machine
-- **local** — everything runs on this machine
+${galaxyTerminology({ tool: galaxyMcpTool })}
 
 ### Uploading local data
 

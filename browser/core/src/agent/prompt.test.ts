@@ -374,23 +374,23 @@ describe("artifact links", () => {
 
   it("names the id a tool returned", () => {
     const text = section();
-    expect(text).toContain("Use the id a tool returned");
-    expect(text).toContain("Never guess one");
-    for (const artifact of [
-      "history",
-      "dataset",
-      "collection",
-      "invocation",
-      "job",
-      "tool",
-      "page",
+    expect(text).toContain("returned ID");
+    expect(text).toContain("Never guess an ID");
+    for (const route of [
+      "/histories/view?id=",
+      "/datasets/",
+      "/collection/",
+      "/workflows/invocations/",
+      "/jobs/",
+      "?tool_id=",
+      "/published/page?id=",
     ]) {
-      expect(text.includes(`- ${artifact}:`) || text.includes(`${artifact}: \`/`)).toBe(true);
+      expect(text).toContain(route);
     }
   });
 
   it("keeps encoded ids in directives", () => {
-    expect(section()).toContain("Encoded ids inside ```galaxy directives stay exactly as they are");
+    expect(section()).toContain("Keep machine-readable IDs in ```galaxy directives unchanged");
   });
 
   it("states no convention when no root is known", () => {
