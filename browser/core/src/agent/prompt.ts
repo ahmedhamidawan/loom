@@ -5,7 +5,11 @@ import {
   chatFormatting,
   currentDateBlock as sharedCurrentDateBlock,
   draftingAPlan,
+  galaxyPageMarkdown,
   galaxyTerminology as sharedGalaxyTerminology,
+  galaxyUnavailableBlock,
+  gettingDataIn,
+  noLocalShellBlock,
   parameterReviewBlock,
   sraImportGuidance,
 } from "../../../../shared/prompt-blocks.js";
@@ -13,14 +17,13 @@ import { DEFAULT_BRAND } from "./brand";
 
 // System-prompt blocks, adopted from Orbit's `extensions/loom/context.ts`.
 
-// loom: buildNoLocalShellBlock().
-export const NO_LOCAL_SHELL = `## Execution: remote-only (Galaxy)
-
-This build has no local shell. All computation runs on Galaxy through your Galaxy
-tools -- there is no bash, conda, or local-pipeline path here. Tag every plan
-\`[remote]\`; do not propose local shell or conda steps. \`run_python\` is a browser-side
+// loom: buildNoLocalShellBlock(). Shared text; what this shell has instead of a shell.
+export const NO_LOCAL_SHELL = noLocalShellBlock({
+  tools: "your Galaxy tools",
+  instead: `\`run_python\` is a browser-side
 scratchpad for inspecting and summarizing data, not a compute path: real work is a
-Galaxy job, which is also what makes it reproducible.`;
+Galaxy job, which is also what makes it reproducible.`,
+});
 
 // loom: buildGalaxyContextBlock(), the "Galaxy terminology" section. Shared text, under this shell's heading.
 /** The Galaxy terms the agent should know, with a flavor's own bullets after the UDT one. */
@@ -28,24 +31,20 @@ export const galaxyTerminology = (more: string[] = []) => `## Galaxy
 
 ${sharedGalaxyTerminology({ more, invocationNote: "", routing: false })}`;
 
-// loom: buildGalaxyContextBlock(), "Getting data into a Galaxy history".
-export const GETTING_DATA_IN = `### Getting data into a Galaxy history
-
-When a history needs a file that lives at a **public URL** (reference genomes, model
-weights, released datasets, anything addressable by http/https/ftp), hand Galaxy the URL
-and let its server fetch it directly. Do **not** try to route the bytes through this
+// loom: buildGalaxyContextBlock(), "Getting data into a Galaxy history". Shared text; this shell's routes.
+export const GETTING_DATA_IN = gettingDataIn({
+  staging: `Do **not** try to route the bytes through this
 session: the browser is not a staging area, and a server-side fetch runs at datacenter
-bandwidth.
-
-An accession is not a URL. \`ena_runs\` turns an SRA/ENA accession into the exact FASTQ
+bandwidth.`,
+  accessions: `An accession is not a URL. \`ena_runs\` turns an SRA/ENA accession into the exact FASTQ
 URLs and says whether the run is paired; ENA's paths cannot be derived from the
-accession, so read them there rather than constructing one.
-
-- **Preferred:** \`upload_file_from_url({ url, history_id })\` (optional \`file_name\`,
-  \`file_type\`, \`dbkey\`). One hop, no local copy.
-- **There is no path from the user's disk.** \`upload_file\` reads only the browser
+accession, so read them there rather than constructing one.`,
+  alternatives: [
+    `- **There is no path from the user's disk.** \`upload_file\` reads only the browser
   filesystem \`run_python\` writes to; if the user has a file only on their machine,
-  ask them to upload it through the Galaxy UI, then continue from the history.`;
+  ask them to upload it through the Galaxy UI, then continue from the history.`,
+  ],
+});
 
 // loom: sra-import-gate.ts, SRA_IMPORT_GUIDANCE. Shared text; this shell says when it applies.
 export const IMPORTING_SRA = sraImportGuidance({
@@ -110,12 +109,11 @@ export const GALAXY_UNREACHABLE = "unreachable";
 
 export type GalaxyStatus = typeof GALAXY_READY | typeof GALAXY_UNREACHABLE;
 
-// loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch.
-export const GALAXY_UNAVAILABLE = `## Galaxy: NOT AVAILABLE
-
-Galaxy did not answer, so no Galaxy tool or workflow can run in this session. Nothing you
-propose can execute until it does. Say so plainly and ask the user to check that the server
-is up and reload the page, rather than proposing analysis steps you cannot carry out.`;
+// loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch. Shared text; this shell's cause.
+export const GALAXY_UNAVAILABLE = galaxyUnavailableBlock({
+  cause: "Galaxy did not answer, so no Galaxy tool or workflow can run in this session.",
+  remedy: "say so plainly and ask the user to check that the server is up and reload the page",
+});
 
 // loom: buildOperatingDisciplineBlock(), with its subsections reordered and notebook retargeted.
 export const OPERATING_DISCIPLINE = `## Operating discipline
@@ -396,23 +394,15 @@ believes in and that is empty is worse than no record.
 Free-form chat is still the right place for clarifying questions, quick answers, and
 turn-by-turn dialogue that does not need to persist.`;
 
-// loom: GALAXY_PAGE_MARKDOWN_GUIDANCE, from galaxy-page-markdown-guidance.ts.
-export const GALAXY_PAGE_MARKDOWN = `## Writing a Galaxy page
-
-Galaxy pages render as Galaxy Flavored Markdown. Write plain Markdown -- headings,
-lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only with
-\`\`\`galaxy directive blocks (\`history_dataset_display\`, \`history_dataset_as_image\`,
-\`history_dataset_as_table\`, \`invocation_outputs\`, \`workflow_display\`). Directives take
-**encoded** ids, never raw integers or HIDs; get them from \`get_history_contents\` or
-\`get_dataset_details\`.
-
-A \`\`\` fence on a Galaxy page opens a cell, and Galaxy renders only \`\`\`galaxy, \`\`\`vega and
-\`\`\`visualization cells; any other type shows as an error and Galaxy refuses the page. Present
-data as Markdown tables or prose; for code or plain text use ~~~ fences.
-
-To put a chart or visualization from this session on the page, write \`{{artifact}}\` on its own
+// loom: GALAXY_PAGE_MARKDOWN_GUIDANCE, from galaxy-page-markdown-guidance.ts. Shared text; this shell's artifacts.
+export const GALAXY_PAGE_MARKDOWN = galaxyPageMarkdown({
+  heading: "## Writing a Galaxy page",
+  // The prompt test refuses any named fence Galaxy would not render, so the offenders go unnamed.
+  offenders: "",
+  artifacts: `To put a chart or visualization from this session on the page, write \`{{artifact}}\` on its own
 line, or \`{{artifact: <title>}}\` for an earlier one; the cell is built for you from what the
-user saw. Never write that cell, or an embed of your own invention, yourself.`;
+user saw. Never write that cell, or an embed of your own invention, yourself.`,
+});
 
 /** loom: buildCurrentDateBlock(). Shared text; the durable record here is the record. */
 export function currentDateBlock(today: Date = new Date()): string {

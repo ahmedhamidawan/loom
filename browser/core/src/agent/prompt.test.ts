@@ -318,9 +318,9 @@ describe("galaxy readiness", () => {
 
   it("replaces the guidance with a notice", () => {
     const down = systemText({ galaxyStatus: GALAXY_UNREACHABLE });
-    expect(down).toContain("## Galaxy: NOT AVAILABLE");
+    expect(down).toContain("## Galaxy connection: NOT CONNECTED");
     expect(down).toContain("reload");
-    expect(systemText()).not.toContain("## Galaxy: NOT AVAILABLE");
+    expect(systemText()).not.toContain("## Galaxy connection: NOT CONNECTED");
   });
 
   it("names the cause the gate measures", () => {
@@ -343,10 +343,10 @@ describe("galaxy readiness", () => {
 
   it("gives each state the notice that is true of it", () => {
     const unreachable = squash(systemText({ galaxyStatus: GALAXY_UNREACHABLE }));
-    expect(unreachable).toContain("## Galaxy: NOT AVAILABLE");
-    expect(unreachable).toContain("Nothing you propose can execute");
+    expect(unreachable).toContain("## Galaxy connection: NOT CONNECTED");
+    expect(unreachable).toContain("Nothing can run until a Galaxy server is connected");
 
-    expect(systemText()).not.toContain("Galaxy: NOT AVAILABLE");
+    expect(systemText()).not.toContain("Galaxy connection: NOT CONNECTED");
     expect(systemText({ galaxyStatus: GALAXY_READY })).toBe(systemText());
   });
 });

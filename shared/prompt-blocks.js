@@ -291,3 +291,100 @@ Keep machine-readable IDs in ${blocks} unchanged. Add readable Markdown links in
 prose so the durable record is useful in other Markdown viewers too. Empty slugs,
 timestamps, and non-artifact metadata are plain text, not invented links.`;
 }
+
+/**
+ * What a build without a local shell can and cannot do. `tools` is what the shell calls its
+ * Galaxy tools; `instead` says what this shell offers in place of a shell.
+ * @param {{ tools?: string, instead?: string }} [options] @returns {string}
+ */
+export function noLocalShellBlock({
+  tools = "the Galaxy MCP tools",
+  instead = "You can still read and write files in the workspace (the notebook and its inputs/outputs).",
+} = {}) {
+  return `## Execution: remote-only (Galaxy)
+
+This build has no local shell. All computation runs on Galaxy via ${tools} -- there is no
+bash, conda, or local-pipeline path here. Tag every plan \`[remote]\`; do not propose local
+shell or conda steps. ${instead}`;
+}
+
+/**
+ * Galaxy is not there and nothing can run. `cause` says why in this shell, `remedy` what the
+ * user can do about it.
+ * @param {{ cause?: string, remedy?: string }} [options] @returns {string}
+ */
+export function galaxyUnavailableBlock({
+  cause = "No Galaxy credentials configured (`GALAXY_URL` / `GALAXY_API_KEY`).",
+  remedy = "ask the user to run `/connect`",
+} = {}) {
+  return `## Galaxy connection: NOT CONNECTED
+
+${cause} Nothing can run until a Galaxy server is connected -- ${remedy} before proposing
+analysis steps.`;
+}
+
+/**
+ * Getting a file into a history: hand Galaxy the URL. `staging` says what this shell must not
+ * route bytes through, `accessions` how it turns an accession into URLs (an accession is not a
+ * URL in any shell), and `alternatives` the other routes this shell has.
+ * @param {{ tool?: (name: string) => string, staging?: string, accessions?: string, alternatives?: string[] }} [options]
+ * @returns {string}
+ */
+export function gettingDataIn({
+  tool = bare,
+  staging = `Do **not** download the file to this machine and then
+re-upload it. A local download followed by a local->Galaxy upload doubles
+the transfer, burns the user's upstream bandwidth, fills local disk, and
+blocks the turn: a 2.3 GB local->Galaxy upload took 8+ minutes on a normal
+connection, where a server-side fetch runs at datacenter bandwidth.`,
+  accessions = "",
+  alternatives = [
+    `- **Scripting bioblend instead?** Use the URL-fetch path
+  \`gi.tools.put_url(url, history_id)\` (one URL per line for several),
+  which Galaxy fetches server-side. Never call \`gi.tools.upload_file()\`
+  on a path you just downloaded from that same URL.`,
+    `- **Local->upload is the exception.** Reach for it only when the source is
+  genuinely local: a file the user created, or one that exists only on
+  this machine with no URL Galaxy can reach itself.`,
+  ],
+} = {}) {
+  return `### Getting data into a Galaxy history
+
+When a history needs a file that lives at a **public URL** (reference
+genomes, model weights, released datasets, anything addressable by
+http/https/ftp), hand Galaxy the URL and let its server fetch it directly.
+${staging}
+${accessions ? `\n${accessions}\n` : ""}
+- **Preferred:** the Galaxy fetch-by-URL tool
+  \`${tool("upload_file_from_url")}({ url, history_id })\` (optional
+  \`file_name\`, \`file_type\`, \`dbkey\`). One hop, no local copy.
+${alternatives.join("\n")}`;
+}
+
+/**
+ * How to write Galaxy Flavored Markdown for a page. Galaxy's client splits a page at every
+ * \`\`\` line and renders galaxy, vega, visualization and vitessce cells; any other type shows
+ * as an error, and current Galaxy refuses the page (validate_galaxy_markdown_fence_types).
+ * `offenders` names the fences to warn against (a shell that forbids naming them passes "");
+ * `heading` and `artifacts` are a shell's own framing.
+ * @param {{ tool?: (name: string) => string, heading?: string, artifacts?: string, offenders?: string }} [options]
+ * @returns {string}
+ */
+export function galaxyPageMarkdown({
+  tool = bare,
+  heading = "",
+  artifacts = "",
+  offenders = " (```txt, ```text, or a language name)",
+} = {}) {
+  return `${heading ? `${heading}\n\n` : ""}Galaxy pages render as Galaxy Flavored Markdown. Write plain Markdown -- headings,
+lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only with
+\`\`\`galaxy directive blocks (e.g. \`history_dataset_display\`, \`history_dataset_as_image\`,
+\`history_dataset_as_table\`, \`invocation_outputs\`, \`workflow_display\`). Directives take
+**encoded** ids, never raw integers or HIDs; get them from \`${tool("get_history_contents")}\` or
+\`${tool("get_dataset_details")}\`.
+
+A \`\`\` fence on a Galaxy page opens a cell, and Galaxy renders only \`\`\`galaxy, \`\`\`vega,
+\`\`\`visualization and \`\`\`vitessce cells; any other type${offenders} shows as an error and
+Galaxy refuses the page. Present data as Markdown tables or prose; for code or plain text use
+~~~ fences.${artifacts ? `\n\n${artifacts}` : ""}`;
+}

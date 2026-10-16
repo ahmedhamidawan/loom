@@ -47,6 +47,9 @@ import {
   currentDateBlock,
   draftingAPlan,
   galaxyTerminology,
+  galaxyUnavailableBlock,
+  gettingDataIn,
+  noLocalShellBlock,
   parameterReviewBlock,
 } from "../../shared/prompt-blocks.js";
 import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
@@ -246,13 +249,7 @@ export function buildGalaxyContextBlock(): string {
     // Galaxy isn't connected -- don't restate "all execution is local", which
     // would contradict it.
     if (isLocalShellDisabled()) {
-      return `
-## Galaxy connection: NOT CONNECTED
-
-No Galaxy credentials configured (\`GALAXY_URL\` / \`GALAXY_API_KEY\`). Nothing can
-run until a Galaxy server is connected -- ask the user to run \`/connect\` before
-proposing analysis steps.
-`;
+      return `\n${galaxyUnavailableBlock()}\n`;
     }
     return `
 ## Galaxy connection: NOT CONNECTED
@@ -320,27 +317,7 @@ To upload a file from the user's machine, call \`galaxy_upload_local_file\`
 (resumable; handles large files without timing out). It is blocked in the web shell and the
 interactive tool, where there is no user machine to read from -- use the URL upload there.
 
-### Getting data into a Galaxy history
-
-When a history needs a file that lives at a **public URL** (reference
-genomes, model weights, SRA/ENA accessions, released datasets, anything
-addressable by http/https/ftp), hand Galaxy the URL and let its server
-fetch it directly. Do **not** download the file to this machine and then
-re-upload it. A local download followed by a local→Galaxy upload doubles
-the transfer, burns the user's upstream bandwidth, fills local disk, and
-blocks the turn: a 2.3 GB local→Galaxy upload took 8+ minutes on a normal
-connection, where a server-side fetch runs at datacenter bandwidth.
-
-- **Preferred:** the Galaxy MCP fetch-by-URL tool
-  \`mcp__galaxy__upload_file_from_url({ url, history_id })\` (optional
-  \`file_name\`, \`file_type\`, \`dbkey\`). One hop, no local copy.
-- **Scripting bioblend instead?** Use the URL-fetch path
-  \`gi.tools.put_url(url, history_id)\` (one URL per line for several),
-  which Galaxy fetches server-side. Never call \`gi.tools.upload_file()\`
-  on a path you just downloaded from that same URL.
-- **Local→upload is the exception.** Reach for it only when the source is
-  genuinely local: a file the user created, or one that exists only on
-  this machine with no URL Galaxy can reach itself.
+${gettingDataIn({ tool: galaxyMcpTool })}
 
 ${SRA_IMPORT_GUIDANCE}
 ${invokingWorkflow({ tool: galaxyMcpTool })}
@@ -559,14 +536,7 @@ reloads (skip the PID — it's meaningless after a restart).
  */
 export function buildNoLocalShellBlock(): string {
   if (!isLocalShellDisabled()) return "";
-  return `
-## Execution: remote-only (Galaxy)
-
-This build has no local shell. All computation runs on Galaxy via the Galaxy
-MCP tools -- there is no bash, conda, or local-pipeline path here. Tag every
-plan \`[remote]\`; do not propose local shell or conda steps. You can still read and write files in the workspace (the notebook and
-its inputs/outputs).
-`;
+  return `\n${noLocalShellBlock()}\n`;
 }
 
 /**

@@ -23,3 +23,17 @@ export function artifactLinkGuidance(options?: {
   blocks?: string;
   root?: string;
 }): string;
+export function noLocalShellBlock(options?: { tools?: string; instead?: string }): string;
+export function galaxyUnavailableBlock(options?: { cause?: string; remedy?: string }): string;
+export function gettingDataIn(options?: {
+  tool?: (name: string) => string;
+  staging?: string;
+  accessions?: string;
+  alternatives?: string[];
+}): string;
+export function galaxyPageMarkdown(options?: {
+  tool?: (name: string) => string;
+  heading?: string;
+  artifacts?: string;
+  offenders?: string;
+}): string;

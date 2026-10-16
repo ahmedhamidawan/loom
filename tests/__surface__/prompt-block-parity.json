@@ -3,14 +3,14 @@
   "pairs": [
     {
       "browser": "NO_LOCAL_SHELL",
-      "loom": "buildNoLocalShellBlock().",
+      "loom": "buildNoLocalShellBlock(). Shared text; what this shell has instead of a shell.",
       "identical": false,
-      "similarity": 0.463,
+      "similarity": 0.485,
       "diff": [
         "@@ -1,3 +1,3 @@",
         " ## Execution: remote-only (Galaxy)",
         " ",
-        "-This build has no local shell. All computation runs on Galaxy through your Galaxy tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. `run_python` is a browser-side scratchpad for inspecting and summarizing data, not a compute path: real work is a Galaxy job, which is also what makes it reproducible.",
+        "-This build has no local shell. All computation runs on Galaxy via your Galaxy tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. `run_python` is a browser-side scratchpad for inspecting and summarizing data, not a compute path: real work is a Galaxy job, which is also what makes it reproducible.",
         "+This build has no local shell. All computation runs on Galaxy via the Galaxy MCP tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. You can still read and write files in the workspace (the notebook and its inputs/outputs)."
       ]
     },
@@ -38,9 +38,9 @@
     },
     {
       "browser": "GETTING_DATA_IN",
-      "loom": "buildGalaxyContextBlock(), \"Getting data into a Galaxy history\".",
+      "loom": "buildGalaxyContextBlock(), \"Getting data into a Galaxy history\". Shared text; this shell's routes.",
       "identical": false,
-      "similarity": 0.431,
+      "similarity": 0.43,
       "diff": [
         "@@ -1,8 +1,7 @@",
         " ### Getting data into a Galaxy history",
@@ -48,13 +48,12 @@
         "-When a history needs a file that lives at a **public URL** (reference genomes, model weights, released datasets, anything addressable by http/https/ftp), hand Galaxy the URL and let its server fetch it directly. Do **not** try to route the bytes through this session: the browser is not a staging area, and a server-side fetch runs at datacenter bandwidth.",
         "-",
         "-An accession is not a URL. `ena_runs` turns an SRA/ENA accession into the exact FASTQ URLs and says whether the run is paired; ENA's paths cannot be derived from the accession, so read them there rather than constructing one.",
-        "+When a history needs a file that lives at a **public URL** (reference genomes, model weights, SRA/ENA accessions, released datasets, anything addressable by http/https/ftp), hand Galaxy the URL and let its server fetch it directly. Do **not** download the file to this machine and then re-upload it. A local download followed by a local→Galaxy upload doubles the transfer, burns the user's upstream bandwidth, fills local disk, and blocks the turn: a 2.3 GB local→Galaxy upload took 8+ minutes on a normal connection, where a server-side fetch runs at datacenter bandwidth.",
+        "+When a history needs a file that lives at a **public URL** (reference genomes, model weights, released datasets, anything addressable by http/https/ftp), hand Galaxy the URL and let its server fetch it directly. Do **not** download the file to this machine and then re-upload it. A local download followed by a local->Galaxy upload doubles the transfer, burns the user's upstream bandwidth, fills local disk, and blocks the turn: a 2.3 GB local->Galaxy upload took 8+ minutes on a normal connection, where a server-side fetch runs at datacenter bandwidth.",
         " ",
-        "-- **Preferred:** `upload_file_from_url({ url, history_id })` (optional `file_name`, `file_type`, `dbkey`). One hop, no local copy.",
+        " - **Preferred:** the Galaxy fetch-by-URL tool `upload_file_from_url({ url, history_id })` (optional `file_name`, `file_type`, `dbkey`). One hop, no local copy.",
         "-- **There is no path from the user's disk.** `upload_file` reads only the browser filesystem `run_python` writes to; if the user has a file only on their machine, ask them to upload it through the Galaxy UI, then continue from the history.",
-        "+- **Preferred:** the Galaxy MCP fetch-by-URL tool `upload_file_from_url({ url, history_id })` (optional `file_name`, `file_type`, `dbkey`). One hop, no local copy.",
         "+- **Scripting bioblend instead?** Use the URL-fetch path `gi.tools.put_url(url, history_id)` (one URL per line for several), which Galaxy fetches server-side. Never call `gi.tools.upload_file()` on a path you just downloaded from that same URL.",
-        "+- **Local→upload is the exception.** Reach for it only when the source is genuinely local: a file the user created, or one that exists only on this machine with no URL Galaxy can reach itself."
+        "+- **Local->upload is the exception.** Reach for it only when the source is genuinely local: a file the user created, or one that exists only on this machine with no URL Galaxy can reach itself."
       ]
     },
     {
@@ -142,15 +141,14 @@
     },
     {
       "browser": "GALAXY_UNAVAILABLE",
-      "loom": "buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch.",
+      "loom": "buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch. Shared text; this shell's cause.",
       "identical": false,
-      "similarity": 0.302,
+      "similarity": 0.476,
       "diff": [
         "@@ -1,3 +1,3 @@",
-        "-## Galaxy: NOT AVAILABLE",
-        "+## Galaxy connection: NOT CONNECTED",
+        " ## Galaxy connection: NOT CONNECTED",
         " ",
-        "-Galaxy did not answer, so no Galaxy tool or workflow can run in this session. Nothing you propose can execute until it does. Say so plainly and ask the user to check that the server is up and reload the page, rather than proposing analysis steps you cannot carry out.",
+        "-Galaxy did not answer, so no Galaxy tool or workflow can run in this session. Nothing can run until a Galaxy server is connected -- say so plainly and ask the user to check that the server is up and reload the page, before proposing analysis steps.",
         "+No Galaxy credentials configured (`GALAXY_URL` / `GALAXY_API_KEY`). Nothing can run until a Galaxy server is connected -- ask the user to run `/connect` before proposing analysis steps."
       ]
     },
@@ -480,19 +478,19 @@
     },
     {
       "browser": "GALAXY_PAGE_MARKDOWN",
-      "loom": "GALAXY_PAGE_MARKDOWN_GUIDANCE, from galaxy-page-markdown-guidance.ts.",
+      "loom": "GALAXY_PAGE_MARKDOWN_GUIDANCE, from galaxy-page-markdown-guidance.ts. Shared text; this shell's artifacts.",
       "identical": false,
-      "similarity": 0.404,
+      "similarity": 0.719,
       "diff": [
-        "@@ -1,7 +1,1 @@",
+        "@@ -1,7 +1,3 @@",
         "-## Writing a Galaxy page",
         "-",
-        "-Galaxy pages render as Galaxy Flavored Markdown. Write plain Markdown -- headings, lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only with ```galaxy directive blocks (`history_dataset_display`, `history_dataset_as_image`, `history_dataset_as_table`, `invocation_outputs`, `workflow_display`). Directives take **encoded** ids, never raw integers or HIDs; get them from `get_history_contents` or `get_dataset_details`.",
-        "-",
-        "-A ``` fence on a Galaxy page opens a cell, and Galaxy renders only ```galaxy, ```vega and ```visualization cells; any other type shows as an error and Galaxy refuses the page. Present data as Markdown tables or prose; for code or plain text use ~~~ fences.",
+        " Galaxy pages render as Galaxy Flavored Markdown. Write plain Markdown -- headings, lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only with ```galaxy directive blocks (e.g. `history_dataset_display`, `history_dataset_as_image`, `history_dataset_as_table`, `invocation_outputs`, `workflow_display`). Directives take **encoded** ids, never raw integers or HIDs; get them from `get_history_contents` or `get_dataset_details`.",
+        " ",
+        "-A ``` fence on a Galaxy page opens a cell, and Galaxy renders only ```galaxy, ```vega, ```visualization and ```vitessce cells; any other type shows as an error and Galaxy refuses the page. Present data as Markdown tables or prose; for code or plain text use ~~~ fences.",
         "-",
         "-To put a chart or visualization from this session on the page, write `{{artifact}}` on its own line, or `{{artifact: <title>}}` for an earlier one; the cell is built for you from what the user saw. Never write that cell, or an embed of your own invention, yourself.",
-        "+Galaxy pages render as Galaxy Flavored Markdown. Write plain Markdown -- headings, lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only with ```galaxy directive blocks (e.g. `history_dataset_display`, `history_dataset_as_image`, `history_dataset_as_table`, `invocation_outputs`, `workflow_display`). Do NOT wrap content in ```txt, ```text, or any other code fence: Galaxy renders those as raw monospace text, not formatted content. Present data as Markdown tables or prose; the only meaningful fenced block on a Galaxy page is ```galaxy."
+        "+A ``` fence on a Galaxy page opens a cell, and Galaxy renders only ```galaxy, ```vega, ```visualization and ```vitessce cells; any other type (```txt, ```text, or a language name) shows as an error and Galaxy refuses the page. Present data as Markdown tables or prose; for code or plain text use ~~~ fences."
       ]
     },
     {
