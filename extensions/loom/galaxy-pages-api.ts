@@ -50,7 +50,9 @@ export interface GalaxyPageSummary {
 }
 
 export interface GalaxyPage extends GalaxyPageSummary {
+  /** The embed-expanded render; `content_editor` is the source the agent edits. */
   content?: string;
+  content_editor?: string;
   content_format?: "markdown" | "html";
   edit_source?: "user" | "agent" | "restore";
 }

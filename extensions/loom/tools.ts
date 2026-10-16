@@ -574,7 +574,7 @@ anchor must resolve in notebook.md, and the invocation id must exist on the Gala
 
         const where = `${inv.invocationId} (${inv.label}) at ${inv.notebookAnchor}`;
         const proposal = params.proposalId
-          ? noteProposalBinding(proposalDeps, {
+          ? await noteProposalBinding(proposalDeps, {
               proposalId: params.proposalId,
               notebookAnchor: inv.notebookAnchor,
               run: { kind: "invocation", id: inv.invocationId },
@@ -736,7 +736,7 @@ and the job id must exist on the Galaxy server. \`toolId\` is used only when cre
 
         const where = `${job.jobId} (${job.label}) at ${job.notebookAnchor}`;
         const proposal = params.proposalId
-          ? noteProposalBinding(proposalDeps, {
+          ? await noteProposalBinding(proposalDeps, {
               proposalId: params.proposalId,
               notebookAnchor: job.notebookAnchor,
               run: { kind: "job", id: job.jobId },

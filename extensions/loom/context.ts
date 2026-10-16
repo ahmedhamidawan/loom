@@ -8,8 +8,8 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import * as fs from "fs";
 import { getState, getNotebookPath } from "./state";
+import { recordStore } from "./record-store";
 import { isTeamDispatchEnabled } from "./teams/is-enabled";
 import { isSessionIndexEnabled } from "./session-index/is-enabled";
 import { loadConfig } from "./config";
@@ -71,16 +71,17 @@ const LOOM_NOTEBOOK_CONTEXT_TYPE = "loom-notebook-context";
 const LOOM_WORKSPACE_INSTRUCTIONS_TYPE = "loom-workspace-instructions";
 
 /**
- * Read the user-curated notebook.md from disk and return a head + tail
+ * Read the user-curated notebook from the record and return a head + tail
  * excerpt for context injection. Head gives project intent + early plans;
  * tail gives the most recent activity.
  */
-function buildNotebookExcerptBlock(): string {
+async function buildNotebookExcerptBlock(): Promise<string> {
   const nbPath = getNotebookPath();
   if (!nbPath) return "";
+  const store = recordStore(nbPath);
   let content: string;
   try {
-    content = fs.readFileSync(nbPath, "utf-8");
+    ({ content } = await store.read());
   } catch {
     return "";
   }
@@ -88,7 +89,7 @@ function buildNotebookExcerptBlock(): string {
     return `
 ## Notebook (project log)
 
-\`${nbPath}\` — empty. The session just started; you'll be writing project
+\`${store.label}\` — empty. The session just started; you'll be writing project
 context, plans, and progress notes into this file via Edit/Write.
 `;
   }
@@ -98,7 +99,7 @@ context, plans, and progress notes into this file via Edit/Write.
   return `
 ## Notebook (project log)
 
-\`${nbPath}\` — the durable project record. **Markdown the user (and you)
+\`${store.label}\` — the durable project record. **Markdown the user (and you)
 maintain via Edit/Write tools.** It accumulates over the project's lifetime:
 ad-hoc exploration notes, plan sections, executed steps, interpretations,
 new plans, and so on.
@@ -123,12 +124,12 @@ ${excerpt}
  * Surface the loom-galaxy-page binding to the agent at session start so it
  * knows which page push/pull would touch and which tool fits which direction.
  */
-export function buildGalaxyPageBindingBlock(): string {
+export async function buildGalaxyPageBindingBlock(): Promise<string> {
   const nbPath = getNotebookPath();
   if (!nbPath) return "";
   let content: string;
   try {
-    content = fs.readFileSync(nbPath, "utf-8");
+    ({ content } = await recordStore(nbPath).read());
   } catch {
     return "";
   }
@@ -164,8 +165,10 @@ ${GALAXY_PAGE_MARKDOWN_GUIDANCE}
  * re-tokenize the ~8K cached system prefix every turn. The data-not-instructions
  * security boundary lives inside buildNotebookExcerptBlock and travels with it.
  */
-function buildLiveNotebookContext(): string {
-  return [buildNotebookExcerptBlock(), buildGalaxyPageBindingBlock()].filter(Boolean).join("\n");
+async function buildLiveNotebookContext(): Promise<string> {
+  return [await buildNotebookExcerptBlock(), await buildGalaxyPageBindingBlock()]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -846,7 +849,7 @@ export function setupContextInjection(pi: ExtensionAPI): void {
 
     // Lessons first, furthest from the user's turn: an index of titles written
     // by other people is the weakest claim on attention of the three.
-    const lessons = buildReproductionLessonsContext(lastUserText(messages));
+    const lessons = await buildReproductionLessonsContext(lastUserText(messages));
     if (lessons) insert(LOOM_LESSONS_CONTEXT_TYPE, lessons);
 
     // Workspace LOOM.md next, so the notebook -- and then the user's own turn
@@ -854,7 +857,7 @@ export function setupContextInjection(pi: ExtensionAPI): void {
     const workspace = buildWorkspaceInstructionsContext();
     if (workspace) insert(LOOM_WORKSPACE_INSTRUCTIONS_TYPE, workspace);
 
-    const live = buildLiveNotebookContext();
+    const live = await buildLiveNotebookContext();
     if (live) insert(LOOM_NOTEBOOK_CONTEXT_TYPE, live);
 
     return { messages };

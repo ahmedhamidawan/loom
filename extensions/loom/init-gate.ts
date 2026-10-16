@@ -16,8 +16,8 @@
  *   resolve with the user before invoking anything.
  */
 
-import * as fs from "fs";
 import { getNotebookPath, isGalaxyConnected, getCurrentHistoryId } from "./state.js";
+import { recordStore } from "./record-store.js";
 import { isLocalShellDisabled } from "./local-exec.js";
 
 export type Routing = "local" | "hybrid" | "remote" | "unknown";
@@ -156,11 +156,12 @@ export function parseProjectContext(content: string): ProjectContext | null {
  * /execute or /run handler) decides whether to notify, whether to still
  * send the agent prompt, etc.
  */
-export function checkPreconditions(): GateResult {
+export async function checkPreconditions(): Promise<GateResult> {
   const failures: GateFailure[] = [];
 
   const nbPath = getNotebookPath();
-  if (!nbPath || !fs.existsSync(nbPath)) {
+  const store = nbPath ? recordStore(nbPath) : null;
+  if (!store || (await store.stat()) === null) {
     return {
       ok: false,
       hardFailed: true,
@@ -177,7 +178,7 @@ export function checkPreconditions(): GateResult {
 
   let content: string;
   try {
-    content = fs.readFileSync(nbPath, "utf-8");
+    ({ content } = await store.read());
   } catch {
     return {
       ok: false,

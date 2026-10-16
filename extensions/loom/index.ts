@@ -69,7 +69,7 @@ import {
   type TransportNudgeArmed,
 } from "./galaxy-transport-error";
 import { GALAXY_UVX_MISSING_NUDGE, isGalaxyLauncherError } from "./galaxy-launcher-error";
-import * as fs from "fs";
+import { recordStore } from "./record-store";
 import {
   getState,
   getNotebookPath,
@@ -399,10 +399,11 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
         return;
       }
       const notebookPath = getNotebookPath();
-      if (notebookPath && fs.existsSync(notebookPath)) {
+      const store = notebookPath ? recordStore(notebookPath) : null;
+      if (store && (await store.stat()) !== null) {
         try {
-          const content = fs.readFileSync(notebookPath, "utf-8");
-          const header = `> \`${notebookPath}\`\n\n`;
+          const { content } = await store.read();
+          const header = `> \`${store.label}\`\n\n`;
           ctx.ui.setWidget(LoomWidgetKey.Notebook, encodeMarkdownWidget(header + content));
           setNotebookWidgetMode("open");
         } catch (err) {
@@ -515,7 +516,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
     // (`sed -i`, editors) swaps the inode, and a plain truncate can race the
     // watcher's awaitWriteFinish window. This is content-guarded so it only
     // emits on a real change and is a no-op otherwise. #253
-    reemitNotebookIfChanged();
+    await reemitNotebookIfChanged();
 
     const label = galaxyToolLabel(event.toolName);
     if (label) {

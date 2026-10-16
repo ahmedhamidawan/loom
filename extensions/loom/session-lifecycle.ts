@@ -21,6 +21,7 @@ import {
   type SessionSummaryYaml,
 } from "./notebook-writer.js";
 import { activeGalaxyStatus, type ActiveGalaxyStatus } from "./profiles.js";
+import { recordStore } from "./record-store.js";
 import { isUvxAvailable, uvxMissingNotice } from "../../shared/uvx-runner.js";
 import { maybeNudgeGalaxyReconnect } from "./galaxy-cred-drift.js";
 import * as fs from "fs";
@@ -81,7 +82,7 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
     syncSessionJsonlSymlink(ctx);
 
-    initSessionArtifacts(process.cwd());
+    await initSessionArtifacts(process.cwd());
 
     // Resume the per-history Galaxy page and arm debounce auto-push (no-op
     // unless LOOM_GALAXY_PAGE_SYNC=auto and Galaxy creds are present).
@@ -162,7 +163,7 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
   // re-orient by re-reading. Notebook is the source of truth — no plan struct
   // to persist.
   pi.on("session_before_compact", async () => {
-    snapshotNotebook(pi);
+    await snapshotNotebook(pi);
     return {};
   });
 
@@ -180,17 +181,17 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
     // that fire. #271
     stopWatchingNotebook();
     await writeSessionSummary(orphaned);
-    snapshotNotebook(pi);
+    await snapshotNotebook(pi);
     // Best-effort final push (debounce already pushed recent changes).
     await flushNotebookToGalaxy();
   });
 }
 
-function snapshotNotebook(pi: ExtensionAPI): void {
+async function snapshotNotebook(pi: ExtensionAPI): Promise<void> {
   const nbPath = getNotebookPath();
   if (!nbPath) return;
   try {
-    const content = fs.readFileSync(nbPath, "utf-8");
+    const { content } = await recordStore(nbPath).read();
     pi.appendEntry("notebook_snapshot", { path: nbPath, content });
   } catch (err) {
     console.error("notebook snapshot failed:", err);

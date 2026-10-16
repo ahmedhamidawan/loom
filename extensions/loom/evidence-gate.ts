@@ -116,6 +116,7 @@ import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config";
 import { getNotebookPath } from "./state";
+import { recordStore } from "./record-store";
 import { appendActivityEvent } from "./activity";
 import { findInvocationBlocks, type InvocationYaml } from "./notebook-writer";
 import { findJobBlocks, type JobYaml } from "./galaxy-job-block";
@@ -1173,7 +1174,7 @@ export function registerEvidenceGate(pi: ExtensionAPI): void {
     const registry = currentRegistryView();
     let before: string;
     try {
-      before = fs.readFileSync(nbPath, "utf-8");
+      before = (await recordStore(nbPath).read()).content;
     } catch {
       // No notebook on disk yet. Nothing to compare against -- unless the
       // registry holds a step, in which case a notebook written from scratch

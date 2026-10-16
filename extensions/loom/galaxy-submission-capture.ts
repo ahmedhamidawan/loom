@@ -27,7 +27,6 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import * as fs from "fs";
 import * as fsp from "fs/promises";
 import * as path from "path";
 import { stringify as stringifyYaml } from "yaml";
