@@ -1,7 +1,7 @@
 // Drives the provider/key overlay on the real page. No stub needed: the picker
 // resolves before the worker boots, which is the point of the ordering.
 const { chromium } = require("playwright");
-const offline = require("./offline.cjs");
+const offline = require("../../e2e/offline.cjs");
 const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
 
 const results = [];

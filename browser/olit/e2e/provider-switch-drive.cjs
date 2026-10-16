@@ -1,7 +1,7 @@
 // Switching provider after boot must not require clearing browser storage by hand,
 // and must not discard the conversation, which lives in the browser's files (OPFS).
 const { chromium } = require("playwright");
-const offline = require("./offline.cjs");
+const offline = require("../../e2e/offline.cjs");
 const STUB = "http://127.0.0.1:8099";
 const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit`;
 

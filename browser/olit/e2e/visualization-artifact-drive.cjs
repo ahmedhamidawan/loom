@@ -2,7 +2,7 @@
 // VisualizationFrame mounts a plugin, and must reach the model as a reference only. Both cross the worker boundary, where a dict that is serialized before it is
 // claimed loses the artifact without any test below noticing.
 const { chromium } = require("playwright");
-const { eventually } = require("./eventually.cjs");
+const { eventually } = require("../../e2e/eventually.cjs");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";

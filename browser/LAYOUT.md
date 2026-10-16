@@ -13,7 +13,7 @@ chains all of the checks.
 ```
 package.json              private workspace root: shared dev tooling, scripts that forward
 tsconfig.base.json        compiler options both packages extend
-scripts/ e2e/             tooling and Playwright drives, for the workspace as a whole
+scripts/ e2e/             tooling, the e2e stub and runner, and the bare flavor's drive
 dist/session.mjs          the Node build of the agent (npm run build:session)
 
 core/                     @galaxyproject/orbit-browser, TypeScript source behind package exports
@@ -68,6 +68,7 @@ olit/                     @galaxyproject/olit: files ["static"]
   src/agent/layout.ts       olitLayout: where --describe finds Olit, and olit.xml's ai_prompt
   src/agent/node.ts         the Node entry: runNodeSession(olitFlavor, olitLayout)
   src/agent/visualizations.ts visualization-inputs.ts vega.ts hints.ts   the visualization tools
+  e2e/                      the Playwright drives that mount the Olit plugin (helpers from ../e2e)
   src/agent/prompt.ts       the starting-dataset section
   src/agent/skills/         own/visualization, merged into the core's own
 
@@ -160,8 +161,6 @@ What still ties the two packages to this workspace, and why each waits:
   on body, sizes the pane from the window, injects fixed ids and configures the shared `marked`.
   Scoping all of that to the container is a follow-up; until then a host that needs the shell
   inside a larger page mounts it in an iframe.
-- **End-to-end drives.** Every drive in `e2e/` but `bare-drive.cjs` mounts the Olit plugin, so
-  they move to olit/ when it leaves; the bare drive stays with the core.
 - **Shared config.** Both packages extend `tsconfig.base.json` and use the root's Prettier config;
   a flavor that leaves takes a copy.
 

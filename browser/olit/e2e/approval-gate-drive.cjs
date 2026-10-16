@@ -7,7 +7,7 @@
 // charting, and no Galaxy tool reads it. So a plan is approved both when nothing has asked for
 // the catalog and after the catalog has been asked for and failed.
 const { chromium } = require("playwright");
-const { eventually } = require("./eventually.cjs");
+const { eventually } = require("../../e2e/eventually.cjs");
 
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";

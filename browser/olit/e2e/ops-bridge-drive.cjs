@@ -8,7 +8,7 @@
 //   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> LLM_PROVIDER=ollama \
 //     LLM_ROOT=http://127.0.0.1:8099 LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
 //     LLM_CONTEXT_WINDOW=64000 npx vite &
-//   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> node e2e/ops-bridge-drive.cjs
+//   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> node olit/e2e/ops-bridge-drive.cjs
 //
 // The history create_history makes is purged afterwards by the id that call returned, and by
 // nothing else: other histories may share its name.

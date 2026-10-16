@@ -1,7 +1,7 @@
 // The chat/artifact split must be adjustable: drag, toggle, shortcut, and a narrow
 // window must collapse the pane without overwriting the stored preference.
 const { chromium } = require("playwright");
-const offline = require("./offline.cjs");
+const offline = require("../../e2e/offline.cjs");
 const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
 
 const results = [];

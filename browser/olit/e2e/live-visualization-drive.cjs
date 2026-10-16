@@ -3,7 +3,7 @@
 // so an address that Galaxy refuses to render passes both. Opt-in; needs a real Galaxy.
 //
 //   npm run build:session && GALAXY_ROOT=... GALAXY_KEY=... DATASET_ID=... VISUALIZATION=molstar \
-//     node e2e/live-visualization-drive.cjs
+//     node olit/e2e/live-visualization-drive.cjs
 const { execFileSync } = require("child_process");
 const path = require("path");
 const { chromium } = require("playwright");

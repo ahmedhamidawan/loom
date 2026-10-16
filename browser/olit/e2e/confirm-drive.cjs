@@ -1,6 +1,6 @@
 // Drives the real page; only the provider and Galaxy are stubbed (stub.cjs).
 const { chromium } = require("playwright");
-const { eventually } = require("./eventually.cjs");
+const { eventually } = require("../../e2e/eventually.cjs");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";
