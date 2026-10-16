@@ -26,7 +26,8 @@ import { isUvxAvailable, uvxMissingNotice } from "../../shared/uvx-runner.js";
 import { maybeNudgeGalaxyReconnect } from "./galaxy-cred-drift.js";
 import * as fs from "fs";
 import * as path from "path";
-import { isDesktopShell, readEnv } from "../../shared/orbit-env.js";
+import { readEnv } from "../../shared/orbit-env.js";
+import { capabilityProfile } from "../../shared/capability-profile.js";
 import {
   closeSessionRegistry,
   openSessionRegistry,
@@ -133,8 +134,16 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
     // The approval registry. Opening it never blocks the session: a registry
     // that can't be loaded or locked comes up read-only, with one notice.
+    // It hangs off the record the way the activity log does: a page record's
+    // key is per conversation, so two pages hosted by one worker never share
+    // approvals, while a file record's dirname is the cwd it always was.
+    const notebookPath = getNotebookPath();
+    const analysisDir =
+      capabilityProfile().notebook === "page" && notebookPath
+        ? path.dirname(notebookPath)
+        : process.cwd();
     const registry = openSessionRegistry({
-      analysisDir: process.cwd(),
+      analysisDir,
       sessionId: sessionStart.id,
       serverUrl: getGalaxyConfig()?.url ?? "",
     });
@@ -149,8 +158,12 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
     // thing that prompts mcp__galaxy__connect() -- is suppressed, so a key/server
     // change made while this session was idle would leave the model believing
     // it's still connected as the old account. Refresh the per-cwd credential
-    // baseline and, on a resume where it changed, nudge a reconnect.
-    maybeNudgeGalaxyReconnect(pi, { isResume });
+    // baseline and, on a resume where it changed, nudge a reconnect. The nudge
+    // asks for mcp__galaxy__connect and the baseline only advances on that
+    // tool, so it has nothing to say where Galaxy tools are not the MCP ones.
+    if (capabilityProfile().galaxyTools === "mcp") {
+      maybeNudgeGalaxyReconnect(pi, { isResume });
+    }
 
     if (freshSession || isResume) {
       return;
@@ -323,10 +336,12 @@ export function planUvxWarning(
   return { kind: "notify", level: "warning", text: uvxMissingNotice() };
 }
 
+// No MCP server means no runner to look for, so the probe (a walk of PATH) is
+// skipped and the warning cannot fire.
 export function sendStartupGreeting(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
-  uvxAvailable: boolean = isUvxAvailable(),
+  uvxAvailable: boolean = capabilityProfile().galaxyTools === "mcp" ? isUvxAvailable() : true,
 ): void {
   // Surface the missing-runner warning before the greeting: the greeting tells
   // the model to call mcp__galaxy__connect(), which is exactly what will fail.
@@ -339,7 +354,7 @@ export function sendStartupGreeting(
     }
   }
 
-  const isOrbit = isDesktopShell();
+  const isOrbit = capabilityProfile().ui === "desktop";
   const action = planStartupGreeting(activeGalaxyStatus(), isOrbit);
   if (action.kind === "model") {
     pi.sendUserMessage(action.message);

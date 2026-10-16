@@ -22,7 +22,7 @@ import {
   type SkillEntry,
 } from "./skills-discovery";
 import { findGalaxyPageBlocks } from "./galaxy-page-binding";
-import { isLocalShellDisabled } from "./local-exec.js";
+import { isLocalExecDisabled, isLocalShellDisabled } from "./local-exec.js";
 import { galaxyCredentials } from "./galaxy-api.js";
 import { resolveWorkspaceStateDirName, type WorkspaceStateDirName } from "./workspace-state-dir";
 import { SRA_IMPORT_GUIDANCE } from "./sra-import-gate";
@@ -238,6 +238,24 @@ flip the toggle to Cloud if they want Galaxy back.
 `;
 }
 
+// Without a file surface the tool is not registered, so the prompt must not
+// send the model to it; the URL upload is the whole story there.
+function uploadingLocalDataBlock(): string {
+  if (isLocalExecDisabled()) {
+    return `### Uploading local data
+
+There is no user machine to read a file from in this shell, so there is no
+local upload tool -- use the URL upload.
+`;
+  }
+  return `### Uploading local data
+
+To upload a file from the user's machine, call \`galaxy_upload_local_file\`
+(resumable; handles large files without timing out). It is blocked in the web shell and the
+interactive tool, where there is no user machine to read from -- use the URL upload there.
+`;
+}
+
 /**
  * Galaxy connection status block — replaces the old Local|Remote toggle
  * with agent-side per-plan routing decisions.
@@ -319,12 +337,7 @@ ${draftingAPlan({ tool: galaxyMcpTool })}
 
 ${galaxyTerminology({ tool: galaxyMcpTool })}
 
-### Uploading local data
-
-To upload a file from the user's machine, call \`galaxy_upload_local_file\`
-(resumable; handles large files without timing out). It is blocked in the web shell and the
-interactive tool, where there is no user machine to read from -- use the URL upload there.
-
+${uploadingLocalDataBlock()}
 ${gettingDataIn({ tool: galaxyMcpTool })}
 
 ${SRA_IMPORT_GUIDANCE}

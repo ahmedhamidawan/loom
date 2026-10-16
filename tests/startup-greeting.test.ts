@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { planStartupGreeting, sendStartupGreeting } from "../extensions/loom/session-lifecycle.js";
+import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
 
 describe("planStartupGreeting", () => {
   it("usable -> a model turn that nudges mcp__galaxy__connect", () => {
@@ -105,6 +106,47 @@ describe("sendStartupGreeting (dispatch)", () => {
     expect(ctx.ui.notify.mock.calls[0][1]).toBe("warning");
     expect(ctx.ui.notify.mock.calls[0][0]).toContain("uvx");
     expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("usable with no uvx on PATH -> the default probe finds none and warns", () => {
+    writeConfig({
+      active: "default",
+      profiles: { default: { url: "https://x.galaxyproject.org", apiKeyEncrypted: "ZW5j" } },
+    });
+    process.env.GALAXY_URL = "https://x.galaxyproject.org";
+    process.env.GALAXY_API_KEY = "injected-by-orbit";
+    const prevPath = process.env.PATH;
+    process.env.PATH = "";
+    try {
+      const { pi, ctx } = fakes();
+      sendStartupGreeting(pi as never, ctx as never);
+      expect(ctx.ui.notify).toHaveBeenCalledTimes(1);
+      expect(ctx.ui.notify.mock.calls[0][0]).toContain("uvx");
+      expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
+    } finally {
+      process.env.PATH = prevPath;
+    }
+  });
+
+  it("usable under a profile with in-process Galaxy tools -> no probe, no warning", () => {
+    writeConfig({
+      active: "default",
+      profiles: { default: { url: "https://x.galaxyproject.org", apiKeyEncrypted: "ZW5j" } },
+    });
+    process.env.GALAXY_URL = "https://x.galaxyproject.org";
+    process.env.GALAXY_API_KEY = "injected-by-orbit";
+    const prevPath = process.env.PATH;
+    process.env.PATH = "";
+    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+    try {
+      const { pi, ctx } = fakes();
+      sendStartupGreeting(pi as never, ctx as never);
+      expect(ctx.ui.notify).not.toHaveBeenCalled();
+      expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
+    } finally {
+      setCapabilityProfile(null);
+      process.env.PATH = prevPath;
+    }
   });
 
   it("encrypted-only profile, no env -> warning notify, no model turn", () => {

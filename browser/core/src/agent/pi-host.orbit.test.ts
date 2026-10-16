@@ -27,6 +27,7 @@ import { agentModels } from "./model";
 import { createPiHost, type HostNote, type PiHost } from "./pi-host";
 import { resolve as resolveTarget } from "./providers";
 import { LOOP } from "./runtime";
+import type { CapabilityProfile } from "../../../../shared/capability-profile.js";
 
 // ── tripwire ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -157,6 +158,24 @@ function stubAll(mod: typeof cp, label: string) {
   }
 }
 
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = resolve(HERE, "..", "..", "..", "..");
+const LOOM = join(REPO, "extensions", "loom");
+const SHARED = join(REPO, "shared");
+// shared/lesson-rules.js imports lessons/validate.mjs, so the validator's top level runs under Orbit.
+const LESSONS = join(REPO, "lessons");
+// The vendored skills tree, read whole before the spies go on and before Orbit is on the stack:
+// record() drops this file's own frames, so a lazy read from inside skills_fetch would be charged
+// to vendor-skills.ts. A shell that bundles the tree hands over exactly this.
+const VENDOR = join(LOOM, "vendor", "skills");
+const vendorCatalog: unknown = JSON.parse(fs.readFileSync(join(VENDOR, "_catalog.json"), "utf8"));
+const vendorManifest = JSON.parse(fs.readFileSync(join(VENDOR, "_manifest.json"), "utf8")) as {
+  files: Array<{ target: string }>;
+};
+const vendorFiles = new Map<string, string>(
+  vendorManifest.files.map((f) => [f.target, fs.readFileSync(join(VENDOR, f.target), "utf8")]),
+);
+
 spyAll(fs, "fs");
 spyAll(fsp, "fs/promises");
 spyAll(os, "os");
@@ -165,39 +184,37 @@ spyAll(crypto, "crypto");
 stubAll(cp, "child_process");
 syncBuiltinESMExports();
 
-// ── env: the browser profile as far as env can say it ───────────────────────────────────────────
+// ── the browser profile: installed objects, not env ─────────────────────────────────────────────
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, "..", "..", "..", "..");
-const LOOM = join(REPO, "extensions", "loom");
-const SHARED = join(REPO, "shared");
-// shared/lesson-rules.js imports lessons/validate.mjs, so the validator's top level runs under Orbit.
-const LESSONS = join(REPO, "lessons");
 const ORIGINAL_CWD = process.cwd();
 const ORIGINAL_ENV = { ...process.env };
 
-const ENV: Record<string, string> = {
-  ORBIT_LOCAL_EXEC: "off",
-  LOOM_LOCAL_EXEC: "off",
-  ORBIT_LOCAL_SHELL: "off",
-  LOOM_LOCAL_SHELL: "off",
-  ORBIT_SHELL_KIND: "orbit",
-  ORBIT_TEAM_DISPATCH: "0",
-  ORBIT_SESSION_INDEX: "0",
-  ORBIT_LESSONS: "off",
-  ORBIT_AUTO_RESUME: "0",
-  ORBIT_GALAXY_PAGE_SYNC: "off",
+/** What the worker will install: no shell, no files, the notebook in a page, Galaxy tools in-process. */
+const PROFILE: CapabilityProfile = {
+  shell: false,
+  files: false,
+  notebook: "page",
+  network: true,
+  galaxyTools: "bare",
+  ui: "worker",
 };
-const EVAL_SEAMS =
-  /_(SUBMISSION_REPLAY|LESSON_REPLAY|OBSERVATION_REPLAY|LESSON_PROPOSAL_REPLAY|GALAXY_FIXTURE|MODEL_SCRIPT|TEMPLATE_REPLAY|FRESH_SESSION)$/;
+
+/** What today's env switches said; everything else is the config's own default. */
+const CONFIG = { lessons: { enabled: false }, experiments: { autoResume: false } };
+/** The standing instruction the shell hands over in place of an ORBIT.md on disk. */
+const INSTRUCTION = "Always answer in haiku.";
+/** Reset every seam the run installs, in afterAll. */
+const seams: Array<() => void> = [];
 
 const tmp = fs.realpathSync(fs.mkdtempSync(join(os.tmpdir(), "one-brain-")));
+// The worker has no env, so the run has none of Orbit's: every switch env used to set here is
+// now the installed profile or the config source, and a stray eval seam cannot reach the run.
 for (const key of Object.keys(process.env)) {
-  if (/^(ORBIT|LOOM)_/.test(key) && EVAL_SEAMS.test(key)) delete process.env[key];
+  if (/^(ORBIT|LOOM)_/.test(key)) delete process.env[key];
 }
 delete process.env.GALAXY_URL;
 delete process.env.GALAXY_API_KEY;
-Object.assign(process.env, ENV, {
+Object.assign(process.env, {
   HOME: tmp,
   USERPROFILE: tmp,
   PI_CODING_AGENT_DIR: join(tmp, ".pi", "agent"),
@@ -280,6 +297,26 @@ beforeAll(async () => {
 
   ledger.phase = "import";
   const loom = await import("../../../../extensions/loom/index");
+  const { setCapabilityProfile } = await import("../../../../shared/capability-profile.js");
+  setCapabilityProfile(PROFILE);
+  seams.push(() => setCapabilityProfile(null));
+  const { setConfigSource } = await import("../../../../shared/config-source.js");
+  setConfigSource({ load: () => CONFIG });
+  seams.push(() => setConfigSource(null));
+  const { setInstructionSource } = await import("../../../../extensions/loom/user-instructions");
+  setInstructionSource({
+    files: () => [
+      { scope: "global", path: "shell://instructions", content: INSTRUCTION, truncated: false },
+    ],
+  });
+  seams.push(() => setInstructionSource(null));
+  const { setVendorSkillsSource } = await import("../../../../extensions/loom/vendor-skills");
+  setVendorSkillsSource({
+    catalog: vendorCatalog,
+    manifest: vendorManifest,
+    read: (target) => vendorFiles.get(target) ?? null,
+  });
+  seams.push(() => setVendorSkillsSource(null));
   const { setGalaxyTransport } = await import("../../../../extensions/loom/galaxy-api");
   setGalaxyTransport({
     fetch: async (url, init) => {
@@ -337,6 +374,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await harness?.close(ctx).catch(() => {});
+  for (const reset of seams.splice(0)) reset();
   vi.unstubAllGlobals();
   process.chdir(ORIGINAL_CWD);
   for (const key of Object.keys(process.env)) if (!(key in ORIGINAL_ENV)) delete process.env[key];
@@ -473,11 +511,7 @@ function report(): string {
   const e = edges();
   return [
     `run: ${new Date().toISOString()}, ${rev}, vitest ${vitest}`,
-    `env: ${Object.entries(ENV)
-      .map(([k, v]) => `${k}=${v}`)
-      .join(
-        " ",
-      )} (GALAXY_URL/GALAXY_API_KEY unset, HOME/PI_CODING_AGENT_DIR in a temp dir, cwd = that dir)`,
+    `profile: ${JSON.stringify(PROFILE)}; config source: ${JSON.stringify(CONFIG)} (no ORBIT_*/LOOM_* env; GALAXY_URL/GALAXY_API_KEY unset, HOME/PI_CODING_AGENT_DIR in a temp dir, cwd = that dir)`,
     `registration: ${registration}; refused at register: ${refusedAtRegister || "(none)"}`,
     "",
     "## Reaches by phase (asserted: fs, fs/promises, child_process, chokidar, better-sqlite3)",
@@ -542,19 +576,18 @@ describe("Orbit on pi-host", () => {
   it("registers through the shim without reaching Node", () => {
     const total = [...host.handlers.values()].reduce((a, b) => a + b, 0);
     expect({ on: total, tools: host.tools.length, commands: host.commands.size }).toEqual({
-      on: 74 + 7,
-      tools: 19 + 1,
-      commands: 22,
+      on: 72 + 7,
+      tools: 16 + 1,
+      // /reconcile is the stub a page notebook gets until the provenance store (2b).
+      commands: 21,
     });
     expect(notes.filter((n) => n.kind !== "silent" && n.phase === "register")).toEqual([
       { kind: "refused", member: "registerMcpServer", detail: "brc-analytics", phase: "register" },
     ]);
     expect([...ledger.hits.keys()].filter((k) => k.startsWith("register |"))).toEqual([]);
-    // The one import-time reach: lessons/validate.mjs decides at its top level whether it is the
-    // CLI entry (realpathSync of argv[1]), and shared/lesson-rules.js pulls it in.
-    expect([...ledger.hits.keys()].filter((k) => k.startsWith("import |"))).toEqual([
-      "import | fs.realpathSync @ lessons/validate.mjs",
-    ]);
+    // Nothing at import either: lessons/validate.mjs (pulled in by shared/lesson-rules.js) now
+    // reads import.meta.main for its CLI check instead of realpathSync(argv[1]).
+    expect([...ledger.hits.keys()].filter((k) => k.startsWith("import |"))).toEqual([]);
   });
 
   it("names the handlers no seam fires", () => {
@@ -565,15 +598,13 @@ describe("Orbit on pi-host", () => {
   });
 
   /**
-   * Orbit launches work at session_start that nothing awaits: the poller's first tick and
-   * reconcile's follow-through. Run both to completion so their reaches land in the phase that
-   * started them, not in whichever one the test has moved on to.
+   * Orbit launches work at session_start that nothing awaits: the poller's first tick. Run it to
+   * completion so its reaches land in the phase that started it, not in whichever one the test
+   * has moved on to. (Reconcile's follow-through is not registered under a page notebook.)
    */
   async function drain() {
     const { pollGalaxyNow } = await import("../../../../extensions/loom/galaxy-poller");
-    const { followThrough } = await import("../../../../extensions/loom/galaxy-reconcile");
     await pollGalaxyNow();
-    await followThrough("enrich");
   }
 
   it("starts the session and lets the greeting run settle", async () => {
@@ -597,21 +628,33 @@ describe("Orbit on pi-host", () => {
     ledger.phase = "turn";
     const before = requests.length;
     script.push(
-      () => toolCall("dashboard_read", {}),
+      () =>
+        toolCall("skills_fetch", {
+          repo: "galaxy-skills",
+          path: "skills/collection-manipulation/SKILL.md",
+        }),
       () => text("done"),
     );
-    const s = await host.submit("read the dashboard");
+    const s = await host.submit("fetch the collection skill");
     await s!.wait(ctx);
     await until(() => runs.settled >= 2);
     const request = requests[before];
     expect(request.messages[0].role).toBe("system");
     // A sentence shared/prompt-blocks.js owns, so the section text is Orbit's whole prompt.
     expect(request.messages[0].content).toContain("Compaction (shrinking the");
+    // The instruction source serves the standing-instructions block, not just the walk going quiet.
+    expect(request.messages[0].content).toContain(INSTRUCTION);
+    // The skills router rendered from the vendor source (the heading shared/skills-router.js owns).
+    expect(request.messages[0].content).toContain("## Skills repositories (operational know-how)");
+    // No file surface: the upload tool is not registered, so the prompt must not name it.
+    expect(request.messages[0].content).not.toContain("galaxy_upload_local_file");
     const roles = request.messages.map((m: { role: string; content: unknown }) => ({
       role: m.role,
       text: textOf(m.content),
     }));
-    const lastUser = roles.findLastIndex((m: { text: string }) => m.text === "read the dashboard");
+    const lastUser = roles.findLastIndex(
+      (m: { text: string }) => m.text === "fetch the collection skill",
+    );
     expect(lastUser).toBeGreaterThan(0);
     expect(roles[lastUser - 1].role).toBe("user");
     expect(roles[lastUser - 1].text).toContain("## Notebook (project log)");
@@ -621,6 +664,16 @@ describe("Orbit on pi-host", () => {
       "tool_result",
       "tool_execution_end",
     ]);
+    // The vendor source served the file: the bundled branch of skills_fetch, never the network.
+    const results = (await conversation.context(ctx)).messages.filter(
+      (m) => m.role === "toolResult",
+    );
+    const last = results.at(-1)!;
+    expect(last.toolName).toBe("skills_fetch");
+    expect(last.isError).toBeFalsy();
+    const fetched = textOf(last.content);
+    expect(fetched.startsWith("Error:")).toBe(false);
+    expect(fetched).toContain("collection");
   });
 
   it("validates a @sinclair/typebox schema strictly, as Orbit does today", async () => {
@@ -647,6 +700,15 @@ describe("Orbit on pi-host", () => {
     ledger.phase = "command";
     expect(await host.command("notebook", "")).toBe(true);
     expect(await host.command("status", "")).toBe(true);
+    // Reads the writer registry the session opened over the in-memory fs. The command answers
+    // without a registry too, so the mode is checked outright, and a fallback to read-only would
+    // have reached the page as a warning.
+    const { getSessionRegistry } = await import("../../../../extensions/loom/registry-runtime");
+    expect(getSessionRegistry()?.store.mode).toBe("writer");
+    expect(notices.filter(([level]) => level === "warning")).toEqual([]);
+    expect(await host.command("pending", "")).toBe(true);
+    // The page notebook's stub; 2b registers the real one over the provenance store.
+    expect(await host.command("reconcile", "")).toBe(true);
     await drain();
     ledger.phase = "shutdown";
     await host.shutdown("quit");

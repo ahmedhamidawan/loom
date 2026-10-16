@@ -1,40 +1,9 @@
 {
-  "reaches": [
-    "fs.accessSync @ shared/uvx-runner.js",
-    "fs.appendFileSync @ extensions/loom/activity.ts",
-    "fs.existsSync @ extensions/loom/activity.ts",
-    "fs.existsSync @ extensions/loom/registry-lock.ts",
-    "fs.existsSync @ extensions/loom/registry.ts",
-    "fs.existsSync @ shared/loom-config.js",
-    "fs.existsSync @ shared/state-dir.js",
-    "fs.mkdirSync @ extensions/loom/activity.ts",
-    "fs.mkdirSync @ extensions/loom/galaxy-cred-drift.ts",
-    "fs.mkdirSync @ extensions/loom/registry.ts",
-    "fs.readFileSync @ extensions/loom/galaxy-cred-drift.ts",
-    "fs.readFileSync @ extensions/loom/registry-lock.ts",
-    "fs.readFileSync @ extensions/loom/secret-redaction.ts",
-    "fs.readFileSync @ extensions/loom/vendor-skills.ts",
-    "fs.realpathSync @ lessons/validate.mjs",
-    "fs.statSync @ extensions/loom/user-instructions.ts",
-    "fs.statSync @ shared/uvx-runner.js",
-    "fs.unlinkSync @ extensions/loom/registry-lock.ts",
-    "fs.writeFileSync @ extensions/loom/galaxy-cred-drift.ts",
-    "fs.writeFileSync @ extensions/loom/registry-lock.ts",
-    "fs/promises.lstat @ extensions/loom/dashboard-store.ts",
-    "fs/promises.lstat @ extensions/loom/galaxy-live-source.ts",
-    "fs/promises.lstat @ extensions/loom/galaxy-provenance.ts",
-    "fs/promises.lstat @ shared/dashboard-layout-store.js",
-    "fs/promises.mkdir @ extensions/loom/galaxy-provenance.ts",
-    "fs/promises.rename @ extensions/loom/galaxy-provenance.ts",
-    "fs/promises.writeFile @ extensions/loom/galaxy-provenance.ts"
-  ],
+  "reaches": [],
   "informational": [
-    "crypto.createHash @ extensions/loom/galaxy-cred-drift.ts",
-    "crypto.randomBytes @ extensions/loom/galaxy-provenance.ts",
     "crypto.randomBytes @ extensions/loom/registry-lock.ts",
     "crypto.randomBytes @ extensions/loom/registry.ts",
-    "crypto.randomBytes @ extensions/loom/ulid.ts",
-    "os.homedir @ shared/state-dir.js"
+    "crypto.randomBytes @ extensions/loom/ulid.ts"
   ],
   "edges": [
     "extensions/loom/activity.ts -> fs",

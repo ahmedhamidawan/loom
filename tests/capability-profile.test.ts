@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { profileFromEnv } from "../shared/capability-profile.js";
+import { afterEach, describe, it, expect } from "vitest";
+import {
+  capabilityProfile,
+  profileFromEnv,
+  setCapabilityProfile,
+} from "../shared/capability-profile.js";
 
 describe("profileFromEnv", () => {
   it("describes a full local shell when nothing is set", () => {
@@ -34,5 +38,25 @@ describe("profileFromEnv", () => {
   it("reports a desktop ui under the desktop shell", () => {
     expect(profileFromEnv({ ORBIT_SHELL_KIND: "desktop" }).ui).toBe("desktop");
     expect(profileFromEnv({ LOOM_SHELL_KIND: "orbit" }).ui).toBe("desktop");
+  });
+});
+
+describe("capabilityProfile", () => {
+  afterEach(() => setCapabilityProfile(null));
+
+  it("answers with the installed profile when a shell set one", () => {
+    setCapabilityProfile({ ...profileFromEnv({}), ui: "worker" });
+    expect(capabilityProfile().ui).toBe("worker");
+  });
+
+  it("reads an explicit env even while a profile is installed", () => {
+    setCapabilityProfile({ ...profileFromEnv({}), ui: "worker" });
+    expect(capabilityProfile({}).ui).toBe("terminal");
+  });
+
+  it("falls back to env once the profile is cleared", () => {
+    setCapabilityProfile({ ...profileFromEnv({}), ui: "worker" });
+    setCapabilityProfile(null);
+    expect(capabilityProfile()).toEqual(profileFromEnv(process.env));
   });
 });

@@ -15,7 +15,8 @@ import { isDesktopShell, readEnv } from "./orbit-env.js";
  *
  * The other fields have one value under every Node shell and no env var behind
  * them; they are here so a shell that differs (the browser worker) has
- * somewhere to say so.
+ * somewhere to say so. The browser worker has no env to set, so it installs
+ * its profile as an object with setCapabilityProfile instead.
  *
  * @typedef {object} CapabilityProfile
  * @property {boolean} shell a local bash shell
@@ -23,7 +24,7 @@ import { isDesktopShell, readEnv } from "./orbit-env.js";
  * @property {"file" | "page"} notebook where the notebook lives
  * @property {boolean} network direct outbound network from the brain
  * @property {"mcp" | "bare"} galaxyTools how Galaxy tools are named to the model
- * @property {"desktop" | "terminal"} ui the surface a human answers prompts on
+ * @property {"desktop" | "terminal" | "worker"} ui the surface a human answers prompts on
  */
 
 /**
@@ -39,4 +40,26 @@ export function profileFromEnv(env = process.env) {
     galaxyTools: "mcp",
     ui: isDesktopShell(env) ? "desktop" : "terminal",
   };
+}
+
+let installed = null;
+
+/**
+ * The shell's own description of itself; null puts env back in charge.
+ * @param {CapabilityProfile | null} profile
+ */
+export function setCapabilityProfile(profile) {
+  installed = profile ? { ...profile } : null;
+}
+
+/**
+ * The profile the brain acts on: the installed one, else env. An explicit env
+ * always means "read env", the way galaxyCredentials(env) does, so pure helpers
+ * and tests never see a shell's object.
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {CapabilityProfile}
+ */
+export function capabilityProfile(env) {
+  if (!env && installed) return installed;
+  return profileFromEnv(env);
 }

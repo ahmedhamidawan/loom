@@ -48,7 +48,7 @@ import { registerProposalCommands } from "./proposal-commands";
 import { registerExecGuard } from "./exec-guard";
 import { registerSandbox } from "./sandbox";
 import { isLocalExecDisabled } from "./local-exec";
-import { profileFromEnv } from "../../shared/capability-profile.js";
+import { capabilityProfile } from "../../shared/capability-profile.js";
 import { galaxyCredentials } from "./galaxy-api";
 import { registerSecretRedaction } from "./secret-redaction";
 import { registerLessonHint } from "./lesson-hint";
@@ -96,6 +96,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // Before anything registers a command, so every one of them counts as user
   // input for the automatic follow-up cap.
   registerCommandsAsUserInput(pi);
+  const profile = capabilityProfile();
   // Local-execution safety gate + opt-in bash sandbox. Both only make sense
   // when the brain has a local execution surface. A shell that runs the brain
   // with no local exec -- the web/container remote shell (and eventually native
@@ -106,7 +107,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // action. Skipping both keeps the shell's gate the single tool_call authority.
   // Shells WITH a local exec surface (desktop, CLI) set LOOM_LOCAL_EXEC
   // authoritatively at spawn so an ambient value can't toggle this off here.
-  if (profileFromEnv().files) {
+  if (profile.files) {
     // Register the gate first so its tool_call decision is the authoritative
     // boundary before anything else runs.
     registerExecGuard(pi);
@@ -175,7 +176,31 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // session start, after galaxy_connect, every Nth poller tick and on
   // /reconcile; per-job enrichment off the same queue. After the replay seam
   // so a replayed session's blocks are on disk before the first reconcile.
-  registerCaptureFollowThrough(pi);
+  // Provenance records and the reconcile cursor live under the analysis dir,
+  // which a page notebook has none of; the store that replaces them lands with
+  // the bare Galaxy tools (slice 2b), so until then nothing is reconciled there.
+  if (profile.notebook === "file") {
+    registerCaptureFollowThrough(pi);
+  } else {
+    // The browser has a reconcile today (by session, in its own runtime), so
+    // the gap is said out loud rather than left as an unknown command.
+    pi.registerCommand("reconcile", {
+      description:
+        "Check the bound Galaxy history against the notebook (not yet available for a page notebook)",
+      handler: async (_args, ctx) => {
+        try {
+          if (ctx.hasUI) {
+            ctx.ui.notify(
+              "Reconcile is not available for a page notebook yet; it lands with the in-process Galaxy tools.",
+              "info",
+            );
+          }
+        } catch {
+          /* stale/headless context */
+        }
+      },
+    });
+  }
   // Eval-only seam: answers Galaxy calls from a recorded fixture so the Tier-1
   // scenarios can drive reconcile and enrichment without a server. Off unless
   // LOOM_GALAXY_FIXTURE names a file inside the session directory.
@@ -192,14 +217,24 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // ── end capture, part two ─────────────────────────────────────────────────
 
   registerPlanTools(pi);
-  registerGalaxyUploadTool(pi);
+  // Uploads a LOCAL file; without a file surface there is nothing to upload.
+  if (profile.files) {
+    registerGalaxyUploadTool(pi);
+  }
   registerNotebookSyncTools(pi);
   registerSyncCommand(pi);
   registerSkillsCommand(pi);
   registerExecutionCommands(pi);
-  registerDashboardTools(pi);
+  // The terminal registers these because it writes the layout file for the
+  // next desktop session; a worker has neither a file nor a pane to show it in.
+  // Two ifs, not one block, so the tool order between them does not move.
+  if (profile.ui !== "worker") {
+    registerDashboardTools(pi);
+  }
   registerLessonsSearchTool(pi);
-  registerDashboardCommands(pi);
+  if (profile.ui !== "worker") {
+    registerDashboardCommands(pi);
+  }
   registerFeedbackCommand(pi);
   registerObservationsCommand(pi);
   registerLessonProposals(pi);
