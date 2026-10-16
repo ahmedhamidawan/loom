@@ -37,3 +37,30 @@ export function galaxyPageMarkdown(options?: {
   artifacts?: string;
   offenders?: string;
 }): string;
+export function operatingDiscipline(options?: {
+  record?: string;
+  credentials?: string;
+  mechanism?: string;
+  realMechanism?: string;
+  exists?: string;
+  exportHint?: string;
+}): string;
+export function verificationBlock(options?: {
+  record?: string;
+  recordFile?: string;
+  local?: boolean;
+  runCheck?: string;
+  await?: string;
+  awaitJobs?: string;
+  inspect?: string;
+}): string;
+export function recordWrites(options?: {
+  tool?: (name: string) => string;
+  heading?: string;
+  record?: string;
+  howToWrite?: string;
+  editing?: string[];
+  visibility?: string;
+  writeVerb?: string;
+  writeClaim?: string;
+}): string;

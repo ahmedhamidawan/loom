@@ -33,10 +33,10 @@ describe("composition", () => {
       "### Getting data into a Galaxy history",
       "### Invoking a Galaxy workflow",
       "## Operating discipline",
-      "### Reproducing long text",
+      "### Saving files -- only claim a write you actually made",
       "### Context and compaction",
       "## Verification before completion",
-      "### What to check, by format",
+      "### Verification examples",
       "### Drafting a new plan",
       "### Importing SRA/ENA sequencing runs",
       "### Executing a Galaxy step",
@@ -227,7 +227,7 @@ describe("other blocks", () => {
   it("describes compaction as automatic and unclaimable", () => {
     const text = systemText();
     expect(text).toContain("cannot compact your own context");
-    expect(text).toContain("Never claim you");
+    expect(text).toContain("must not claim the context window was compacted");
   });
 
   it("keeps the per-format verification checks", () => {
