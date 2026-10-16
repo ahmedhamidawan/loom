@@ -112,7 +112,9 @@ none of it. `e2e/bare-drive.cjs` mounts it on the current history with no sessio
 - **Page.** `mountOrbitBrowser(container, options)` takes the flavor's `createWorker`, its kinds and
   renderers, a `launch` callback (where the conversation starts and what to say about it; the
   default is Galaxy's current history), and an optional `sessions` store, without which there is
-  no Save button.
+  no Save button. A flavor Galaxy hosts as a visualization plugin passes `galaxyChatUrl`, the AI
+  proxy Galaxy serves it at `api/plugins/<name>`; that makes the keyless "galaxy" provider the
+  first-launch default. Without it the picker offers every other provider and has to be answered.
 
 The core ships as TypeScript source, so a flavor builds it with Vite: `?raw` and
 `import.meta.glob` imports, the `process.env.*` defines and the `app/src/renderer` import all
@@ -154,11 +156,6 @@ What still ties the two packages to this workspace, and why each waits:
   session. They can't collide across flavors, which never share a database or a session store,
   and renaming them would orphan every conversation Olit has kept, so they change only with a
   migration.
-- **The default "galaxy" provider assumes a plugin-hosted flavor.** It talks to Galaxy's AI proxy,
-  which Galaxy serves per visualization plugin at `api/plugins/<name>`, and it's the provider a
-  first launch uses. A flavor that isn't a registered plugin has no `galaxyChatUrl` to give, so it
-  would need that option made optional, "galaxy" dropped from the provider list, and another
-  default in `buildConfig`.
 - **One mount per document.** The shell puts its theme on the root element and the pane's state
   on body, sizes the pane from the window, injects fixed ids and configures the shared `marked`.
   Scoping all of that to the container is a follow-up; until then a host that needs the shell
