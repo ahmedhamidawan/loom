@@ -66,10 +66,11 @@
  * ## Modes
  *
  * `off | warn | deny`, from `LOOM_EVIDENCE_GATE` or `evidenceGate.mode` in the
- * config. Every decision that involves a completion is recorded to
- * `activity.jsonl` as `evidence.decision`, with the contradiction's source,
- * so `scripts/evidence-gate-audit.mjs` can tabulate what deny would have done;
- * `docs/evidence-gate-audit.md` holds the result the default rests on.
+ * config, default `deny`. Every decision that involves a completion is
+ * recorded to `activity.jsonl` as `evidence.decision`, with the
+ * contradiction's source, so `scripts/evidence-gate-audit.mjs` can tabulate
+ * what deny would have done; `docs/evidence-gate-audit.md` holds the audit
+ * the default rests on.
  *
  * ## The exception is the user's, not the model's
  *
@@ -136,7 +137,7 @@ export function resolveMode(): EvidenceGateMode {
   const cfg = loadConfig() as { evidenceGate?: { mode?: string } };
   const mode = cfg.evidenceGate?.mode?.trim().toLowerCase();
   if (mode === "off" || mode === "warn" || mode === "deny") return mode;
-  return "warn";
+  return "deny";
 }
 
 /** `## Plan A: Title [routing]` -- same shape init-gate.ts parses. */
@@ -930,6 +931,20 @@ export function grantEvidenceOverride(stepKey: string, invocationId: string): vo
   overrides.add(overrideToken(stepKey, invocationId));
 }
 
+/** The standing clearances, for a write path the tool_call hook doesn't see (a Page pull). */
+export function evidenceOverrides(): ReadonlySet<string> {
+  return overrides;
+}
+
+/** Spend the tokens a write actually used -- only when it went through. */
+export function spendClearances(adjudication: GateAdjudication): void {
+  if (adjudication.block) return;
+  for (const c of adjudication.cleared) {
+    if (c.source === "block")
+      overrides.delete(overrideToken(c.step.key, c.invocation.invocationId));
+  }
+}
+
 /** Session boundary / test reset. */
 export function resetEvidenceOverrides(): void {
   overrides.clear();
@@ -1178,14 +1193,7 @@ export function registerEvidenceGate(pi: ExtensionAPI): void {
     const { decision } = adjudication;
     if (decision.completions.length === 0) return;
 
-    // Spend the tokens only on the write they actually let through.
-    if (!adjudication.block) {
-      for (const c of adjudication.cleared) {
-        if (c.source === "block") {
-          overrides.delete(overrideToken(c.step.key, c.invocation.invocationId));
-        }
-      }
-    }
+    spendClearances(adjudication);
 
     recordDecision(path.dirname(nbPath), event.toolName, adjudication);
 

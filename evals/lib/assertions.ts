@@ -160,6 +160,32 @@ function evaluateToolResults(
 }
 
 /**
+ * A string compares against the payload value stringified, which is how every
+ * scalar has always been asserted. Anything else is a deep subset: an object
+ * needs each of its keys to match, an array needs each of its elements to
+ * match some element of the actual array, and an empty array means empty --
+ * enough to say "a contradiction with source registry" without spelling out
+ * the whole row.
+ */
+export function payloadValueMatches(actual: unknown, expected: unknown): boolean {
+  if (typeof expected === "string") return String(actual) === expected;
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual)) return false;
+    // An empty expectation means empty, not "any array": otherwise
+    // `contradictions: []` would pass on a row full of them.
+    if (expected.length === 0) return actual.length === 0;
+    return expected.every((x) => actual.some((y) => payloadValueMatches(y, x)));
+  }
+  if (expected && typeof expected === "object") {
+    if (!actual || typeof actual !== "object" || Array.isArray(actual)) return false;
+    return Object.entries(expected).every(([k, v]) =>
+      payloadValueMatches((actual as Record<string, unknown>)[k], v),
+    );
+  }
+  return actual === expected;
+}
+
+/**
  * Assert on the harness's own audit trail. Tier 1 scenarios drive a
  * synchronous command with no model attached, so there is no assistant text
  * and no tool call to look at -- if the thing under test records a decision,
@@ -176,8 +202,8 @@ function evaluateActivity(
     const hit = events.some((e) => {
       if (e.kind !== expected.kind) return false;
       if (expected.source && e.source !== expected.source) return false;
-      return Object.entries(expected.payloadContains ?? {}).every(
-        ([k, v]) => String((e.payload ?? {})[k]) === v,
+      return Object.entries(expected.payloadContains ?? {}).every(([k, v]) =>
+        payloadValueMatches((e.payload ?? {})[k], v),
       );
     });
     if (!hit) {
