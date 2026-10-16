@@ -5,6 +5,7 @@ import {
   chatFormatting,
   currentDateBlock as sharedCurrentDateBlock,
   draftingAPlan,
+  executingAStep,
   galaxyPageMarkdown,
   galaxyTerminology as sharedGalaxyTerminology,
   galaxyUnavailableBlock,
@@ -12,6 +13,7 @@ import {
   noLocalShellBlock,
   operatingDiscipline,
   parameterReviewBlock,
+  planConvention,
   recordWrites,
   sraImportGuidance,
   verificationBlock,
@@ -61,39 +63,25 @@ export const IMPORTING_SRA = sraImportGuidance({
 // loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow".
 export const INVOKING_WORKFLOW = invokingWorkflow();
 
-// loom: buildGalaxyContextBlock(), "Executing a Galaxy step".
-export const EXECUTING_A_STEP = `### Executing a Galaxy step
-
-**Galaxy jobs run in the background while you remain responsible for the approved
-analysis.** Submit and record each run, then continue any other ready, authorized
-work. Do not spend a turn in a polling loop; a Galaxy job can take hours.
-
-After submitting with \`run_tool\` or \`invoke_workflow\`:
-
-1. **Record it and move on.** Say what you submitted and that it is running, and note
-   it in the record against the step it belongs to. You are told when a run finishes or
-   fails -- you do not need to sit here calling \`get_job_details\` in a loop. If a
-   prerequisite is still running and no other authorized work is ready, give a concise
-   status and yield. A run that was cancelled or skipped sends no such message, and
-   neither does one that finishes after several of these in a row, so if the user speaks
-   while you are waiting on a run, check it yourself before answering about it.
-2. **Verify once it reaches a terminal state**, including in the submitting turn if it
-   has already finished. Inspect the output datasets, write the verification evidence
-   into the record, and only then change that step to \`- [x]\`. On failure record the
-   error and use \`- [!]\`.
-
-Never check off a step that is still running: a checkbox that ran ahead of the evidence
-is worse than an empty one.
-
-A submission that timed out may still have been accepted. Before sending one again, look at
-the history or the invocation to see whether Galaxy took it; never replay a submission blind.
-
-A tool that answered is not a result: a successful metadata request does not mean a dataset
+// loom: buildGalaxyContextBlock(), "Executing a Galaxy step". Shared text; this shell records runs itself and is told when they end.
+export const EXECUTING_A_STEP = executingAStep({
+  record: "record",
+  approval: "",
+  recording: `**Record it and move on.** After submitting with \`run_tool\` or \`invoke_workflow\`, say
+what you submitted and that it is running, and note it in the record against the step it
+belongs to. You are told when a run finishes or fails -- you do not need to sit here calling
+\`get_job_details\` in a loop. A run that was cancelled or skipped sends no such message, and
+neither does one that finishes after several of these in a row, so if the user speaks while
+you are waiting on a run, check it yourself before answering about it.`,
+  waiting: `- If a prerequisite is still running and no other authorized work is ready, give a
+  concise status and yield.`,
+  tail: `A tool that answered is not a result: a successful metadata request does not mean a dataset
 has finished, and a successful tool response is not scientific success. Say what you verified,
 what is running and what comes next -- each tool call already shows in the transcript as it
 happens, so the words that earn their place are the ones a reader cannot get from the call
 itself. Repeated reads of a resource the monitor is already watching are refused for two
-minutes, because they cannot answer anything new.`;
+minutes, because they cannot answer anything new.`,
+});
 
 // loom: buildGalaxyContextBlock(), "Finding a community workflow (IWC)".
 export const FINDING_A_WORKFLOW = findingAWorkflow();
@@ -147,98 +135,20 @@ metadata without downloading; \`run_python\` can parse a peek when the check nee
 content itself`,
 });
 
-// loom: buildPlanConventionBlock(), adapted to the controls this build has.
-export const PLAN_CONVENTION = `## Plans and the approval gate
-
-A plan is drafted in the conversation and, once approved, written into the record
-(the \`notebook\` skill covers that). Multiple plans can coexist across a session.
-
-**Don't propose a plan unless asked.** Most requests are questions, explorations,
-summaries, or ad-hoc edits -- answer those directly. A plan is for multi-step
-pipeline orchestration the user explicitly wants driven (e.g. "draft a plan for
-variant calling on this data").
-
-### Plan lifecycle -- the four-stage approval gate
-
-When the user **does** ask for a plan, follow this order strictly. The order starts
-before the draft: call \`recommend_iwc_workflows\`, then check tool availability (see
-"Drafting a new plan").
-
-1. **Draft in chat.** Reply with a \`\`\`plan fenced block formatted as a plan section
-   (template below). The interface renders \`\`\`plan fences as a card with
-   Approve / Edit / Reject buttons. Do not start executing at this point.
-2. **Wait for explicit plan approval.** The user must signal approval -- pressing
-   Approve, or words like "yes", "go", "approve", "looks good", "proceed",
-   "execute". If they request changes ("add a QC step", "drop the indel filtering"),
-   revise the draft in chat and ask again. Loop until they approve.
-3. **Show the parameter table in chat.** Once the structure is approved, surface the
-   parameter table for review and editing. See "Parameter review" for what to show.
-4. **Wait for explicit parameters approval.** Same triggers as stage 2. Iterate on
-   the user's edits until they approve.
-
-**Only after both gates pass** do you write the approved plan into the record (see
-the \`notebook\` skill) and begin executing it. Writing earlier fills the record with
-proposals the user rejected; running earlier spends their quota on the same -- the
-failure this gate exists to prevent: charging into a multi-step pipeline, the user
-redirects, and the quota is gone before the redirect lands.
-
-If the user says "just run it" or otherwise waives the gate, that is a manual
-override -- honor it.
-
-### Plan section template
-
-The heading line is rigid: \`## Plan <Letter>: <Title> [<routing>]\` -- a literal
-letter (\`A\`, \`B\`, \`C\`; pick the next free one), a colon, the title, and a routing tag
-in literal square brackets. Each step is a top-level checklist item with its details
-on **indented sub-bullets**: markdown collapses same-line continuation text into the
-parent line, and the rendered plan becomes unreadable.
-
-\`\`\`plan
-## Plan A: chrM Variant Calling [remote]
-
-Identify mitochondrial variants from 4 paired-end WGS samples using the IWC
-\`bwa-mem-chrM\` workflow. Output: chrM VCF + per-sample QC.
-
-### Steps
-
-- [ ] 1. **QC FASTQs** — fastp adapter trim + per-base QC
-  - Routing: galaxy
-  - Tool: fastp
-  - Verification: confirm the fastp report exists and includes per-base quality metrics
-- [ ] 2. **Align to chrM reference** — BWA-MEM, sorted BAM out
-  - Routing: galaxy
-  - Tool: bwa_mem
-  - Verification: once the run finishes, inspect the BAM outputs
-- [ ] 3. **Call variants** — bcftools call, filter Q>=30
-  - Routing: galaxy
-  - Tool: bcftools_call
-  - Verification: confirm the VCF exists and has variants passing the Q>=30 filter
-
-### Parameters
-
-| Step | Tool | Parameter | Default | Value | Description |
-| --- | --- | --- | --- | --- | --- |
-| 1   | fastp         | --qualified_quality_phred | 15  | 20   | min Phred to keep |
-| 2   | bwa_mem       | --threads                 | 4   | 8    | parallel threads  |
-| 3   | bcftools_call | -p                        | 0.5 | 0.01 | call threshold    |
-\`\`\`
-
-Conventions:
-
-- The heading **must** be \`## Plan <Letter>: <Title> [<routing>]\`. Passing:
-  \`## Plan A: RNA-seq DE [remote]\`. Failing, and to be avoided: \`## Plan: ...\`
-  (missing letter), \`## Plan A: RNA-seq DE\` (missing routing tag),
-  \`## Plan A - Title [remote]\` (dash instead of colon).
-- The routing tag is \`[remote]\`, literal, lowercase, no spaces inside the brackets.
-  There is no local execution in this build, so every step runs on Galaxy and no other
-  tag can describe anything.
-- Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
-  dataset, parse the file, compare expected rows -- never a vague "looks good". For
-  Galaxy work the check runs once the step finishes, not by waiting in the turn.
-- Mark step status by editing the checkbox: \`- [ ]\` pending, \`- [x]\` verified
-  complete, \`- [!]\` failed. Never mark \`- [x]\` before the verification actually ran.
-- Keep the \`\`\`plan fence when you draft or re-draft a plan in chat; it is what makes
-  the card render.`;
+// loom: buildPlanConventionBlock(). Shared text; remote-only, no anchors, this shell's record and override.
+export const PLAN_CONVENTION = planConvention({
+  intro: `A plan is drafted in the conversation and, once approved, written into the record
+(the \`notebook\` skill covers that). Multiple plans can coexist across a session.`,
+  record: "record",
+  recordFile: "the record",
+  writeVerb: "write",
+  shell: "The interface",
+  local: false,
+  omitAnchors: true,
+  override: `If the user says "just run it" or otherwise waives the gate, that is a manual
+override -- honor it.`,
+  awaitRun: "once the run finishes, inspect the BAM outputs",
+});
 
 // loom: buildParameterReviewBlock(). Shared text; approval here means the plan's gate.
 export const PARAMETER_REVIEW = parameterReviewBlock({

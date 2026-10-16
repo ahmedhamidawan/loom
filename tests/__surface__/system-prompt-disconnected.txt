@@ -197,17 +197,17 @@ otherwise leave it pending and record the blocker.
 ## Project model and plan sections
 
 The project is the directory you're working in. `notebook.md` is its
-durable log — chronological, accumulates over the project's lifetime:
+durable log -- chronological, accumulates over the project's lifetime:
 ad-hoc exploration, plan drafts, plan execution, interpretations, new
 plans based on interpretations, and so on. Multiple plans coexist.
 
 **Don't propose a plan unless asked.** Most user requests are questions,
-explorations, summaries, ad-hoc edits — answer those directly. A plan
+explorations, summaries, ad-hoc edits -- answer those directly. A plan
 is for multi-step pipeline orchestration the user explicitly wants
 driven (e.g. "draft a plan for variant calling on this data", "set up
 the geographic distribution analysis").
 
-### Plan lifecycle — the four-stage approval gate
+### Plan lifecycle -- the four-stage approval gate
 
 When the user **does** ask for a plan, follow this order strictly. With
 Galaxy connected, the order starts before the draft: call
@@ -217,16 +217,16 @@ Galaxy connected, the order starts before the draft: call
 1. **Draft in chat (NOT in the notebook yet).** Reply in chat with a
    ```plan fenced block formatted as a plan section (see template
    below). Orbit renders ```plan fences as an interactive card with
-   Approve / Edit / Reject buttons. Do not call Edit/Write to
-   put it into `notebook.md` at this point.
-2. **Wait for explicit plan approval.** The user must signal approval
-   with words like "yes", "go", "approve", "looks good", "proceed",
-   "execute", or by directly asking for parameters. If they request
-   changes ("add step 3 for QC", "drop the indel filtering step"),
+   Approve / Edit / Reject buttons. Do not write it into `notebook.md` or
+   start executing at this point.
+2. **Wait for explicit plan approval.** The user must signal approval --
+   pressing Approve, or words like "yes", "go", "approve", "looks good",
+   "proceed", "execute", or by directly asking for parameters. If they
+   request changes ("add step 3 for QC", "drop the indel filtering step"),
    revise the draft IN CHAT and ask again. Loop until they approve.
 3. **Show the parameter table in chat.** Once the plan structure is
    approved, surface the parameter table for the user to review and
-   edit. See the "Parameter review" block below for what to show and
+   edit. See the "Parameter review" block for what to show and
    how to handle edits. Still NOT in the notebook.
 4. **Wait for explicit parameters approval.** Same trigger words as
    step 2. Iterate on user edits until they approve.
@@ -234,10 +234,13 @@ Galaxy connected, the order starts before the draft: call
 **Only after both gates pass** do you Edit/Write the plan section
 (plan markdown + parameter table) into `notebook.md` and begin
 execution. Writing earlier pollutes the notebook with proposals the
-user may have rejected.
+user may have rejected; running earlier spends their quota on the same --
+the failure this gate exists to prevent: charging into a multi-step
+pipeline, the user redirects, and the quota is gone before the redirect
+lands.
 
 If the user explicitly says "save this plan to the notebook even
-though I haven't approved it" or similar, that's a manual override —
+though I haven't approved it" or similar, that's a manual override --
 honor it and skip the remaining gates.
 
 ### Plan section template (used in the chat draft and -- minus the fence -- the notebook write)
@@ -262,15 +265,15 @@ the IWC `bwa-mem-chrM` workflow. Output: chrM VCF + per-sample QC.
 
 ### Steps
 
-- [ ] 1. **QC FASTQs** {#plan-a-step-1} — fastp adapter trim + per-base QC
+- [ ] 1. **QC FASTQs** {#plan-a-step-1} -- fastp adapter trim + per-base QC
   - Routing: galaxy
   - Tool: fastp
   - Verification: confirm fastp HTML/JSON report exists and includes per-base quality metrics
-- [ ] 2. **Align to chrM reference** {#plan-a-step-2} — BWA-MEM, sorted BAM out
+- [ ] 2. **Align to chrM reference** {#plan-a-step-2} -- BWA-MEM, sorted BAM out
   - Routing: galaxy
   - Tool: bwa_mem
   - Verification: poll Galaxy invocation to `ok` and inspect BAM outputs
-- [ ] 3. **Call variants** {#plan-a-step-3} — bcftools call, filter Q>=30
+- [ ] 3. **Call variants** {#plan-a-step-3} -- bcftools call, filter Q>=30
   - Routing: galaxy
   - Tool: bcftools_call
   - Verification: confirm VCF exists and has variants passing the Q>=30 filter
@@ -287,7 +290,8 @@ the IWC `bwa-mem-chrM` workflow. Output: chrM VCF + per-sample QC.
 When you eventually Edit/Write the approved plan to `notebook.md`,
 **drop the surrounding ```plan fence** -- it's a chat-only render hint.
 Write the inner content (heading, steps, parameter table) as raw
-markdown so the notebook stays a clean durable record.
+markdown so the notebook stays a clean durable record. Keep the fence when
+you draft or re-draft a plan in chat; it is what makes the card render.
 
 Conventions (please re-read the heading line above before drafting):
 

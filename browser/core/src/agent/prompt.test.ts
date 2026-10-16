@@ -51,7 +51,7 @@ describe("composition", () => {
   });
 
   it("owns the no-polling rule in the step block", () => {
-    expect(EXECUTING_A_STEP).toContain("Do not spend a turn in a polling loop");
+    expect(EXECUTING_A_STEP).toContain("Do not spend a turn in a polling/sleep loop");
   });
 
   it("names no flavor's tools in its terms, and places a flavor's own after the UDT one", () => {
@@ -121,7 +121,7 @@ describe("plan convention", () => {
   it("keeps all four approval stages", () => {
     expect(PLAN_CONVENTION).toContain("four-stage approval gate");
     for (const stage of [
-      "**Draft in chat.**",
+      "**Draft in chat (NOT in the record yet).**",
       "**Wait for explicit plan approval.**",
       "**Show the parameter table in chat.**",
       "**Wait for explicit parameters approval.**",
@@ -137,9 +137,9 @@ describe("plan convention", () => {
     expect(at).toBeGreaterThan(-1);
     const gate = PLAN_CONVENTION.slice(0, at);
     const after = PLAN_CONVENTION.slice(at + marker.length);
-    expect(after).toContain("write the approved plan into the record");
-    expect(after).toContain("begin executing it");
-    expect(gate).toContain("Do not start executing at this point");
+    expect(after).toContain("into the record");
+    expect(after).toContain("execution");
+    expect(gate).toContain("start executing at this point");
   });
 
   it("teaches the rigid heading", () => {

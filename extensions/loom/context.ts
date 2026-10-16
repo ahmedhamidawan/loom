@@ -48,10 +48,12 @@ import {
   draftingAPlan,
   galaxyTerminology,
   galaxyUnavailableBlock,
+  executingAStep,
   gettingDataIn,
   noLocalShellBlock,
   operatingDiscipline,
   parameterReviewBlock,
+  planConvention,
   recordWrites,
   verificationBlock,
 } from "../../shared/prompt-blocks.js";
@@ -325,52 +327,7 @@ ${gettingDataIn({ tool: galaxyMcpTool })}
 ${SRA_IMPORT_GUIDANCE}
 ${invokingWorkflow({ tool: galaxyMcpTool })}
 
-### Executing a Galaxy step
-
-**Galaxy jobs run in the background while you remain responsible for the
-approved analysis.** Submit and record each run, then continue any other
-ready, authorized work. Do not spend a turn in a polling/sleep loop.
-
-**Propose, then wait for \`/approve\`.** Before a Galaxy run, call
-\`loom_propose\` with the step, the target, the exact inputs, and each
-parameter you set with a rationale. It checks them against the tool's or
-workflow's template and returns a table: show it, and ask the user to type
-\`/approve <proposal-id>\`. You can't approve a proposal, and editing its
-block afterwards revokes the approval. Once approved, submit exactly what
-was proposed with the usual Galaxy tools, and pass \`proposalId\` when you
-record the run.
-
-**The harness records the run; you name the step it belongs to.** Loom
-writes the notebook block itself the moment a Galaxy submission answers,
-reading the id out of Galaxy's own response, so the poller is already
-watching the run before your next turn starts. What it cannot reliably know
-is which plan step the run is for, so bind every run immediately after
-submission, inside an \`/execute\` or not: workflow runs with \`galaxy_invocation_record({
-invocationId, notebookAnchor, label })\` and tool runs with
-\`galaxy_job_record({ jobId, notebookAnchor, label })\`. The call sets the
-label and anchor on the block Loom already wrote, and writes a new block only
-if nothing in the notebook carries that id. Use the IDs returned by Galaxy.
-Runs Loom finds in the history that no block recorded are written with
-\`notebook_anchor: unattributed\`; bind them the same way, and the user can run
-\`/reconcile\` to re-check the history against the notebook.
-
-- If the submission result or a current check already shows terminal state,
-  inspect the outputs now. A quick merge or metadata operation can finish
-  immediately; verification need not wait for another turn.
-- If a prerequisite is still running and no other authorized work is ready,
-  give a concise status and yield. The background poller queues verification
-  or investigation on completion by default. It pauses after a few automatic
-  turns without user input, and when the user stops a turn. If it has been
-  explicitly disabled, say so; do not promise automatic continuation.
-- On success, verify output datasets/collections, record the evidence in the
-  notebook, then mark the existing step verified and continue the next
-  authorized work whose prerequisites pass. Never require the user to repeat
-  an execution request or ask for verification again.
-- On failure, investigate immediately and record the cause. Stop dependent
-  work; perform safe recovery within existing authorization. Ask only for a
-  necessary missing decision, information or authorization. Respect explicit
-  pause/stop requests. Never advance past a failed or unverified prerequisite.
-
+${executingAStep()}
 `;
 }
 
@@ -567,137 +524,14 @@ export function buildVerificationDisciplineBlock(): string {
 
 function buildPlanConventionBlock(opts: { omitAnchors?: boolean } = {}): string {
   const omitAnchors = opts.omitAnchors === true;
-  return `## Project model and plan sections
-
-The project is the directory you're working in. \`notebook.md\` is its
-durable log — chronological, accumulates over the project's lifetime:
-ad-hoc exploration, plan drafts, plan execution, interpretations, new
-plans based on interpretations, and so on. Multiple plans coexist.
-
-**Don't propose a plan unless asked.** Most user requests are questions,
-explorations, summaries, ad-hoc edits — answer those directly. A plan
-is for multi-step pipeline orchestration the user explicitly wants
-driven (e.g. "draft a plan for variant calling on this data", "set up
-the geographic distribution analysis").
-
-### Plan lifecycle — the four-stage approval gate
-
-When the user **does** ask for a plan, follow this order strictly. With
-Galaxy connected, the order starts before the draft: call
-\`mcp__galaxy__recommend_iwc_workflows\`, then check tool availability (see
-"Drafting a new plan") -- the routing tag depends on what they return.
-
-1. **Draft in chat (NOT in the notebook yet).** Reply in chat with a
-   \`\`\`plan fenced block formatted as a plan section (see template
-   below). Orbit renders \`\`\`plan fences as an interactive card with
-   Approve / Edit / Reject buttons. Do not call Edit/Write to
-   put it into \`notebook.md\` at this point.
-2. **Wait for explicit plan approval.** The user must signal approval
-   with words like "yes", "go", "approve", "looks good", "proceed",
-   "execute", or by directly asking for parameters. If they request
-   changes ("add step 3 for QC", "drop the indel filtering step"),
-   revise the draft IN CHAT and ask again. Loop until they approve.
-3. **Show the parameter table in chat.** Once the plan structure is
-   approved, surface the parameter table for the user to review and
-   edit. See the "Parameter review" block below for what to show and
-   how to handle edits. Still NOT in the notebook.
-4. **Wait for explicit parameters approval.** Same trigger words as
-   step 2. Iterate on user edits until they approve.
-
-**Only after both gates pass** do you Edit/Write the plan section
-(plan markdown + parameter table) into \`notebook.md\` and begin
-execution. Writing earlier pollutes the notebook with proposals the
-user may have rejected.
-
-If the user explicitly says "save this plan to the notebook even
-though I haven't approved it" or similar, that's a manual override —
-honor it and skip the remaining gates.
-
-### Plan section template (used in the chat draft and -- minus the fence -- the notebook write)
-
-The heading line is rigid: \`## Plan <Letter>: <Title> [<routing>]\`,
-with a literal letter (\`A\`, \`B\`, \`C\` -- pick the next free one),
-a colon, the human-readable title, and a routing tag in literal
-square brackets. Each step is a top-level checklist item with routing
-and tool(s) on **indented sub-bullets**. Markdown collapses
-continuation-indent text into the parent line; sub-bullets render as
-a real nested list.
-
-Worked example -- copy this shape exactly, just substitute domain
-content. **Use a \`\`\`plan fence** in chat (not \`\`\`markdown) so Orbit
-renders it as an interactive draft card with Approve/Edit/Reject buttons.
-
-\`\`\`plan
-## Plan A: chrM Variant Calling [remote]
-
-Identify mitochondrial variants from 4 paired-end WGS samples using
-the IWC \`bwa-mem-chrM\` workflow. Output: chrM VCF + per-sample QC.
-
-### Steps
-
-- [ ] 1. **QC FASTQs**${anchorOrEmpty("plan-a-step-1", omitAnchors)} — fastp adapter trim + per-base QC
-  - Routing: galaxy
-  - Tool: fastp
-  - Verification: confirm fastp HTML/JSON report exists and includes per-base quality metrics
-- [ ] 2. **Align to chrM reference**${anchorOrEmpty("plan-a-step-2", omitAnchors)} — BWA-MEM, sorted BAM out
-  - Routing: galaxy
-  - Tool: bwa_mem
-  - Verification: poll Galaxy invocation to \`ok\` and inspect BAM outputs
-- [ ] 3. **Call variants**${anchorOrEmpty("plan-a-step-3", omitAnchors)} — bcftools call, filter Q>=30
-  - Routing: galaxy
-  - Tool: bcftools_call
-  - Verification: confirm VCF exists and has variants passing the Q>=30 filter
-
-### Parameters
-
-| Step | Tool | Parameter | Default | Value | Description |
-| --- | --- | --- | --- | --- | --- |
-| 1   | fastp     | --qualified_quality_phred | 15 | 20 | min Phred to keep |
-| 2   | bwa_mem   | --threads                 | 4  | 8  | parallel threads  |
-| 3   | bcftools_call | -p                    | 0.5 | 0.01 | call threshold  |
-\`\`\`
-
-When you eventually Edit/Write the approved plan to \`notebook.md\`,
-**drop the surrounding \`\`\`plan fence** -- it's a chat-only render hint.
-Write the inner content (heading, steps, parameter table) as raw
-markdown so the notebook stays a clean durable record.
-
-Conventions (please re-read the heading line above before drafting):
-
-- Heading **must** be \`## Plan <Letter>: <Title> [<routing>]\`.
-  Examples that pass: \`## Plan A: RNA-seq DE [remote]\`,
-  \`## Plan B: Quick local QC [local]\`. Examples that **fail** and
-  must be avoided: \`## Plan: ...\` (missing letter),
-  \`## Plan A: ...\` (missing routing tag),
-  \`## Plan A - Title [remote]\` (dash instead of colon).
-- Routing tag in the section header is one of \`[remote]\`, \`[hybrid]\`,
-  or \`[local]\`, by where the compute runs. Default to \`[remote]\` when
-  every step runs on Galaxy (tools, UDTs or workflows); \`[hybrid]\` when
-  some steps are local and some Galaxy; \`[local]\` only for
-  personal-scale or ad-hoc work. Older notebooks may say \`[galaxy]\`,
-  which means \`[remote]\`.
-  Tag literal, lowercase, square brackets, no spaces inside the
-  brackets so tooling can grep.
-${anchorGuidance(omitAnchors)}
-- Step routing/tool details go on **sub-bullets**, not on the same line
-  as the step heading. Markdown will collapse same-line continuation
-  text and the rendered notebook becomes unreadable.
-- Each step needs a **Verification** sub-bullet. It must name a concrete
-  check (poll invocation + inspect dataset, run smoke test, parse file,
-  compare expected rows, etc.), not a vague "looks good".
-- Mark step status by editing the checkbox: \`- [ ]\` (pending),
-  \`- [x]\` (verified completed), \`- [!]\` (failed). Never mark
-  \`- [x]\` until the verification evidence is written to the notebook.
-- Multiple plans coexist; append new plan sections at the bottom of the
-  notebook. Don't delete old plans.
-`;
+  return `${planConvention({
+    tool: galaxyMcpTool,
+    omitAnchors,
+    anchorGuidance: anchorGuidance(omitAnchors),
+  })}\n`;
 }
 
 /** Render a step anchor only when anchors are safe for the active provider. */
-function anchorOrEmpty(id: string, omit: boolean): string {
-  return omit ? "" : ` {#${id}}`;
-}
-
 /**
  * Inline guidance about anchors. Two versions:
  * - Safe providers (Anthropic, OpenAI, Google, etc.): teach anchors so

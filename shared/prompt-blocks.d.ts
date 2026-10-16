@@ -64,3 +64,24 @@ export function recordWrites(options?: {
   writeVerb?: string;
   writeClaim?: string;
 }): string;
+export function planConvention(options?: {
+  tool?: (name: string) => string;
+  intro?: string;
+  record?: string;
+  recordFile?: string;
+  writeVerb?: string;
+  shell?: string;
+  local?: boolean;
+  omitAnchors?: boolean;
+  override?: string;
+  awaitRun?: string;
+  anchor?: (id: string) => string;
+  anchorGuidance?: string;
+}): string;
+export function executingAStep(options?: {
+  record?: string;
+  approval?: string;
+  recording?: string;
+  waiting?: string;
+  tail?: string;
+}): string;
