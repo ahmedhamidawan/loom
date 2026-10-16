@@ -349,18 +349,18 @@ record once everything is settled.
 
 ## Chat formatting
 
-Chat is rendered as markdown. Tokens stream live, so adjacent bold/italic
-markers without whitespace between them break parsing — the user sees
-literal `**asterisks**` instead of bold. Two rules:
+Chat is rendered as markdown. Adjacent bold or italic markers with no whitespace
+between them break parsing -- the user sees literal `**asterisks**` -- and a single
+newline joins two lines into one paragraph. Two rules:
 
 - **Always separate distinct progress updates with a blank line.** If
   you announce "Starting step 2", complete it, and then announce step
-  3, those are three distinct messages — put a blank line (`\n\n`)
+  3, those are three distinct messages -- put a blank line (`\n\n`)
   between each. Same for any sequence of messages emitted in one turn.
 - **Don't narrate execution step-by-step in chat.** The notebook is
   the durable progress record (checkboxes flip as steps complete) and
   Galaxy invocation status updates land in the YAML blocks. Keep chat
-  for **dialogue + final status** — open questions, requested
+  for **dialogue + final status** -- open questions, requested
   decisions, and a single end-of-turn summary like
   *"All 8 steps verified. Variant call results in plan-a-step-7. Ready
   for interpretation?"*
@@ -498,18 +498,18 @@ resources before deciding what runs where:
    those invocations.
 2. Otherwise, draft step-by-step. Per step:
    - Heavy compute (alignment, large variant calling, big assemblies,
-     long-running BLAST, etc.) → check Galaxy tool availability
+     long-running BLAST, etc.) -> check Galaxy tool availability
      (`mcp__galaxy__search_tools_by_name`); if installed, mark step Galaxy.
    - **Gap-filling glue** between Galaxy steps (a small filter,
      reformatter, joiner, column-trimmer, etc. that isn't in the
-     public tool panel) → **prefer a user-defined tool** over a local
+     public tool panel) -> **prefer a user-defined tool** over a local
      script. Create it once with `mcp__galaxy__create_user_tool` and run it
      with `mcp__galaxy__run_user_tool`. Keeps the analysis on Galaxy,
      preserves provenance, stays reusable across histories. Default to
      this whenever the glue is something a future user might want to
      run again.
    - Light/exploratory (parsing, summarization, awk/sed/jq one-offs,
-     truly throwaway probes) → mark step local. Reserve for work that
+     truly throwaway probes) -> mark step local. Reserve for work that
      doesn't belong in the durable record.
 3. Document routing in the plan section header and inline per-step:
    `## Plan A: chrM Variant Calling [hybrid]`

@@ -43,7 +43,9 @@ import { renderSkillsRouter } from "../../shared/skills-router.js";
 import { findingAWorkflow, invokingWorkflow } from "../../shared/galaxy-guidance.js";
 import {
   activeModelBlock,
+  chatFormatting,
   currentDateBlock,
+  draftingAPlan,
   parameterReviewBlock,
 } from "../../shared/prompt-blocks.js";
 import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
@@ -307,34 +309,7 @@ page id:
 
 ${findingAWorkflow({ tool: galaxyMcpTool })}
 
-### Drafting a new plan
-
-When drafting a plan, **first** consult Galaxy
-resources before deciding what runs where:
-
-1. Check the IWC registry as above. If a workflow (or a chain of them)
-   covers the analysis, propose running it on Galaxy -- the steps are
-   those invocations.
-2. Otherwise, draft step-by-step. Per step:
-   - Heavy compute (alignment, large variant calling, big assemblies,
-     long-running BLAST, etc.) → check Galaxy tool availability
-     (\`mcp__galaxy__search_tools_by_name\`); if installed, mark step Galaxy.
-   - **Gap-filling glue** between Galaxy steps (a small filter,
-     reformatter, joiner, column-trimmer, etc. that isn't in the
-     public tool panel) → **prefer a user-defined tool** over a local
-     script. Create it once with \`mcp__galaxy__create_user_tool\` and run it
-     with \`mcp__galaxy__run_user_tool\`. Keeps the analysis on Galaxy,
-     preserves provenance, stays reusable across histories. Default to
-     this whenever the glue is something a future user might want to
-     run again.
-   - Light/exploratory (parsing, summarization, awk/sed/jq one-offs,
-     truly throwaway probes) → mark step local. Reserve for work that
-     doesn't belong in the durable record.
-3. Document routing in the plan section header and inline per-step:
-   \`## Plan A: chrM Variant Calling [hybrid]\`
-   \`Step 3: BWA alignment (Galaxy: bwa-mem2/2.2.1)\`
-   \`Step 4: VCF filter (Galaxy UDT: vcf_min_depth)\`
-   \`Step 5: quick stat probe (local awk)\`
+${draftingAPlan({ tool: galaxyMcpTool })}
 
 ### Galaxy terminology
 
@@ -973,27 +948,7 @@ function anchorGuidance(omit: boolean): string {
  * concatenating and failing to parse. Result: a wall of broken text.
  */
 function buildChatFormattingBlock(): string {
-  return `## Chat formatting
-
-Chat is rendered as markdown. Tokens stream live, so adjacent bold/italic
-markers without whitespace between them break parsing — the user sees
-literal \`**asterisks**\` instead of bold. Two rules:
-
-- **Always separate distinct progress updates with a blank line.** If
-  you announce "Starting step 2", complete it, and then announce step
-  3, those are three distinct messages — put a blank line (\`\\n\\n\`)
-  between each. Same for any sequence of messages emitted in one turn.
-- **Don't narrate execution step-by-step in chat.** The notebook is
-  the durable progress record (checkboxes flip as steps complete) and
-  Galaxy invocation status updates land in the YAML blocks. Keep chat
-  for **dialogue + final status** — open questions, requested
-  decisions, and a single end-of-turn summary like
-  *"All 8 steps verified. Variant call results in plan-a-step-7. Ready
-  for interpretation?"*
-
-When you do post a multi-line update, prefer a markdown list or a
-fenced code block over inline-bold-heavy run-on prose. Lists naturally
-get blank lines from the renderer; run-on prose does not.
+  return `${chatFormatting()}
 
 ${GALAXY_ARTIFACT_LINK_GUIDANCE}
 `;

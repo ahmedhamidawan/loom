@@ -1,8 +1,11 @@
 import { findingAWorkflow, invokingWorkflow } from "../../../../shared/galaxy-guidance.js";
 import {
   activeModelBlock as sharedActiveModelBlock,
+  chatFormatting,
   currentDateBlock as sharedCurrentDateBlock,
+  draftingAPlan,
   parameterReviewBlock,
+  sraImportGuidance,
 } from "../../../../shared/prompt-blocks.js";
 import { DEFAULT_BRAND } from "./brand";
 
@@ -54,37 +57,14 @@ accession, so read them there rather than constructing one.
   filesystem \`run_python\` writes to; if the user has a file only on their machine,
   ask them to upload it through the Galaxy UI, then continue from the history.`;
 
-// loom: sra-import-gate.ts, SRA_IMPORT_GUIDANCE.
-export const IMPORTING_SRA = `### Importing SRA/ENA sequencing runs
-
-This is the route when the SRA importer wrapper (\`fastq_dump\`/\`fasterq_dump\`) is installed;
+// loom: sra-import-gate.ts, SRA_IMPORT_GUIDANCE. Shared text; this shell says when it applies.
+export const IMPORTING_SRA = sraImportGuidance({
+  before: `This is the route when the SRA importer wrapper (\`fastq_dump\`/\`fasterq_dump\`) is installed;
 \`search_tools_by_name\` says whether it is. Where it is not, resolve the accessions with
-\`ena_runs\` and fetch the URLs it returns.
-
-Before submitting, gather the full set of run accessions requested for this
-analysis and deduplicate it. Inspect the destination history and the record:
-reuse verified inputs and wait for matching imports already running; retry
-only missing or demonstrably failed runs. Do not expand to unrelated runs in
-the same submission.
-
-Submit the whole set in one importer job: a comma-separated string in
-\`input|accession\` with \`input|input_select=accession_number\`, or one uploaded
-text dataset (one accession per line) in \`input|file_list\` with
-\`input|input_select=file_list\`. A list file is a single dataset, not a mapped
-collection. Do not loop over accessions or use Galaxy's batch/map mechanism:
-that creates separate jobs and collections. Do not download FASTQs locally and
-re-upload. For paired-end data use the wrapper's paired output (normally
-\`list:paired\`); keep singleton outputs available for verification. Do not
-create per-run collections and merge them when the importer can build one.
-Preserve requested extraction settings and compression; splitting into separate
-jobs is justified only by different settings or a demonstrated server limit,
-not by the number of samples alone.
-
-Record the returned job and collection ids. Before using the collection, verify
-its population state, the expected accession count and identifiers,
-forward/reverse members and dataset states. A job reported ok can still have
-failed or missing outputs. Never delete prior outputs merely to hide clutter;
-reuse them and preserve provenance.`;
+\`ena_runs\` and fetch the URLs it returns.`,
+  record: "the record",
+  recording: "Record the returned job and collection ids.",
+});
 
 // loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow".
 export const INVOKING_WORKFLOW = invokingWorkflow();
@@ -126,39 +106,13 @@ minutes, because they cannot answer anything new.`;
 // loom: buildGalaxyContextBlock(), "Finding a community workflow (IWC)".
 export const FINDING_A_WORKFLOW = findingAWorkflow();
 
-// loom: buildGalaxyContextBlock(), the "Drafting a new plan" section.
-export const DRAFTING_A_PLAN = `### Drafting a new plan
-
-When drafting a plan, **first** consult Galaxy
-resources before deciding what runs where:
-
-1. Check the IWC registry as above. If a workflow (or a chain of them)
-   covers the analysis, propose running it on Galaxy -- the steps are
-   those invocations.
-2. Otherwise, draft step-by-step. Per step:
-   - Heavy compute (alignment, large variant calling, big assemblies,
-     long-running BLAST, etc.) -> check Galaxy tool availability
-     (\`search_tools_by_name\`); if installed, mark step Galaxy.
-   - **Gap-filling glue** between Galaxy steps (a small filter,
-     reformatter, joiner, column-trimmer, etc. that isn't in the
-     public tool panel) -> **prefer a user-defined tool** over an
-     inline script. Create it once with \`create_user_tool\` and run it
-     with \`run_user_tool\`. Keeps the analysis on Galaxy,
-     preserves provenance, stays reusable across histories. Default to
-     this whenever the glue is something a future user might want to
-     run again.
-   - Light/exploratory (parsing, summarization, quick probes over a
-     dataset you have already fetched) -> use \`run_python\` rather than
-     a plan step. Reserve for work that doesn't belong in the durable
-     record.
-3. Document routing in the plan section header and inline per-step:
-   \`## Plan A: chrM Variant Calling [remote]\`
-   \`Step 3: BWA alignment (Galaxy: bwa-mem2/2.2.1)\`
-   \`Step 4: VCF filter (Galaxy UDT: vcf_min_depth)\`
-
-**When the user asks to pick up earlier work**, read the bound history first
+// loom: buildGalaxyContextBlock(), the "Drafting a new plan" section. Shared text, without a local step.
+export const DRAFTING_A_PLAN = draftingAPlan({
+  local: false,
+  resume: `**When the user asks to pick up earlier work**, read the bound history first
 (\`get_history_contents\`) so the proposal builds on what is actually there. This is for
-resuming, not for every new plan.`;
+resuming, not for every new plan.`,
+});
 
 // Whether Galaxy answered when the session started.
 export const GALAXY_READY = "ok";
@@ -378,24 +332,12 @@ export const PARAMETER_REVIEW = parameterReviewBlock({
   approved: "proceed to the approval gate (see Plans and the approval gate)",
 });
 
-// loom: buildChatFormattingBlock(), the record wording retargeted to the page.
-export const CHAT_FORMATTING = `## Chat formatting
-
-Chat is rendered as markdown. Adjacent bold or italic markers with no whitespace between
-them break parsing -- the user sees literal \`**asterisks**\` -- and a single newline joins two
-lines into one paragraph. Two rules:
-
-- **Always separate distinct progress updates with a blank line.** If you announce
-  "Starting step 2", complete it, and then announce step 3, those are three distinct
-  messages -- put a blank line between each. Same for any sequence of messages
-  emitted in one turn.
-- **Don't narrate execution step-by-step in chat.** Results live in the Galaxy
+// loom: buildChatFormattingBlock(), the record wording retargeted to the page. Shared text.
+export const CHAT_FORMATTING = chatFormatting({
+  results: `Results live in the Galaxy
   history and in the artifact pane; rendered artifacts do not need restating in
-  prose. Keep chat for **dialogue and final status** -- open questions, requested
-  decisions, and a single end-of-turn summary.
-
-When you do post a multi-line update, prefer a markdown list or a fenced code block
-over inline-bold-heavy run-on prose.`;
+  prose.`,
+});
 
 // loom: GALAXY_ARTIFACT_LINK_GUIDANCE, with `{root}` replaced by the Galaxy root.
 export const ARTIFACT_LINKS = `### Clickable Galaxy artifacts

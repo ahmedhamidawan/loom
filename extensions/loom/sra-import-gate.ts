@@ -13,37 +13,9 @@ import { appendActivityEvent } from "./activity";
 import { getNotebookPath } from "./state";
 import { parseObject, SraImportGate, type NormalizeName } from "../../shared/sra-import.js";
 import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { sraImportGuidance } from "../../shared/prompt-blocks.js";
 
-export const SRA_IMPORT_GUIDANCE = `### Importing SRA/ENA sequencing runs
-
-Before submitting, gather the full set of run accessions requested for this
-analysis and deduplicate it. Inspect the destination history and notebook:
-reuse verified inputs and wait for matching imports already running; retry
-only missing or demonstrably failed runs. Do not expand to unrelated runs in
-a study or replace verified data unless the user requested that scope.
-
-For Galaxy fastq_dump/fasterq_dump, inspect the installed input template and
-submit compatible accessions in ONE tool call. The IUC wrappers accept a
-comma-separated string in input|accession with input|input_select=accession_number,
-or one uploaded text dataset (one accession per line) in input|file_list with
-input|input_select=file_list. A list file is a single HDA, not a mapped HDCA.
-Do not loop over accessions or use Galaxy's batch/map mechanism: that creates
-separate jobs and collections. Do not download FASTQs locally and re-upload.
-For paired-end data use the wrapper's paired output (normally list_paired,
-list:paired); keep singleton/other outputs available for verification. Do not
-create per-run collections and merge them when the importer can build one.
-Preserve requested extraction settings and compression; splitting into
-separate jobs is justified only by different settings or a demonstrated
-server/resource limit, not by the number of samples alone.
-
-Loom records the import job itself; bind it to its plan step with
-galaxy_job_record and note the returned collection ID in the notebook. Before using the
-collection, verify population state, expected accession count and identifiers,
-forward/reverse members, dataset states and appropriate content checks. A job
-reported ok can still have failed or missing outputs. For ENA URL imports,
-prefer a single server-side fetch into a named list:paired collection with
-checksums when supported, rather than one upload per mate. Never delete prior
-outputs merely to hide clutter; reuse them and preserve provenance.
+export const SRA_IMPORT_GUIDANCE = `${sraImportGuidance()}
 `;
 
 // Galaxy's run_tool as the family names it, as a loom-native galaxy_ tool (any
