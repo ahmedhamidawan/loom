@@ -28,6 +28,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { readEnv } from "../../shared/orbit-env.js";
 import { capabilityProfile } from "../../shared/capability-profile.js";
+import { MCP_FAMILY } from "../../shared/galaxy-mcp-tools.js";
 import {
   closeSessionRegistry,
   openSessionRegistry,
@@ -278,12 +279,18 @@ type GreetingAction = { kind: "model"; message: string } | NotifyAction;
  * Decide the startup greeting from the active Galaxy credential status. Pure so
  * it can be unit-tested without a live session.
  *
- * `usable` keeps a real model turn -- it has to nudge mcp__galaxy__connect(). The
- * other two states are pure pleasantries, so they render as a static notify:
- * no model round-trip, no leaked instruction, and the same call surfaces in
- * both the terminal TUI and Orbit (which renders the notify RPC event).
+ * `usable` keeps a real model turn -- under MCP it has to nudge the connect
+ * tool; a shell whose Galaxy tools are in-process has no such tool and passes
+ * null, and the turn says the tools are ready instead. The other two states
+ * are pure pleasantries, so they render as a static notify: no model
+ * round-trip, no leaked instruction, and the same call surfaces in both the
+ * terminal TUI and Orbit (which renders the notify RPC event).
  */
-export function planStartupGreeting(status: ActiveGalaxyStatus, isOrbit: boolean): GreetingAction {
+export function planStartupGreeting(
+  status: ActiveGalaxyStatus,
+  isOrbit: boolean,
+  connectTool: string | null = MCP_FAMILY.tool("connect"),
+): GreetingAction {
   if (status === "usable") {
     const message =
       `Session started in this project directory. Read \`notebook.md\` to see prior work. ` +
@@ -292,8 +299,10 @@ export function planStartupGreeting(status: ActiveGalaxyStatus, isOrbit: boolean
           `No greeting, no emojis, no product branding.`
         : `Give a brief welcome, then ask what to work on next, referencing the notebook contents if there is prior work. ` +
           `Keep it to 2-3 sentences.`) +
-      ` Galaxy credentials are configured -- call mcp__galaxy__connect() to establish the connection.` +
-      ` Do NOT call other Galaxy tools until connected.`;
+      (connectTool
+        ? ` Galaxy credentials are configured -- call ${connectTool}() to establish the connection.` +
+          ` Do NOT call other Galaxy tools until connected.`
+        : ` Galaxy credentials are configured and the Galaxy tools are ready to use.`);
     return { kind: "model", message };
   }
 
@@ -343,8 +352,8 @@ export function sendStartupGreeting(
   ctx: ExtensionContext,
   uvxAvailable: boolean = capabilityProfile().galaxyTools === "mcp" ? isUvxAvailable() : true,
 ): void {
-  // Surface the missing-runner warning before the greeting: the greeting tells
-  // the model to call mcp__galaxy__connect(), which is exactly what will fail.
+  // Surface the missing-runner warning before the greeting: the MCP greeting
+  // tells the model to call mcp__galaxy__connect(), which is exactly what will fail.
   const uvxWarning = planUvxWarning(activeGalaxyStatus(), uvxAvailable);
   if (uvxWarning) {
     try {
@@ -355,7 +364,11 @@ export function sendStartupGreeting(
   }
 
   const isOrbit = capabilityProfile().ui === "desktop";
-  const action = planStartupGreeting(activeGalaxyStatus(), isOrbit);
+  const action = planStartupGreeting(
+    activeGalaxyStatus(),
+    isOrbit,
+    capabilityProfile().galaxyTools === "mcp" ? MCP_FAMILY.tool("connect") : null,
+  );
   if (action.kind === "model") {
     pi.sendUserMessage(action.message);
   } else {

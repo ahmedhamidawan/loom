@@ -12,6 +12,16 @@ describe("planStartupGreeting", () => {
     if (action.kind === "model") expect(action.message).toContain("mcp__galaxy__connect");
   });
 
+  it("usable with no connect tool -> a model turn that says the tools are ready", () => {
+    const action = planStartupGreeting("usable", false, null);
+    expect(action.kind).toBe("model");
+    if (action.kind === "model") {
+      expect(action.message).toContain("ready to use");
+      expect(action.message).not.toContain("connect()");
+      expect(action.message).not.toContain("mcp__galaxy__");
+    }
+  });
+
   it("configured-unusable -> a warning notify naming Orbit and GALAXY_API_KEY", () => {
     const action = planStartupGreeting("configured-unusable", false);
     expect(action.kind).toBe("notify");
@@ -143,6 +153,9 @@ describe("sendStartupGreeting (dispatch)", () => {
       sendStartupGreeting(pi as never, ctx as never);
       expect(ctx.ui.notify).not.toHaveBeenCalled();
       expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
+      // No MCP server means no connect tool to ask for.
+      expect(pi.sendUserMessage.mock.calls[0][0]).not.toContain("connect()");
+      expect(pi.sendUserMessage.mock.calls[0][0]).toContain("ready to use");
     } finally {
       setCapabilityProfile(null);
       process.env.PATH = prevPath;

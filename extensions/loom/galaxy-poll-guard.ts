@@ -9,7 +9,9 @@ export const GALAXY_POLL_INTERVAL_MS = 120_000;
 const PENDING = new Set(["new", "upload", "queued", "running", "waiting", "setting_metadata"]);
 const MARKER = "[Loom background monitoring]";
 
-export const GALAXY_POLL_GUIDANCE = `### Waiting for Galaxy and reporting progress
+export const galaxyPollGuidance = (
+  family: GalaxyToolFamily,
+): string => `### Waiting for Galaxy and reporting progress
 
 Give a short progress update before starting a long sequence of tools, at each
 meaningful milestone, and about once a minute while actively working. Explain
@@ -22,10 +24,11 @@ calls and queues completion verification. Bind the run to its plan step with
 galaxy_job_record or galaxy_invocation_record and a real notebook anchor; don't
 record a job that belongs to a workflow invocation that is already recorded. If no other authorized work is ready, report the wait
 and end the turn so the researcher can talk to you. Do not repeatedly call
-mcp__galaxy__get_dataset_details, launch a shell polling loop, or use sleep to wait.
+${family.tool("get_dataset_details")}, launch a shell polling loop, or use sleep to wait.
 A successful metadata request does not mean the dataset has finished.
 Repeated status reads of an unfinished resource have a two-minute cooldown.
 `;
+export const GALAXY_POLL_GUIDANCE = galaxyPollGuidance(MCP_FAMILY);
 
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)

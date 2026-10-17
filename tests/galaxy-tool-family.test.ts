@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   MCP_FAMILY,
@@ -7,11 +7,25 @@ import {
   galaxyMcpToolName,
 } from "../shared/galaxy-mcp-tools.js";
 import {
+  MCP_RECOVERY_GUIDANCE,
   galaxyCall,
+  galaxyRecoveryGuidance,
   galaxyRecoveryHint,
   registerMcpRecovery,
 } from "../extensions/loom/mcp-recovery";
-import { registerGalaxyPollGuard } from "../extensions/loom/galaxy-poll-guard";
+import {
+  GALAXY_POLL_GUIDANCE,
+  galaxyPollGuidance,
+  registerGalaxyPollGuard,
+} from "../extensions/loom/galaxy-poll-guard";
+import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
+import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
+import { IWC_PLAN_NUDGE, isIwcLookup, iwcPlanNudge } from "../extensions/loom/iwc-plan-check";
+import { observationToolName } from "../extensions/loom/observations";
+import { registerProgressUpdates } from "../extensions/loom/progress-updates";
+import { registerCaptureFollowThrough } from "../extensions/loom/galaxy-reconcile";
+import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
+import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerSraImportGate } from "../extensions/loom/sra-import-gate";
 import { submissionToolName } from "../extensions/loom/galaxy-submission-capture";
 import {
@@ -39,6 +53,40 @@ const BARE_FAMILY = bareFamily([
   "search_iwc_workflows",
   "search_tools_by_keywords",
 ]);
+
+// What a shell's in-process Galaxy tools look like: galaxy-ops has no connect
+// operation, so nothing here can re-bind a session.
+const NO_CONNECT = bareFamily([
+  "get_dataset_details",
+  "get_history_details",
+  "get_iwc_workflow_details",
+  "get_job_details",
+  "get_tool_panel",
+  "recommend_iwc_workflows",
+  "run_tool",
+  "run_user_tool",
+  "search_iwc_workflows",
+  "search_tools_by_keywords",
+]);
+
+// The poll guidance from before it took a family, pinned so "same bytes" means something.
+const PINNED_POLL_GUIDANCE = `### Waiting for Galaxy and reporting progress
+
+Give a short progress update before starting a long sequence of tools, at each
+meaningful milestone, and about once a minute while actively working. Explain
+what you verified, what is running, and what comes next. Do not claim scientific
+success from a successful tool response alone.
+
+Loom records every Galaxy submission itself, so a queued/running run is already
+being watched: the background monitor checks every 15 seconds without model
+calls and queues completion verification. Bind the run to its plan step with
+galaxy_job_record or galaxy_invocation_record and a real notebook anchor; don't
+record a job that belongs to a workflow invocation that is already recorded. If no other authorized work is ready, report the wait
+and end the turn so the researcher can talk to you. Do not repeatedly call
+mcp__galaxy__get_dataset_details, launch a shell polling loop, or use sleep to wait.
+A successful metadata request does not mean the dataset has finished.
+Repeated status reads of an unfinished resource have a two-minute cooldown.
+`;
 
 // The MCP wording from before families existed, pinned so "same bytes" means something.
 const PINNED = {
@@ -212,5 +260,130 @@ describe("guards under the bare family", () => {
       },
     });
     expect(out?.message.content[0].text).toContain("`get_iwc_workflow_details`");
+  });
+});
+
+describe("guards under a bare family with no connect tool", () => {
+  afterEach(() => {
+    setGalaxyFetchOverride(null);
+    vi.unstubAllEnvs();
+  });
+
+  it("the repeat guard counts bare failures and refuses the fourth identical call", () => {
+    const fire = handlers((pi) => registerGalaxyRepeatGuard(pi, NO_CONNECT));
+    const ctx = { signal: new AbortController().signal };
+    for (let i = 0; i < 3; i++) {
+      expect(
+        fire("tool_call")({ toolName: "run_tool", toolCallId: `c${i}`, input: { a: 1 } }),
+      ).toBeUndefined();
+      fire("tool_result")({ toolCallId: `c${i}`, isError: true }, ctx);
+    }
+    expect(
+      fire("tool_call")({ toolName: "run_tool", toolCallId: "c3", input: { a: 1 } })?.block,
+    ).toBe(true);
+    for (let i = 0; i < 4; i++) {
+      expect(
+        fire("tool_call")({ toolName: "bash", toolCallId: `b${i}`, input: {} }),
+      ).toBeUndefined();
+      fire("tool_result")({ toolCallId: `b${i}`, isError: true }, ctx);
+    }
+  });
+
+  it("the history guard keys on a bare run_tool and nothing else", async () => {
+    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
+    vi.stubEnv("GALAXY_API_KEY", "fixture-key");
+    setGalaxyFetchOverride(
+      fixtureFetch([
+        {
+          path: "/api/datasets/d1",
+          responses: [{ status: 200, body: { id: "d1", name: "d1.txt", history_id: "elsewhere" } }],
+        },
+      ]),
+    );
+    const fire = handlers((pi) => registerGalaxyHistoryGuard(pi, NO_CONNECT));
+    const input = { history_id: "here", inputs: { a: { src: "hda", id: "d1" } } };
+    const refused = await fire("tool_call")({ toolName: "run_tool", toolCallId: "c1", input }, {});
+    expect(refused?.block).toBe(true);
+    expect(refused?.reason).toContain("Refused: these inputs are in another history");
+    expect(
+      await fire("tool_call")({ toolName: "get_dataset_details", toolCallId: "c2", input }, {}),
+    ).toBeUndefined();
+    expect(
+      await fire("tool_call")({ toolName: "mcp__galaxy__run_tool", toolCallId: "c3", input }, {}),
+    ).toBeUndefined();
+  });
+
+  it("the IWC plan check sees a bare lookup and names the bare tool in its nudge", () => {
+    expect(isIwcLookup("recommend_iwc_workflows", NO_CONNECT)).toBe(true);
+    expect(isIwcLookup("recommend_iwc_workflows")).toBe(false);
+    expect(iwcPlanNudge(NO_CONNECT)).toContain("`recommend_iwc_workflows`");
+    expect(iwcPlanNudge(NO_CONNECT)).not.toContain("mcp__galaxy__");
+    expect(IWC_PLAN_NUDGE).toContain("`mcp__galaxy__recommend_iwc_workflows`");
+  });
+
+  it("observations spell a bare Galaxy call in wire spelling", () => {
+    expect(observationToolName("run_tool", NO_CONNECT)).toBe("galaxy_run_tool");
+    expect(observationToolName("bash", NO_CONNECT)).toBeUndefined();
+    expect(observationToolName("mcp__galaxy__run_tool")).toBe("galaxy_run_tool");
+    expect(observationToolName("run_tool")).toBeUndefined();
+  });
+
+  it("progress updates describe a bare submission as Galaxy work", () => {
+    const notify = vi.fn();
+    const fire = handlers((pi) => registerProgressUpdates(pi, NO_CONNECT));
+    vi.useFakeTimers();
+    try {
+      fire("agent_start")({}, { hasUI: true, ui: { notify } });
+      fire("tool_execution_start")({ toolName: "run_user_tool", toolCallId: "c1", args: {} });
+    } finally {
+      fire("agent_end")();
+      vi.useRealTimers();
+    }
+    expect(notify).toHaveBeenCalledWith("Progress: submitting work to Galaxy.", "info");
+  });
+
+  it("the poll guidance names the bare status tool and the MCP constant is unchanged", () => {
+    expect(galaxyPollGuidance(NO_CONNECT)).toContain(
+      "Do not repeatedly call\nget_dataset_details,",
+    );
+    expect(galaxyPollGuidance(NO_CONNECT)).not.toContain("mcp__galaxy__");
+    expect(GALAXY_POLL_GUIDANCE).toBe(PINNED_POLL_GUIDANCE);
+  });
+
+  it("recovery hints without a connect tool drop the re-bind and the saved-output reader", () => {
+    const hint = galaxyRecoveryHint("get_tool_panel", "dropped", NO_CONNECT);
+    expect(hint).not.toContain("connect()");
+    expect(hint).not.toContain("mcp_read_output");
+    expect(hint).not.toContain("mcp__galaxy__");
+    expect(hint).toContain("fetch get_tool_panel once.");
+    expect(hint).toContain("After one narrowed retry fails");
+    // A bare family that does list connect (a test's pick) keeps the re-bind wording.
+    expect(galaxyRecoveryHint("get_tool_panel", "dropped", BARE_FAMILY)).toContain(
+      "Call connect() yourself",
+    );
+    const fire = handlers((pi) => registerMcpRecovery(pi, NO_CONNECT));
+    const reason = fire("tool_call")({ toolName: "search_tools_by_keywords", input: {} })?.reason;
+    expect(reason).toContain("one request per tool");
+    expect(reason).not.toContain("MCP budget");
+    expect(reason).not.toContain("mcp_read_output");
+  });
+
+  it("recovery guidance is the MCP text under MCP and an in-process text otherwise", () => {
+    expect(galaxyRecoveryGuidance(MCP_FAMILY)).toBe(MCP_RECOVERY_GUIDANCE);
+    const bare = galaxyRecoveryGuidance(NO_CONNECT);
+    expect(bare).toContain("### Slow Galaxy requests");
+    expect(bare).not.toContain("mcp_read_output");
+    expect(bare).not.toContain("connect()");
+    expect(bare).not.toContain("/mcp reconnect");
+    expect(bare).toContain("prefer search_tools_by_name");
+  });
+
+  it("the capture follow-through's connect trigger is inert without a connect tool", async () => {
+    const registerCommand = vi.fn();
+    const on = vi.fn();
+    registerCaptureFollowThrough({ on, registerCommand } as unknown as ExtensionAPI, NO_CONNECT);
+    const end = on.mock.calls.find(([n]) => n === "tool_execution_end")![1];
+    // Returns before queueing anything: no followThrough promise is created.
+    await expect(end({ toolName: "connect", isError: false })).resolves.toBeUndefined();
   });
 });

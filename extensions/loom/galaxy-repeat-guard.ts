@@ -5,14 +5,17 @@
  * and all.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { isGalaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
+import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 import { stable } from "../../shared/sra-import.js";
 
 const FAILED_REPEAT_LIMIT = 3;
 
 const key = (name: string, args: unknown) => `${name} ${stable(args)}`;
 
-export function registerGalaxyRepeatGuard(pi: ExtensionAPI): void {
+export function registerGalaxyRepeatGuard(
+  pi: ExtensionAPI,
+  family: GalaxyToolFamily = MCP_FAMILY,
+): void {
   const failures = new Map<string, number>();
   // A call's key as it was checked, so its result is counted against the
   // arguments that ran even if a later handler rewrites the input.
@@ -26,7 +29,7 @@ export function registerGalaxyRepeatGuard(pi: ExtensionAPI): void {
   pi.on("session_shutdown", reset);
 
   pi.on("tool_call", (event) => {
-    if (!isGalaxyMcpTool(event.toolName)) return;
+    if (family.toolName(event.toolName) === undefined) return;
     const k = key(event.toolName, event.input);
     const count = failures.get(k) ?? 0;
     if (count >= FAILED_REPEAT_LIMIT) {

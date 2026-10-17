@@ -67,7 +67,7 @@ import { readLoomVersion } from "./feedback.js";
 import { loadProfiles } from "./profiles.js";
 import { galaxyCredentials } from "./galaxy-api.js";
 import { isWsl } from "../../shared/wsl.js";
-import { galaxyMcpToolName } from "../../shared/galaxy-mcp-tools.js";
+import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 import {
   GALAXY_BUILTIN_TOOL_IDS,
   GALAXY_DATATYPES,
@@ -181,17 +181,21 @@ export function isAdmissibleMcpTool(v: string | undefined): v is string {
  * the deployed intake validates that spelling, so the rename stops here rather
  * than reaching the payload. Loom's own `galaxy_*` tools pass through as-is.
  */
-export function observationToolName(toolName: string | undefined): string | undefined {
-  const mcp = galaxyMcpToolName(toolName);
-  if (mcp !== undefined) {
+export function observationToolName(
+  toolName: string | undefined,
+  family: GalaxyToolFamily = MCP_FAMILY,
+): string | undefined {
+  const bare = family.toolName(toolName);
+  if (bare !== undefined) {
     // The prefix alone doesn't prove galaxy-mcp: pi joins server and tool with
     // `__` and turns `-`/`.` into `_`, so servers named `galaxy__x`, `galaxy-`
     // or `galaxy_` land here too, and a name over pi's limit is cut and
     // hash-suffixed. galaxy-mcp's own names are plain snake_case, well short of
-    // the limit, so anything else is another server's.
-    if (!GALAXY_MCP_TOOL_SHAPE.test(mcp)) return undefined;
-    if (toolName!.length >= PI_TOOL_NAME_MAX && /_[0-9a-f]{8}$/.test(mcp)) return undefined;
-    return `galaxy_${mcp}`;
+    // the limit, so anything else is another server's. (A bare family's names
+    // are short, so the hash check never fires there.)
+    if (!GALAXY_MCP_TOOL_SHAPE.test(bare)) return undefined;
+    if (toolName!.length >= PI_TOOL_NAME_MAX && /_[0-9a-f]{8}$/.test(bare)) return undefined;
+    return `galaxy_${bare}`;
   }
   return toolName?.startsWith("galaxy_") ? toolName : undefined;
 }

@@ -27,7 +27,6 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import * as fsp from "fs/promises";
 import * as path from "path";
 import { stringify as stringifyYaml } from "yaml";
 import { appendActivityEvent } from "./activity";
@@ -60,7 +59,11 @@ import {
   type InvocationYaml,
 } from "./notebook-writer";
 import { readMcpOutputFile } from "./mcp-output";
-import { ensureAttemptRecord, provenanceRelativePath } from "./galaxy-provenance";
+import {
+  ensureAttemptRecord,
+  provenanceRelativePath,
+  writeProvenanceSidecar,
+} from "./galaxy-provenance";
 import { getCurrentStepAnchor, getNotebookPath, setCurrentStepAnchor } from "./state";
 import { ulid } from "./ulid";
 import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
@@ -436,22 +439,11 @@ async function writeUdtDefinition(
   const stem = safeTool ? `${safeTool}-${safeUuid}` : safeUuid;
 
   const relative = path.join(UDT_PROVENANCE_DIR, `${stem}.yaml`);
-  const absolute = path.join(analysisDir, relative);
-  await fsp.mkdir(path.dirname(absolute), { recursive: true });
-  try {
-    // `wx` is O_CREAT | O_EXCL: create it or fail. That refuses to follow a
-    // symlink planted at the path (writing through it would land outside the
-    // provenance directory) and refuses to overwrite an existing definition.
-    await fsp.writeFile(absolute, stringifyYaml(representation), {
-      encoding: "utf-8",
-      flag: "wx",
-    });
-  } catch (err) {
-    // Already there: the uuid is in the name, so the same uuid means the same
-    // definition and the existing file is the record. Anything else is a real
-    // failure and the caller reports the submission as unrecorded.
-    if ((err as NodeJS.ErrnoException)?.code !== "EEXIST") throw err;
-  }
+  // Exclusive create: a planted symlink is refused and an existing definition
+  // kept (the uuid is in the name, so the same uuid means the same definition).
+  // Anything else is a real failure and the caller reports the submission as
+  // unrecorded.
+  await writeProvenanceSidecar(analysisDir, ["udt", `${stem}.yaml`], stringifyYaml(representation));
   // Always POSIX separators in the notebook: the block is read on whatever
   // platform opens the analysis next, not the one that wrote it.
   return relative.split(path.sep).join("/");

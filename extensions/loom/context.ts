@@ -26,9 +26,9 @@ import { isLocalExecDisabled, isLocalShellDisabled } from "./local-exec.js";
 import { galaxyCredentials } from "./galaxy-api.js";
 import { resolveWorkspaceStateDirName, type WorkspaceStateDirName } from "./workspace-state-dir";
 import { SRA_IMPORT_GUIDANCE } from "./sra-import-gate";
-import { MCP_RECOVERY_GUIDANCE } from "./mcp-recovery";
-import { GALAXY_POLL_GUIDANCE } from "./galaxy-poll-guard";
-import { GALAXY_PAGE_MARKDOWN_GUIDANCE } from "./galaxy-page-markdown-guidance";
+import { galaxyRecoveryGuidance } from "./mcp-recovery";
+import { galaxyPollGuidance } from "./galaxy-poll-guard";
+import { galaxyPageMarkdownGuidance } from "./galaxy-page-markdown-guidance";
 import { GALAXY_ARTIFACT_LINK_GUIDANCE } from "./galaxy-artifact-link-guidance";
 import { galaxyArtifactUrl, type GalaxyArtifactKind } from "../../shared/galaxy-artifact-links.js";
 import {
@@ -57,7 +57,8 @@ import {
   recordWrites,
   verificationBlock,
 } from "../../shared/prompt-blocks.js";
-import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
+import { galaxyToolFamily } from "./galaxy-tool-source";
+import { capabilityProfile } from "../../shared/capability-profile.js";
 import {
   buildReproductionLessonsContext,
   LOOM_LESSONS_CONTEXT_TYPE,
@@ -154,7 +155,7 @@ revision of the Galaxy page). Use \`notebook_pull_from_galaxy\` to fetch
 updates the user made on the Galaxy side -- only when the user explicitly
 asks for it, since pull discards local edits since the last sync.
 
-${GALAXY_PAGE_MARKDOWN_GUIDANCE}
+${galaxyPageMarkdownGuidance(galaxyToolFamily())}
 `;
 }
 
@@ -200,7 +201,7 @@ export function buildTesterIdBlock(): string {
 This session's Orbit tester ID is **${testerId}**. It comes from the local
 Orbit/Loom config, not from Galaxy. When the user asks about their tester ID,
 report this value directly and do **not** call Galaxy tools such as
-\`mcp__galaxy__get_user\`. The tester ID is not a Galaxy account attribute; it's an
+\`${galaxyToolFamily().tool("get_user")}\`. The tester ID is not a Galaxy account attribute; it's an
 opaque, non-secret code that rides along on feedback submissions.
 `;
 }
@@ -287,12 +288,13 @@ once — don't badger.
 `;
   }
 
-  return `
-## Galaxy connection: ${galaxyUrl}
-
-Galaxy is connected.
-
-### If a Galaxy tool reports it's not connected
+  const family = galaxyToolFamily();
+  // The re-bind steer is about pi's MCP transport; in-process Galaxy tools have
+  // no session to re-bind and no connect tool to call.
+  const mcpTransport = capabilityProfile().galaxyTools === "mcp";
+  const reconnectSteer = !mcpTransport
+    ? ""
+    : `### If a Galaxy tool reports it's not connected
 
 The live Galaxy MCP connection may need to be re-established after a resume
 or long idle period, even though credentials stay configured. Distinguish
@@ -314,7 +316,14 @@ When it happens -- and before you ever tell the user Galaxy is disconnected:
 Never report "Galaxy is disconnected" as a final answer without attempting
 \`mcp__galaxy__connect()\` in the same turn.
 
-### Resuming existing Galaxy work ("pick up where I left off")
+`;
+
+  return `
+## Galaxy connection: ${galaxyUrl}
+
+Galaxy is connected.
+
+${reconnectSteer}### Resuming existing Galaxy work ("pick up where I left off")
 
 If the user asks to connect to, catch up on, or resume work they did in
 the Galaxy interface (a history notebook / Page) and hasn't handed you a
@@ -331,17 +340,17 @@ page id:
 5. Then read the bound history (its datasets/results) to see what actually
    happened before proposing new analysis.
 
-${findingAWorkflow({ tool: galaxyMcpTool })}
+${findingAWorkflow({ tool: family.tool })}
 
-${draftingAPlan({ tool: galaxyMcpTool })}
+${draftingAPlan({ tool: family.tool })}
 
-${galaxyTerminology({ tool: galaxyMcpTool })}
+${galaxyTerminology({ tool: family.tool })}
 
 ${uploadingLocalDataBlock()}
-${gettingDataIn({ tool: galaxyMcpTool })}
+${gettingDataIn({ tool: family.tool })}
 
 ${SRA_IMPORT_GUIDANCE}
-${invokingWorkflow({ tool: galaxyMcpTool })}
+${invokingWorkflow({ tool: family.tool })}
 
 ${executingAStep()}
 `;
@@ -541,7 +550,7 @@ export function buildVerificationDisciplineBlock(): string {
 function buildPlanConventionBlock(opts: { omitAnchors?: boolean } = {}): string {
   const omitAnchors = opts.omitAnchors === true;
   return `${planConvention({
-    tool: galaxyMcpTool,
+    tool: galaxyToolFamily().tool,
     omitAnchors,
     anchorGuidance: anchorGuidance(omitAnchors),
   })}\n`;
@@ -607,7 +616,7 @@ record once everything is settled.
 function buildNotebookWriteBlock(): string {
   const nbPath = getNotebookPath() || "notebook.md";
   return `${recordWrites({
-    tool: galaxyMcpTool,
+    tool: galaxyToolFamily().tool,
     howToWrite: `that is **a file edit on \`${nbPath}\`**. Use **Edit** or
 **Write**. No structured tool needed; there are no \`analysis_*\` plan
 tools anymore.`,
@@ -796,8 +805,8 @@ export function setupContextInjection(pi: ExtensionAPI): void {
       buildNotebookWriteBlock(),
       buildExecutionModeBlock(),
       buildGalaxyContextBlock(),
-      MCP_RECOVERY_GUIDANCE,
-      GALAXY_POLL_GUIDANCE,
+      galaxyRecoveryGuidance(galaxyToolFamily()),
+      galaxyPollGuidance(galaxyToolFamily()),
       buildSkillsContext(),
       buildLocalEnvContext(ctx.cwd),
       buildNoLocalShellBlock(),

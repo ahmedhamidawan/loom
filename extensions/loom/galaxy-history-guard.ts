@@ -6,9 +6,7 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { galaxyGet } from "./galaxy-api";
-import { galaxyMcpTool } from "../../shared/galaxy-mcp-tools.js";
-
-const RUN_TOOL = galaxyMcpTool("run_tool");
+import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 
 type Row = Record<string, unknown>;
 
@@ -84,9 +82,12 @@ async function foreignInputs(inputs: unknown, historyId: string, signal?: AbortS
   });
 }
 
-export function registerGalaxyHistoryGuard(pi: ExtensionAPI): void {
+export function registerGalaxyHistoryGuard(
+  pi: ExtensionAPI,
+  family: GalaxyToolFamily = MCP_FAMILY,
+): void {
   pi.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== RUN_TOOL) return;
+    if (family.toolName(event.toolName) !== "run_tool") return;
     const args = event.input as Row;
     if (typeof args.history_id !== "string" || !args.history_id) return;
     const foreign = await foreignInputs(args.inputs, args.history_id, ctx?.signal);

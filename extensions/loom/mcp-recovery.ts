@@ -13,8 +13,14 @@ export function galaxyCall(
   return { name, args: input };
 }
 
+// Only the MCP server has a connect tool; a family without one has no session to
+// re-bind and no saved-output reader, so its wording drops both.
+const rebinds = (family: GalaxyToolFamily) => family.toolName(family.tool("connect")) !== undefined;
+
 const discoveryHint = (family: GalaxyToolFamily) =>
-  `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once and search its saved response with mcp_read_output. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`;
+  rebinds(family)
+    ? `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once and search its saved response with mcp_read_output. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`
+    : `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`;
 const MARKER = "[loom Galaxy MCP recovery]";
 // Calls that never change Galaxy state, so a timeout can't leave an accepted
 // operation behind.
@@ -58,6 +64,27 @@ and mcp__galaxy__connect() can't restart it -- that is when to suggest
 /mcp reconnect galaxy to the user.
 `;
 
+/** The prompt's recovery section for a family: the MCP text verbatim, or the in-process one. */
+export function galaxyRecoveryGuidance(family: GalaxyToolFamily): string {
+  if (rebinds(family)) return MCP_RECOVERY_GUIDANCE;
+  return `### Slow Galaxy requests
+
+For installed-tool discovery, prefer ${family.tool("search_tools_by_name")}: it matches
+names, IDs and descriptions. Avoid search_tools_by_keywords: its implementation
+fetches input schemas for potentially thousands of tools even for a narrow
+keyword. Fetch schemas only for candidate tools.
+
+A timeout is an unknown result, not proof that a job failed. Narrow/paginate
+read-only requests before retrying.
+For a timed-out mutation (run, invoke, create, upload, update, delete, etc.),
+inspect the destination history, jobs/invocations or affected resource first.
+Reuse an accepted operation; retry only when non-acceptance or safe retry is
+established. Never blindly replay a mutation, invent its ID, or infer success.
+Limit recovery to one narrowed retry per incident. If it fails, report the
+concrete blocker and preserve work instead of looping.
+`;
+}
+
 export function galaxyRecoveryHint(
   name: string,
   kind: Exclude<GalaxyFailureKind, null>,
@@ -71,11 +98,15 @@ export function galaxyRecoveryHint(
       : isReadOnly(name, family)
         ? "This was a read-only lookup. Continue the authorized task using a smaller query or saved response."
         : "This operation may already have been accepted by Galaxy. Its result is UNKNOWN. Inspect the destination history, jobs/invocations or affected resource before considering any retry. Reuse accepted work, and if you find the accepted job or invocation, record it with galaxy_job_record or galaxy_invocation_record -- Loom cannot capture a submission whose call failed. Do not blindly repeat a submission, upload, create, update or delete; do not invent IDs or claim success.";
-  const action =
-    kind === "dropped"
+  const action = !rebinds(family)
+    ? "Narrow or paginate the request before one read-only retry; do not repeat the same expensive call."
+    : kind === "dropped"
       ? `The connection reconnects on the next call. Call ${connect}() yourself once and check its result before continuing; do not ask the user to reconnect or restart Orbit.`
       : `Narrow or paginate the request before one read-only retry; do not repeat the same expensive call. If even a small request times out, call ${connect}() once and check the result.`;
-  return `${MARKER}\n${action}\n${outcome}\n${name.includes("search_tools") || tool === "get_tool_panel" ? discoveryHint(family) : ""}\nDo the recovery now without another permission question. After one narrowed retry and one re-bind fail, report a concrete blocker rather than looping. Respect Stop/pause.`;
+  const closing = rebinds(family)
+    ? "After one narrowed retry and one re-bind fail, report a concrete blocker rather than looping."
+    : "After one narrowed retry fails, report a concrete blocker rather than looping.";
+  return `${MARKER}\n${action}\n${outcome}\n${name.includes("search_tools") || tool === "get_tool_panel" ? discoveryHint(family) : ""}\nDo the recovery now without another permission question. ${closing} Respect Stop/pause.`;
 }
 
 function stable(value: unknown): string {
@@ -118,7 +149,9 @@ export function registerMcpRecovery(pi: ExtensionAPI, family: GalaxyToolFamily =
     if (family.toolName(call.name) === "search_tools_by_keywords") {
       return {
         block: true,
-        reason: `This Galaxy search expands into input-schema requests for the entire installed tool catalog and can exceed the five-minute MCP budget. ${discoveryHint(family)} Continue discovery now; no user approval is needed.`,
+        reason: rebinds(family)
+          ? `This Galaxy search expands into input-schema requests for the entire installed tool catalog and can exceed the five-minute MCP budget. ${discoveryHint(family)} Continue discovery now; no user approval is needed.`
+          : `This Galaxy search expands into input-schema requests for the entire installed tool catalog, one request per tool, and can run for minutes. ${discoveryHint(family)} Continue discovery now; no user approval is needed.`,
       };
     }
     const key = call.name + stable(call.args);
