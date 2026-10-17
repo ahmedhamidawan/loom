@@ -5,6 +5,7 @@ import {
   galaxyToolFamily,
   installedGalaxyToolSource,
   registerGalaxyTools,
+  registeredGalaxyTools,
   setGalaxyToolSource,
   type GalaxyTool,
 } from "../extensions/loom/galaxy-tool-source";
@@ -52,17 +53,38 @@ describe("galaxy tool source", () => {
     expect(galaxyToolFamily()).toBe(family);
   });
 
-  it("under a bare profile with no source registers nothing, knows no Galaxy tool and says so", () => {
+  it("under a bare profile with no source installed registers the default galaxy-ops source", () => {
     setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { pi, registerTool } = fakePi();
-    registerGalaxyTools(pi);
+    const family = registerGalaxyTools(pi);
+    const names = registerTool.mock.calls.map(([t]) => t.name);
+    // The Node entry's 45 operations and Loom's two job bridges, then the saved-output reader
+    // outside the family.
+    expect(names).toHaveLength(48);
+    expect(names.slice(-3)).toEqual(["list_jobs", "get_job_logs", "galaxy_read_output"]);
+    expect(family.toolName("run_tool")).toBe("run_tool");
+    expect(family.toolName("list_jobs")).toBe("list_jobs");
+    expect(family.toolName("get_job_logs")).toBe("get_job_logs");
+    expect(family.toolName("galaxy_read_output")).toBeUndefined();
+    expect(galaxyToolFamily().toolName("run_tool")).toBe("run_tool");
+    expect(registeredGalaxyTools()).toHaveLength(48);
+  });
+
+  it("registers a source's companions after its tools, outside the family", () => {
+    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+    setGalaxyToolSource({ tools: () => [stub("run_tool")], companions: () => [stub("reader")] });
+    const { pi, registerTool } = fakePi();
+    const family = registerGalaxyTools(pi);
+    expect(registerTool.mock.calls.map(([t]) => t.name)).toEqual(["run_tool", "reader"]);
+    expect(family.toolName("reader")).toBeUndefined();
+  });
+
+  it("refuses two tools under one name before registering any", () => {
+    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+    setGalaxyToolSource({ tools: () => [stub("run_tool")], companions: () => [stub("run_tool")] });
+    const { pi, registerTool } = fakePi();
+    expect(() => registerGalaxyTools(pi)).toThrow("two Galaxy tools are named run_tool");
     expect(registerTool).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining("no Galaxy tool source installed"));
-    warn.mockRestore();
-    expect(galaxyToolFamily().toolName("run_tool")).toBeUndefined();
-    // The identity: the prompt still spells bare names under a bare profile.
-    expect(galaxyToolFamily().tool("run_tool")).toBe("run_tool");
   });
 
   it("uninstalling the source forgets the registered family", () => {
@@ -72,5 +94,6 @@ describe("galaxy tool source", () => {
     expect(galaxyToolFamily().toolName("run_tool")).toBe("run_tool");
     setGalaxyToolSource(null);
     expect(galaxyToolFamily().toolName("run_tool")).toBeUndefined();
+    expect(registeredGalaxyTools()).toEqual([]);
   });
 });

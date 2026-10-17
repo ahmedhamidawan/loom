@@ -9,3 +9,4 @@ export interface GalaxyToolFamily {
 }
 export const MCP_FAMILY: Readonly<GalaxyToolFamily>;
 export function bareFamily(tools: Iterable<string>): Readonly<GalaxyToolFamily>;
+export function hasConnectTool(family: GalaxyToolFamily): boolean;

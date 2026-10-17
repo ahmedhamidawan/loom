@@ -23,6 +23,12 @@ import {
 import { isUlid } from "../extensions/loom/ulid";
 import { readAttemptRecord } from "../extensions/loom/galaxy-provenance";
 import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import {
+  createMemoryOutputStore,
+  galaxyOutputStore,
+  setGalaxyOutputStore,
+} from "../extensions/loom/galaxy-output-store";
+import { spillPreview } from "../extensions/loom/galaxy-output";
 
 // Hook run right after the notebook writer reads a file, so a test can land a
 // competing write inside the read-then-rename window deterministically.
@@ -849,5 +855,90 @@ describe("a replayed submission claims nothing about a server", () => {
     expect(activity().find((e) => e.kind === "submission.registered")?.payload.submitted_by).toBe(
       "harness",
     );
+  });
+});
+
+describe("submission capture: in-process Galaxy tools", () => {
+  // The bare path's wrapper returns the envelope itself as structuredContent and
+  // marks the result with details.galaxy. A spilled result shows the model a
+  // preview and keeps the full text in the in-memory output store.
+  afterEach(() => setGalaxyOutputStore(null));
+
+  type Handler = (event: Record<string, unknown>, ctx: unknown) => Promise<unknown>;
+
+  async function submitBare(result: unknown) {
+    const handlers: Record<string, Handler[]> = {};
+    registerSubmissionCapture(
+      {
+        on: (event: string, h: Handler) => (handlers[event] ??= []).push(h),
+      } as unknown as Parameters<typeof registerSubmissionCapture>[0],
+      bareFamily(["run_tool", "invoke_workflow"]),
+    );
+    await handlers.tool_execution_start[0](
+      { toolCallId: "bare", toolName: "run_tool", args: { tool_id: "fastp" } },
+      {},
+    );
+    await handlers.tool_execution_end[0](
+      { toolCallId: "bare", toolName: "run_tool", result, isError: false },
+      {},
+    );
+  }
+
+  it("registers a bare run_tool and records the name the model called", async () => {
+    await submitBare({
+      content: [{ type: "text", text: JSON.stringify(THREE_JOBS) }],
+      structuredContent: THREE_JOBS,
+      details: { galaxy: { tool: "run_tool", elapsedMs: 12 } },
+    });
+    expect(findJobBlocks(notebook())).toHaveLength(3);
+    const [row] = activity().filter((r) => r.kind === "submission.registered");
+    expect(row.payload.tool).toBe("run_tool");
+    expect(row.payload.kind).toBe("jobs");
+  });
+
+  it("captures a spilled result through details.galaxy.outputId once structuredContent is gone", async () => {
+    setGalaxyOutputStore(createMemoryOutputStore());
+    const big = {
+      ...THREE_JOBS,
+      data: {
+        ...THREE_JOBS.data,
+        outputs: Array.from({ length: 400 }, (_, i) => ({ id: `out${i}`, pad: "x".repeat(60) })),
+      },
+    };
+    const full = JSON.stringify(big);
+    expect(full.length).toBeGreaterThan(20 * 1024);
+    const outputId = galaxyOutputStore().put(full, "run_tool");
+    // As a redaction or recovery tool_result handler leaves it: the preview in
+    // content, structuredContent dropped, details intact.
+    await submitBare({
+      content: [{ type: "text", text: spillPreview(full, outputId, false) }],
+      details: { galaxy: { tool: "run_tool", outputId, elapsedMs: 40 } },
+    });
+    expect(findJobBlocks(notebook())).toHaveLength(3);
+    const [row] = activity().filter((r) => r.kind === "submission.registered");
+    expect(row.payload.tool).toBe("run_tool");
+  });
+
+  it("logs unparsed under the bare name when the saved output is gone", async () => {
+    setGalaxyOutputStore(createMemoryOutputStore());
+    await submitBare({
+      content: [
+        { type: "text", text: "Large Galaxy response saved in memory. [loom Galaxy output]" },
+      ],
+      details: {
+        galaxy: { tool: "run_tool", outputId: "01J0000000000000000000000Z", elapsedMs: 40 },
+      },
+    });
+    expect(findJobBlocks(notebook())).toHaveLength(0);
+    const rows = activity().filter((r) => r.kind === "submission.unparsed");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].payload.tool).toBe("run_tool");
+    expect(rows[0].payload.reason).toContain("saved Galaxy output");
+  });
+
+  it("does not let a bare marker change an MCP-named call's recorded name", async () => {
+    await submit("mcp__galaxy__run_tool", { tool_id: "fastp" }, mcpResult(THREE_JOBS));
+    const [row] = activity().filter((r) => r.kind === "submission.registered");
+    expect(row.payload.tool).toBe("mcp__galaxy__run_tool");
   });
 });

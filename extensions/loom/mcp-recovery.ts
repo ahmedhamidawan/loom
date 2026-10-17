@@ -1,7 +1,12 @@
 /** Agent-facing recovery, alongside the short human-facing transport notice. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { classifyGalaxyFailure, type GalaxyFailureKind } from "./galaxy-transport-error";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyFailureKind } from "./galaxy-transport-error";
+import { galaxyFailureKind } from "./galaxy-failure";
+import {
+  MCP_FAMILY,
+  hasConnectTool as rebinds,
+  type GalaxyToolFamily,
+} from "../../shared/galaxy-mcp-tools.js";
 
 type Args = Record<string, unknown>;
 export function galaxyCall(
@@ -13,10 +18,9 @@ export function galaxyCall(
   return { name, args: input };
 }
 
-// Only the MCP server has a connect tool; a family without one has no session to
-// re-bind and no saved-output reader, so its wording drops both.
-const rebinds = (family: GalaxyToolFamily) => family.toolName(family.tool("connect")) !== undefined;
-
+// The connect tool marks the MCP family, whose saved-output reader is always mcp_read_output. A
+// bare family's reader, galaxy_read_output, is a companion that a shell's own tool source need
+// not register, so its wording leaves the saved-response advice out until 2e's prose pass.
 const discoveryHint = (family: GalaxyToolFamily) =>
   rebinds(family)
     ? `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once and search its saved response with mcp_read_output. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`
@@ -85,11 +89,19 @@ concrete blocker and preserve work instead of looping.
 `;
 }
 
+const GALAXY_AUTH_HINT =
+  "Galaxy refused the request's credentials, or none are configured. Ask the user to run /connect; do not retry until they have.";
+
 export function galaxyRecoveryHint(
   name: string,
   kind: Exclude<GalaxyFailureKind, null>,
   family: GalaxyToolFamily = MCP_FAMILY,
 ): string {
+  // Galaxy refused the request outright, so nothing was accepted and no retry can help until the
+  // credentials change.
+  if (kind === "auth") {
+    return `${MARKER}\n${GALAXY_AUTH_HINT}\nRespect Stop/pause.`;
+  }
   const connect = family.tool("connect");
   const tool = family.toolName(name);
   const outcome =
@@ -193,9 +205,10 @@ export function registerMcpRecovery(pi: ExtensionAPI, family: GalaxyToolFamily =
       .map((c) => c.text)
       .join("\n");
     if (text.includes(MARKER)) return;
-    const kind = classifyGalaxyFailure(call.name, text, family);
+    const kind = galaxyFailureKind(event.details, text, call.name, family);
     if (!kind) return;
-    transportFailed = true;
+    // A refused credential is not a transport incident: no re-bind or narrowed retry follows it.
+    if (kind !== "auth") transportFailed = true;
     if (kind === "timeout" && isReadOnly(call.name, family))
       timedOutReads.add(call.name + stable(call.args));
     return {

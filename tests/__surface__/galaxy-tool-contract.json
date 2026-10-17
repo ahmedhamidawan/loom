@@ -1,8 +1,8 @@
 {
   "sources": {
     "browser": "bare/src/__surface__/request-plain.json + olit/src/agent/__surface__/traits.json",
-    "orbit": "galaxy-mcp>=1.9.0, tool names as generated into observation-allowlists.ts",
-    "parameters": "root @galaxyproject/galaxy-ops allOperations, snake_cased"
+    "orbit": "@galaxyproject/galaxy-ops 0.3.1 allOperations (Node entry)",
+    "parameters": "createGalaxyOpsToolSource().tools() (root galaxy-ops + Loom bridges)"
   },
   "intersection": [
     "cancel_workflow_invocation",
@@ -38,6 +38,7 @@
     "list_pages",
     "list_user_tools",
     "list_workflows",
+    "recommend_biocontainer",
     "recommend_iwc_workflows",
     "revert_page_revision",
     "run_tool",
@@ -62,7 +63,6 @@
     "list_visualizations",
     "notebook_resume",
     "organize_datasets",
-    "recommend_biocontainer",
     "run_python",
     "save_visualization",
     "show_visualization",
@@ -78,13 +78,27 @@
     "show_visualization",
     "vega_dataset"
   ],
-  "orbitOnly": ["connect", "get_schemas", "run_galaxy_tool", "search"],
+  "orbitOnly": [],
+  "loomBridging": {
+    "tools": ["list_jobs", "get_job_logs", "galaxy_read_output"],
+    "wraps": [
+      "get_job_details(job_id)",
+      "update_page(section, expect_hash)",
+      "get_page(content_hash)"
+    ]
+  },
+  "upstreamPending": [
+    "get_invocations.offset",
+    "get_invocations.sort_by",
+    "get_invocations.sort_desc",
+    "get_invocations.include_terminal",
+    "get_tool_details.tool_version",
+    "get_workflow_input_template.version",
+    "get_user_tool"
+  ],
   "knownDifferences": {
     "parameters": {
-      "update_page": {
-        "browserOnly": ["section_heading", "section_content", "expect_hash"],
-        "upstreamOnly": []
-      },
+      "get_job_details": { "browserOnly": [], "upstreamOnly": ["job_id"] },
       "download_dataset": {
         "browserOnly": [],
         "upstreamOnly": ["file_path", "use_default_filename", "require_ok_state"]
@@ -92,8 +106,6 @@
       "upload_file": { "browserOnly": ["file_name", "file_type", "dbkey"], "upstreamOnly": [] }
     },
     "forkOnly": [
-      { "tool": "update_page", "param": "section_heading", "in": "parameters" },
-      { "tool": "update_page", "param": "expect_hash", "in": "parameters" },
       { "tool": "get_job_details", "param": "job_stderr", "in": "description" },
       { "tool": "get_job_details", "param": "tool_stderr", "in": "description" }
     ]

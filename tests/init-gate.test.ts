@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -10,6 +10,8 @@ import {
   renderFailures,
 } from "../extensions/loom/init-gate";
 import { setNotebookPath, setGalaxyConnection, resetState } from "../extensions/loom/state";
+import { registerGalaxyTools, setGalaxyToolSource } from "../extensions/loom/galaxy-tool-source";
+import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
 
 let tmpDir: string;
 let nbPath: string;
@@ -316,6 +318,55 @@ describe("checkPreconditions -- happy path", () => {
     setGalaxyConnection(true, "abc123");
     const result = await checkPreconditions();
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("checkPreconditions -- Galaxy readiness without a connect tool", () => {
+  const REMOTE = `
+## Plan A: Aligned [remote]
+
+- [ ] 1. **bwa-mem PE** {#plan-a-step-1} -- 4 samples on chrM reference
+`;
+  const connectionFailure = async () =>
+    (await checkPreconditions()).failures.find((f) => f.name === "galaxy_connection");
+  const bare = () => {
+    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+    // The default in-process source: galaxy-ops' operations, which have no connect tool.
+    registerGalaxyTools({ registerTool: () => {} } as never);
+  };
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    setGalaxyToolSource(null);
+    setCapabilityProfile(null);
+  });
+
+  it("passes a [remote] plan under bare once credentials are configured", async () => {
+    writeNotebook(REMOTE);
+    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
+    vi.stubEnv("GALAXY_API_KEY", "key");
+    bare();
+    // Nothing called connect: in-process tools have no such step.
+    setGalaxyConnection(false);
+    expect(await connectionFailure()).toBeUndefined();
+  });
+
+  it("hard-fails a [remote] plan under bare without credentials", async () => {
+    writeNotebook(REMOTE);
+    vi.stubEnv("GALAXY_URL", "");
+    vi.stubEnv("GALAXY_API_KEY", "");
+    bare();
+    const result = await checkPreconditions();
+    expect(result.hardFailed).toBe(true);
+    expect(await connectionFailure()).toBeTruthy();
+  });
+
+  it("still asks for connect under mcp, credentials or not", async () => {
+    writeNotebook(REMOTE);
+    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
+    vi.stubEnv("GALAXY_API_KEY", "key");
+    setGalaxyConnection(false);
+    expect(await connectionFailure()).toBeTruthy();
   });
 });
 

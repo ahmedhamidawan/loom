@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect } from "vitest";
 import {
   capabilityProfile,
+  installedCapabilityProfile,
   profileFromEnv,
   setCapabilityProfile,
 } from "../shared/capability-profile.js";
@@ -13,6 +14,7 @@ describe("profileFromEnv", () => {
       notebook: "file",
       network: true,
       galaxyTools: "mcp",
+      mcpServers: true,
       ui: "terminal",
     });
   });
@@ -52,6 +54,14 @@ describe("capabilityProfile", () => {
   it("reads an explicit env even while a profile is installed", () => {
     setCapabilityProfile({ ...profileFromEnv({}), ui: "worker" });
     expect(capabilityProfile({}).ui).toBe("terminal");
+  });
+
+  it("hands back the installed object itself, and null under env", () => {
+    expect(installedCapabilityProfile()).toBeNull();
+    setCapabilityProfile({ ...profileFromEnv({}), ui: "worker" });
+    expect(installedCapabilityProfile()).toBe(capabilityProfile());
+    setCapabilityProfile(null);
+    expect(installedCapabilityProfile()).toBeNull();
   });
 
   it("falls back to env once the profile is cleared", () => {

@@ -175,6 +175,16 @@ export function isAdmissibleMcpTool(v: string | undefined): v is string {
 }
 
 /**
+ * Loom's bridging job ops, which no Galaxy tool server names yet, so the generated list cannot
+ * hold them. The builder admits them only from an in-process call, which keeps the mcp default's
+ * observations as they were; 2e folds them into the generated list.
+ */
+const BRIDGING_GALAXY_TOOLS: ReadonlySet<string> = new Set([
+  "galaxy_list_jobs",
+  "galaxy_get_job_logs",
+]);
+
+/**
  * The name the collector knows a Galaxy tool call by, or undefined when the
  * call isn't one. pi registers galaxy-mcp's tools as `mcp__galaxy__<tool>`;
  * the wire contract and the allowlist predate that and say `galaxy_<tool>`, and
@@ -286,9 +296,10 @@ export function currentGalaxyUrl(env?: NodeJS.ProcessEnv): string | undefined {
   return active ? profiles[active]?.url : undefined;
 }
 
-// Nothing in the brain asks Galaxy for its version, and adding a probe is its
-// own change with its own auth question. What we can have for free is the
-// version galaxy-mcp already reports on a successful connect -- shape-checked
+// Under galaxy-mcp nothing in the brain asks Galaxy for its version, and adding
+// a probe is its own change with its own auth question. What we can have for
+// free is the version galaxy-mcp already reports on a successful connect (the
+// in-process tools ask galaxy-ops instead: galaxy-version-capture.ts) -- shape-checked
 // hard (a release number, optionally devN/rcN/postN, nothing free-form that
 // could carry a site name), so a hostile or absent value just leaves the field
 // off. It is remembered against the server it came from, so switching servers
@@ -301,6 +312,16 @@ export function recordGalaxyVersionFromConnect(resultText: string | undefined): 
   const m = resultText.match(/"version"\s*:\s*"([^"]{1,40})"/);
   if (m && GALAXY_VERSION_SHAPE.test(m[1])) {
     galaxyVersion = { version: m[1], url: currentGalaxyUrl() };
+  }
+}
+
+/**
+ * The in-process tools have no connect result to read, so they hand over a
+ * version already assembled from /api/version; it gets the same shape check.
+ */
+export function recordGalaxyVersion(version: string | undefined): void {
+  if (version && GALAXY_VERSION_SHAPE.test(version)) {
+    galaxyVersion = { version, url: currentGalaxyUrl() };
   }
 }
 
@@ -323,6 +344,8 @@ export interface ObservationFacts {
   /** Overrides the tool-name table when the trigger knows better. */
   stage?: ObservationStage;
   mcpTool?: string;
+  /** The call ran through in-process Galaxy tools, so Loom's bridging ops are admitted too. */
+  inProcess?: true;
   toolIds: string[];
   datatypes: string[];
   /** Raw error/outcome text; normalized here, never stored raw. */
@@ -363,7 +386,13 @@ export function buildObservation(
   shape: ObservationShape,
 ): Observation {
   const freeText = shape === "full";
-  const mcpTool = isAdmissibleMcpTool(facts.mcpTool) ? facts.mcpTool : undefined;
+  const mcpTool =
+    isAdmissibleMcpTool(facts.mcpTool) ||
+    (facts.inProcess === true &&
+      facts.mcpTool !== undefined &&
+      BRIDGING_GALAXY_TOOLS.has(facts.mcpTool))
+      ? facts.mcpTool
+      : undefined;
   const candidate = {
     schemaVersion: OBSERVATION_SCHEMA_VERSION,
     id: env.id,
@@ -435,7 +464,13 @@ function admissionProblems(obs: Observation): string[] {
             : undefined;
     if (joined === undefined || !isAdmissibleToolId(joined)) out.push(`tools[${i}]:not-allowed`);
   });
-  if (obs.mcpTool !== undefined && !isAdmissibleMcpTool(obs.mcpTool)) {
+  // A stored row no longer says how its call ran; under the mcp default the builder never
+  // writes a bridging name, so admitting one here changes nothing there.
+  if (
+    obs.mcpTool !== undefined &&
+    !isAdmissibleMcpTool(obs.mcpTool) &&
+    !BRIDGING_GALAXY_TOOLS.has(obs.mcpTool)
+  ) {
     out.push("mcpTool:not-allowed");
   }
   const datatypes: unknown[] = Array.isArray(obs.datatypes) ? obs.datatypes : [];

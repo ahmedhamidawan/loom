@@ -13,6 +13,9 @@
  */
 
 import { createFileRecordStore } from "./record-store-file";
+import { installedRecordStore } from "./record-store-seam";
+
+export { installedRecordStore, setRecordStore, withRecordLock } from "./record-store-seam";
 
 /**
  * Opaque, never empty; equal strings mean the record did not change between two
@@ -35,6 +38,12 @@ export interface RecordStore {
   readonly key: string;
   /** What a human or the model sees: the path, or `Galaxy page <id>`. */
   readonly label: string;
+  /**
+   * The Galaxy page that is the record, under the page backend. The brain's update_page
+   * policy and the evidence gate compare it with a tool call's page_id to tell a write to
+   * the record from a write to some other page.
+   */
+  readonly pageId?: string;
   /** null when absent or unstattable; never throws. `(await stat()) !== null` is the existence check. */
   stat(): Promise<RecordVersion | null>;
   /** Version taken before the body. Throws the backend's own error when missing (ENOENT / GalaxyApiError 404). */
@@ -61,18 +70,6 @@ export class NotebookChangedError extends Error {
   }
 }
 
-// The shell seam. Deliberately outside state.ts so resetState() (which every
-// session_start runs before initSessionArtifacts) leaves it alone.
-let installed: RecordStore | null = null;
-
-export function setRecordStore(store: RecordStore | null): void {
-  installed = store;
-}
-
-export function installedRecordStore(): RecordStore | null {
-  return installed;
-}
-
 /**
  * The store for a record key: the installed one when the key is its key, else
  * a file store for that path. Resolving by key rather than by "is a store
@@ -80,33 +77,9 @@ export function installedRecordStore(): RecordStore | null {
  * on the file backend.
  */
 export function recordStore(key: string): RecordStore {
+  const installed = installedRecordStore();
   if (installed && installed.key === key) return installed;
   return createFileRecordStore(key);
-}
-
-/**
- * Per-key mutex chain. Two parallel `upsertInvocationBlock` calls (e.g.
- * `galaxy_invocation_check_all` polling several invocations concurrently)
- * would race read-modify-write on the same record: each reads the
- * pre-update content, applies its block, and the second writer overwrites
- * the first. Serializing via a per-key Promise chain prevents the lost
- * update without paying for an OS-level lock.
- */
-const writeLocks = new Map<string, Promise<void>>();
-
-export function withRecordLock<T>(key: string, work: () => Promise<T>): Promise<T> {
-  const prev = writeLocks.get(key) ?? Promise.resolve();
-  const next = prev.then(work, work);
-  // Always clear so completed locks don't pin memory; the chain is preserved
-  // through the Promise we just created.
-  writeLocks.set(
-    key,
-    next.then(
-      () => undefined,
-      () => undefined,
-    ),
-  );
-  return next;
 }
 
 /**

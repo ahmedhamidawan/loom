@@ -35,6 +35,7 @@ export function createPageRecordStore(opts: {
     kind: "page",
     key,
     label: opts.label ?? `Galaxy page ${pageId}`,
+    pageId,
     stat,
 
     async read() {

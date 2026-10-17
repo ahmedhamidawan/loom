@@ -1,44 +1,44 @@
 /**
- * Where the bare Galaxy tools come from when the brain runs in a shell with no
- * MCP server (the browser worker).
+ * Where the bare Galaxy tools come from when they run in-process rather than through an MCP
+ * server.
  *
  * Under an `mcp` profile pi's MCP layer names galaxy-mcp's tools
  * (`mcp__galaxy__run_tool`) and nothing here registers anything. Under `bare`
- * the shell hands the brain a list of pi tool definitions carrying galaxy-mcp's
- * bare names (`run_tool`, `get_dataset_details`, ...); the brain registers them
- * and hands their names to every guard as the tool family.
+ * the brain registers pi tool definitions carrying the bare names (`run_tool`,
+ * `get_dataset_details`, ...) and hands those names to every guard as the tool family.
  */
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { capabilityProfile } from "../../shared/capability-profile.js";
 import { MCP_FAMILY, bareFamily, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { createGalaxyOpsToolSource } from "./galaxy-ops-tools";
 
 /** pi's own tool shape; the shim registers exactly this. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type GalaxyTool = ToolDefinition<any, any, any>;
 
 /**
- * The Galaxy tools a shell offers in-process under galaxy-mcp's bare names.
+ * The Galaxy tools registered in-process under their bare names.
  *
- * Orbit cannot build the list itself: the descriptions and per-parameter text
- * the browser gives them (galaxy-ops' GALAXY_MCP_SURFACE) and the JSON-schema
- * rendering of an operation's zod input both come from galaxy-ops exports that
- * only the guerler fork and galaxy-mcp #155 carry, not npm 0.3.1/0.3.2 -- so
- * the shell that has them supplies the tools, and Orbit registers them. When
- * those exports are published, a default in-process source over GalaxyTransport
- * can land here without touching callers.
+ * Orbit builds the list from galaxy-ops itself (`createGalaxyOpsToolSource`, the
+ * default). A shell installs a source only to add tools its galaxy-ops entry
+ * lacks, through that function's `extras`.
  */
 export interface GalaxyToolSource {
   /** Registered once at extension load, in this order; their names are the bare family. */
   tools(): readonly GalaxyTool[];
+  /** Registered after `tools()` but kept out of the family: readers no guard keys on. */
+  companions?(): readonly GalaxyTool[];
 }
 
 let installed: GalaxyToolSource | null = null;
 let registered: GalaxyToolFamily | null = null;
+let registeredTools: readonly GalaxyTool[] = [];
 
 /** null uninstalls and forgets the registered family. */
 export function setGalaxyToolSource(source: GalaxyToolSource | null): void {
   installed = source;
   registered = null;
+  registeredTools = [];
 }
 
 export function installedGalaxyToolSource(): GalaxyToolSource | null {
@@ -46,20 +46,31 @@ export function installedGalaxyToolSource(): GalaxyToolSource | null {
 }
 
 /**
- * Register the source's tools and return the family over their names (empty
- * with no source, so the guards see no Galaxy tool at all). Called once, from
+ * Register the installed source's tools, or the default source's, then its
+ * companions, and return the family over the tools' names. Called once, from
  * index.ts, under a `bare` profile.
  */
 export function registerGalaxyTools(pi: ExtensionAPI): GalaxyToolFamily {
-  // A shell that installs its source after the extension loaded gets inert
-  // guards and a prompt naming tools pi does not have; say so instead of hiding it.
-  if (!installed) {
-    console.warn("[galaxy-tools] no Galaxy tool source installed; the guards see no Galaxy tool");
+  const source = installed ?? createGalaxyOpsToolSource();
+  const tools = source.tools();
+  const companions = source.companions?.() ?? [];
+  // pi keeps the last definition under a name, so a second one would silently
+  // replace the first (an extra the entry already has, say) and pass as one tool.
+  const names = new Set<string>();
+  for (const { name } of [...tools, ...companions]) {
+    if (names.has(name)) throw new Error(`[galaxy-tools] two Galaxy tools are named ${name}`);
+    names.add(name);
   }
-  const tools = installed?.tools() ?? [];
   for (const tool of tools) pi.registerTool(tool);
+  for (const tool of companions) pi.registerTool(tool);
+  registeredTools = [...tools, ...companions];
   registered = bareFamily(tools.map((t) => t.name));
   return registered;
+}
+
+/** The definitions registerGalaxyTools registered, for readers of their annotations. */
+export function registeredGalaxyTools(): readonly GalaxyTool[] {
+  return registeredTools;
 }
 
 /**

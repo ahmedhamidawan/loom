@@ -6,9 +6,11 @@ import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
 
-// Guards ported from the browser (#567 "Guards"), pinned with the browser's
-// refusal text verbatim from browser/core/src/agent/guards.ts (repeated
-// failure) and galaxy-tools.ts (cross-history input).
+// Orbit's own refusal texts for its repeated-failure and cross-history guards,
+// pinned as Orbit's code writes them. Both guards began as ports of the
+// browser's (#567 "Guards"), but Orbit is the base now: when slice 4 deletes
+// the browser's copies, its guards.test.ts follows these strings, not the
+// other way round.
 
 vi.mock("../extensions/loom/state", () => ({ getNotebookPath: () => null }));
 

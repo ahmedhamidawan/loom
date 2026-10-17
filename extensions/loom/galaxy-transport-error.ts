@@ -44,14 +44,17 @@ export const GALAXY_RECONNECT_NUDGE =
 export const GALAXY_TIMEOUT_NUDGE =
   "Galaxy MCP request timed out. Its result is unknown; this does not mean a Galaxy job failed.";
 
-/** Which kind of failure this is, so callers can give advice that can work. */
-export type GalaxyFailureKind = "dropped" | "timeout" | null;
+/**
+ * Which kind of failure this is, so callers can give advice that can work. `auth` comes only from
+ * an in-process call's details (galaxy-failure.ts); no text here reads as one.
+ */
+export type GalaxyFailureKind = "dropped" | "timeout" | "auth" | null;
 
 export function classifyGalaxyFailure(
   toolName: string | undefined,
   text: string | undefined,
   family: GalaxyToolFamily = MCP_FAMILY,
-): GalaxyFailureKind {
+): Exclude<GalaxyFailureKind, "auth"> {
   if (family.toolName(toolName) === undefined || !text) return null;
   // Timeout first: a -32001 body can also mention "not connected" downstream,
   // and the timeout reading is the actionable one.

@@ -279,7 +279,7 @@ export interface GalaxyJobListing {
 }
 
 /**
- * One page of a history's jobs, oldest first.
+ * One page of a history's jobs, newest first (Galaxy sorts create_time descending).
  *
  * `date_range_min` is a day, not an instant: Galaxy filters it against
  * `update_time` and its accepted formats have moved between releases, while a

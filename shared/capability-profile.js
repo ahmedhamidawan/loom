@@ -24,6 +24,8 @@ import { isDesktopShell, readEnv } from "./orbit-env.js";
  * @property {"file" | "page"} notebook where the notebook lives
  * @property {boolean} network direct outbound network from the brain
  * @property {"mcp" | "bare"} galaxyTools how Galaxy tools are named to the model
+ * @property {boolean} mcpServers pi's MCP layer, for the servers Loom brings
+ *   (brc-analytics; galaxy-mcp too under mcp Galaxy tools)
  * @property {"desktop" | "terminal" | "worker"} ui the surface a human answers prompts on
  */
 
@@ -38,18 +40,43 @@ export function profileFromEnv(env = process.env) {
     notebook: "file",
     network: true,
     galaxyTools: "mcp",
+    mcpServers: true,
     ui: isDesktopShell(env) ? "desktop" : "terminal",
   };
 }
 
 let installed = null;
+// Who installed the profile, kept beside it: a brain module reloaded by pi comes back with its
+// own state reset while this module stays cached, so only this survives to say whose it is.
+let installedOwner = null;
 
 /**
  * The shell's own description of itself; null puts env back in charge.
+ * `owner` tags an install made by the brain itself rather than a shell.
  * @param {CapabilityProfile | null} profile
+ * @param {string | null} [owner]
  */
-export function setCapabilityProfile(profile) {
+export function setCapabilityProfile(profile, owner = null) {
   installed = profile ? { ...profile } : null;
+  installedOwner = installed ? owner : null;
+}
+
+/**
+ * The owner tag the installed profile was set with, or null for a shell's
+ * install or when nothing is installed.
+ * @returns {string | null}
+ */
+export function installedCapabilityProfileOwner() {
+  return installedOwner;
+}
+
+/**
+ * The installed profile itself (the same object capabilityProfile() returns),
+ * or null when env is in charge.
+ * @returns {CapabilityProfile | null}
+ */
+export function installedCapabilityProfile() {
+  return installed;
 }
 
 /**

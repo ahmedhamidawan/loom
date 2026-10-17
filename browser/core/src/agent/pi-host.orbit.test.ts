@@ -91,6 +91,19 @@ const tripwire = vi.hoisted(() => {
   return { ledger, record, recordingProxy };
 });
 
+// The root galaxy-ops package's own two entries, by resolved path. From browser/core the bare
+// specifier resolves to the fork in browser/node_modules, and vitest keys a mock by the id it
+// resolves, so the mock names the root Node entry that extensions/loom resolves to and serves the
+// root browser entry in its place -- what the worker's bundler does with the "browser" condition.
+// Kept to this file: ops.ts and parity.test.ts need the fork, so no global alias.
+const galaxyOps = vi.hoisted(() => {
+  const dist = decodeURIComponent(
+    new URL("../../../../node_modules/@galaxyproject/galaxy-ops/dist/", import.meta.url).pathname,
+  );
+  return { node: `${dist}index.js`, browser: `${dist}index.browser.js` };
+});
+vi.mock(galaxyOps.node, () => import(galaxyOps.browser));
+
 vi.mock("chokidar", () => {
   const chokidar = tripwire.recordingProxy("chokidar");
   return { default: chokidar, watch: chokidar.watch };
@@ -175,11 +188,6 @@ const vendorManifest = JSON.parse(fs.readFileSync(join(VENDOR, "_manifest.json")
 const vendorFiles = new Map<string, string>(
   vendorManifest.files.map((f) => [f.target, fs.readFileSync(join(VENDOR, f.target), "utf8")]),
 );
-// The Galaxy tool names both shells offer: under the browser profile the shell supplies the tools
-// (galaxy-ops in-process) and Orbit registers them, so the family under test is the real list.
-const contract = JSON.parse(
-  fs.readFileSync(join(REPO, "tests", "__surface__", "galaxy-tool-contract.json"), "utf8"),
-) as { intersection: string[] };
 
 spyAll(fs, "fs");
 spyAll(fsp, "fs/promises");
@@ -201,6 +209,7 @@ const PROFILE: CapabilityProfile = {
   notebook: "page",
   network: true,
   galaxyTools: "bare",
+  mcpServers: false,
   ui: "worker",
 };
 
@@ -247,7 +256,11 @@ const textOf = (content: unknown) =>
 
 type Seen = { event: string; toolCallId?: string; toolName?: string };
 
-const script: Array<() => Response> = [];
+/** The wrapper's facts on a tool result, as the shim kept them. */
+const detailsOf = (m: unknown) =>
+  (m as { details?: { galaxy?: Record<string, unknown> } } | undefined)?.details;
+
+const script: Array<() => Response | Promise<Response>> = [];
 const requests: Array<Record<string, any>> = [];
 const seen: Seen[] = [];
 const notices: Array<[string, string]> = [];
@@ -281,23 +294,30 @@ function recorders(api: ExtensionAPI) {
   }
 }
 
-/** What a stub answers; everything else answers `{}`. */
-const CANNED: Record<string, unknown> = {
-  create_history: { id: "h1", name: "one brain" },
-  recommend_iwc_workflows: { workflows: [] },
-  get_dataset_details: { id: "d1", state: "ok" },
-};
-
-/** The shell's Galaxy tools, as pi tool definitions carrying galaxy-mcp's bare names. */
-const GALAXY = contract.intersection.map((name) => ({
+/**
+ * The browser shell's three extras -- the operations only galaxy-ops' Node entry has -- as stubs:
+ * the run is about Orbit's own source, not the shell's replacements.
+ */
+const EXTRAS = ["download_dataset", "upload_file", "recommend_biocontainer"];
+const stub = (name: string) => ({
   name,
   label: name,
   description: `stub ${name}`,
   parameters: Type.Object({}, { additionalProperties: true }),
-  execute: async () => ({
-    content: [{ type: "text" as const, text: JSON.stringify(CANNED[name] ?? {}) }],
-    details: {},
-  }),
+  execute: async () => ({ content: [{ type: "text" as const, text: "{}" }], details: {} }),
+});
+
+/** A history big enough that its contents spill past the 20 KiB cap into the memory ring. */
+const BIG_HISTORY = Array.from({ length: 120 }, (_, i) => ({
+  id: `${(i + 1).toString(16).padStart(16, "0")}`,
+  hid: i + 1,
+  name: `dataset ${i + 1} with a name long enough to take up room.txt`,
+  history_content_type: "dataset",
+  state: "ok",
+  extension: "txt",
+  deleted: false,
+  visible: true,
+  purged: false,
 }));
 
 const probe = {
@@ -314,6 +334,8 @@ const probe = {
 beforeAll(async () => {
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
+    // The IWC operations read the public manifest through the global fetch, not the transport.
+    if (request.url === "https://iwc.galaxyproject.org/workflow_manifest.json") return json([]);
     if (!request.url.startsWith(LLM)) return json({});
     requests.push(JSON.parse(await request.text()));
     return (script.shift() ?? (() => text("ok")))();
@@ -344,11 +366,23 @@ beforeAll(async () => {
   const { setGalaxyTransport } = await import("../../../../extensions/loom/galaxy-api");
   setGalaxyTransport({
     fetch: async (url, init) => {
-      if (url.endsWith("/api/pages/p1")) pageCalls[init.method === "PUT" ? "PUT" : "GET"]++;
-      // The history guard's lookup: d1 lives in another history than the one a run names.
-      if (url.includes("/api/datasets/d1")) {
-        return json({ id: "d1", name: "d1.txt", history_id: "elsewhere" });
+      const method = init.method ?? "GET";
+      const path = new URL(url).pathname;
+      if (path === "/api/pages/p1") {
+        pageCalls[method === "PUT" ? "PUT" : "GET"]++;
+        return json({});
       }
+      if (path === "/api/histories") {
+        return json(
+          method === "POST" ? { id: "h1", name: "one brain" } : [{ id: "h1", name: "one brain" }],
+        );
+      }
+      // The history guard's lookup: d1 lives in another history than the one a run names.
+      if (path === "/api/datasets/d1") {
+        return json({ id: "d1", name: "d1.txt", history_id: "elsewhere", state: "ok" });
+      }
+      if (path === "/api/histories/hbig/contents") return json(BIG_HISTORY);
+      // Everything else, /api/version included: an unknown version refuses nothing and costs no wait.
       return json({});
     },
     credentials: () => ({ url: "http://galaxy.test", apiKey: "k" }),
@@ -359,7 +393,9 @@ beforeAll(async () => {
   const { createPageRecordStore } = await import("../../../../extensions/loom/record-store-page");
   setRecordStore(createPageRecordStore({ key: join(tmp, "notebook.md"), pageId: "p1" }));
   const { setGalaxyToolSource } = await import("../../../../extensions/loom/galaxy-tool-source");
-  setGalaxyToolSource({ tools: () => GALAXY });
+  const { createGalaxyOpsToolSource } =
+    await import("../../../../extensions/loom/galaxy-ops-tools");
+  setGalaxyToolSource(createGalaxyOpsToolSource({ extras: EXTRAS.map(stub) }));
   seams.push(() => setGalaxyToolSource(null));
 
   ledger.phase = "register";
@@ -609,10 +645,15 @@ describe("Orbit on pi-host", () => {
     expect({ on: total, tools: host.tools.length, commands: host.commands.size }).toEqual({
       // The MCP output recovery (three handlers) is not registered under bare Galaxy tools; the
       // capture follow-through (session_start, tool_execution_end) now is, over the memory
-      // provenance fs.
-      on: 71 + 7,
-      // Orbit's own tools, the shell's Galaxy tools, and the probe; mcp_read_output is MCP-only.
-      tools: 15 + GALAXY.length + 1,
+      // provenance fs. Bare Galaxy tools add the destructive confirm (tool_call), the page
+      // policy's shown-page reset (session_start) and the Galaxy version capture (session_start,
+      // tool_result), which observations read in place of galaxy-mcp's connect result; none of
+      // them is registered under mcp.
+      on: 71 + 7 + 2 + 2,
+      // Orbit's own tools; the Galaxy family (the browser entry's 42 operations, the shell's three
+      // extras, and Loom's list_jobs and get_job_logs bridges); galaxy_read_output beside it; and
+      // the probe. mcp_read_output is MCP-only.
+      tools: 15 + 47 + 1 + 1,
       // The real /reconcile, in the stub's place.
       commands: 21,
     });
@@ -622,6 +663,72 @@ describe("Orbit on pi-host", () => {
     // Nothing at import either: lessons/validate.mjs (pulled in by shared/lesson-rules.js) now
     // reads import.meta.main for its CLI check instead of realpathSync(argv[1]).
     expect([...ledger.hits.keys()].filter((k) => k.startsWith("import |"))).toEqual([]);
+  });
+
+  it("loads galaxy-ops' browser entry, which reaches nothing Node-only", async () => {
+    const { galaxyOpsEntry } = await import("../../../../extensions/loom/galaxy-ops-tools");
+    // 45 here would mean the Node entry loaded: it pushes its three operations into the array both
+    // entries share, so the count is the tripwire for the mock above.
+    const entry = galaxyOpsEntry();
+    expect(entry.operations).toHaveLength(42);
+    expect(entry.hasUploadFile).toBe(false);
+    const { registeredGalaxyTools } =
+      await import("../../../../extensions/loom/galaxy-tool-source");
+    const names = registeredGalaxyTools().map((t) => t.name);
+    // The 47-name family, and galaxy_read_output registered beside it.
+    expect(names).toHaveLength(47 + 1);
+    for (const name of [
+      ...entry.operations,
+      ...EXTRAS,
+      "list_jobs",
+      "get_job_logs",
+      "galaxy_read_output",
+    ]) {
+      expect(names, name).toContain(name);
+    }
+
+    // The entry and every chunk it pulls in, followed through relative imports and re-exports.
+    const seen = new Set<string>();
+    const queue = [galaxyOps.browser];
+    const named = new Set<string>();
+    while (queue.length) {
+      const file = queue.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      for (const spec of specifiers(fs.readFileSync(file, "utf8"))) {
+        if (spec.startsWith(".")) queue.push(resolve(dirname(file), spec));
+        else named.add(spec);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(1);
+    expect([...named].sort()).toEqual(["openapi-fetch", "zod"]);
+  });
+
+  it("keeps the in-process Galaxy path free of Node-only tokens", () => {
+    // The modules every Galaxy call runs through in the worker. Type-only imports are erased, and
+    // a value import of pi would be an asserted Node edge.
+    const HOT_PATH = [
+      "shared/truncate-middle.js",
+      "shared/markdown-sections.js",
+      "shared/malformed-object-ids.js",
+      "extensions/loom/galaxy-output.ts",
+      "extensions/loom/galaxy-output-store.ts",
+      "extensions/loom/galaxy-ops-tools.ts",
+      "extensions/loom/galaxy-tool-wrap.ts",
+      "extensions/loom/galaxy-failure.ts",
+      "extensions/loom/galaxy-op-policy.ts",
+      "extensions/loom/galaxy-page-ops.ts",
+      "extensions/loom/galaxy-job-ops.ts",
+    ];
+    for (const file of HOT_PATH) {
+      const source = withoutTypeImports(fs.readFileSync(join(REPO, file), "utf8"));
+      expect(source, file).not.toMatch(/node:|\bBuffer\b|\btmpdir\b|process\.env/);
+      for (const spec of specifiers(source)) {
+        expect(spec, `${file} -> ${spec}`).not.toMatch(
+          /^(fs|fs\/promises|path|os|crypto|tus-js-client)$|^@earendil-works\/pi-coding-agent/,
+        );
+      }
+    }
   });
 
   it("names the handlers no seam fires", () => {
@@ -751,7 +858,7 @@ describe("Orbit on pi-host", () => {
   it("routes the bare family to the guards and runs the shell's tools", async () => {
     const mark = seen.length;
     script.push(
-      () => toolCall("create_history", { name: "one brain" }, "g1"),
+      () => toolCall("create_history", { history_name: "one brain" }, "g1"),
       () => toolCall("recommend_iwc_workflows", { intent: "qc" }, "g2"),
       () => toolCall("get_dataset_details", { dataset_id: "d1" }, "g3"),
       () => text("done"),
@@ -759,7 +866,7 @@ describe("Orbit on pi-host", () => {
     const first = await host.submit("make a history and look around");
     await first!.wait(ctx);
     await until(() => runs.settled >= 4);
-    // index.ts captures the new history id off the bare create_history.
+    // index.ts captures the new history id off the real create_history's POST.
     const { getState } = await import("../../../../extensions/loom/state");
     expect(getState().currentHistoryId).toBe("h1");
     const results = () =>
@@ -771,7 +878,9 @@ describe("Orbit on pi-host", () => {
     expect(textOf(recommend.content)).not.toContain("mcp__galaxy__");
     const details = last.find((m) => m.toolName === "get_dataset_details")!;
     expect(details.isError).toBeFalsy();
-    expect(textOf(details.content)).toBe(JSON.stringify(CANNED.get_dataset_details));
+    // galaxy-ops' envelope, through the wrapper; its details.galaxy survives the shim's json().
+    expect(JSON.parse(textOf(details.content)).data.dataset.state).toBe("ok");
+    expect(detailsOf(details)?.galaxy?.tool).toBe("get_dataset_details");
     expect(
       seen
         .slice(mark)
@@ -807,6 +916,41 @@ describe("Orbit on pi-host", () => {
     // out keeps that dropped note in this phase rather than whichever one the test reaches next.
     await new Promise((r) => setTimeout(r, 3_100));
   });
+
+  it("coerces string arguments, spills a large result and reads it back, all through the shim", async () => {
+    const results = () =>
+      conversation.context(ctx).then((c) => c.messages.filter((m) => m.role === "toolResult"));
+    script.push(
+      // A plain JSON schema with prepareArguments, not TypeBox: pi-durable coerces "5" as it does
+      // for MCP tools, where Orbit's own TypeBox tools stay strict (the probe above).
+      () => toolCall("get_histories", { limit: "5" }, "s1"),
+      () => toolCall("get_history_contents", { history_id: "hbig" }, "s2"),
+      // The id the model would copy out of the preview, read where the shim kept it.
+      async () => {
+        const spilled = (await results()).findLast((m) => m.toolName === "get_history_contents");
+        const outputId = detailsOf(spilled)?.galaxy?.outputId;
+        return toolCall("galaxy_read_output", { outputId, pointer: "/data/contents/0" }, "s3");
+      },
+      () => text("done"),
+    );
+    const s = await host.submit("list my histories, then look inside the big one");
+    await s!.wait(ctx);
+    await until(() => runs.settled >= 6);
+    const last = await results();
+    const histories = last.find((m) => m.toolName === "get_histories")!;
+    expect(histories.isError, textOf(histories.content)).toBeFalsy();
+    const contents = last.find((m) => m.toolName === "get_history_contents")!;
+    expect(contents.isError, textOf(contents.content)).toBeFalsy();
+    expect(textOf(contents.content)).toContain("[loom Galaxy output]");
+    expect(textOf(contents.content)).not.toContain("MCP");
+    const outputId = detailsOf(contents)?.galaxy?.outputId;
+    expect(outputId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    const read = last.find((m) => m.toolName === "galaxy_read_output")!;
+    expect(read.isError, textOf(read.content)).toBeFalsy();
+    expect(textOf(read.content)).toContain(BIG_HISTORY[0].name);
+    // As in the guard turn: let the galaxy-tool status clear inside this phase.
+    await new Promise((r) => setTimeout(r, 3_100));
+  }, 15_000);
 
   it("runs commands and shuts down", async () => {
     ledger.phase = "command";

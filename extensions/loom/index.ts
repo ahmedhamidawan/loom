@@ -59,8 +59,12 @@ import { registerObservationTriggers } from "./observation-triggers";
 import { registerObservationsCommand } from "./observations-command";
 import { registerMcpOutputRecovery } from "./mcp-output";
 import { registerLoomMcpServers } from "./mcp-servers";
+import { applyGalaxyToolsMode } from "./galaxy-tools-mode";
+import { registerGalaxyVersionCapture } from "./galaxy-version-capture";
 import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 import { registerGalaxyTools } from "./galaxy-tool-source";
+import { registerGalaxyDestructiveGate } from "./galaxy-destructive-gate";
+import { registerGalaxyOpPolicy } from "./galaxy-op-policy";
 import { galaxyCall, registerMcpRecovery } from "./mcp-recovery";
 import { registerGalaxyPollGuard } from "./galaxy-poll-guard";
 import { registerProgressUpdates } from "./progress-updates";
@@ -100,6 +104,9 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // Before anything registers a command, so every one of them counts as user
   // input for the automatic follow-up cap.
   registerCommandsAsUserInput(pi);
+  // Before the profile is read: LOOM_GALAXY_TOOLS=bare installs the one the
+  // rest of this function acts on (and a reload with it unset takes it down).
+  applyGalaxyToolsMode();
   const profile = capabilityProfile();
   const mcp = profile.galaxyTools === "mcp";
   // Under bare the shell's Galaxy tools go in first, so every guard below is
@@ -125,6 +132,15 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
     // radius). Default-on file-write confinement lives in the gate itself.
     registerSandbox(pi);
   }
+  // exec-guard confirms a history delete only where it is registered (a files
+  // surface), and never reads galaxy-ops' destructiveHint, so the bare path
+  // gets its own confirm; with files, exec-guard keeps update_history and this
+  // one asks only about the hinted tools. The op policy's page memory belongs
+  // to the in-process tools alone, so its session reset does too.
+  if (!mcp) {
+    registerGalaxyDestructiveGate(pi, family, { classifyArgs: !profile.files });
+    registerGalaxyOpPolicy(pi);
+  }
   // Data-shaped backstop to the path-shaped gate: scrub known secret VALUES out
   // of tool OUTPUT before it returns to the model, so an approved/slipped read
   // (or an `env` dump) can't push API keys into the provider's logs (#183).
@@ -136,7 +152,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // the metadata the recovery keys on.
   if (mcp) registerMcpOutputRecovery(pi);
   registerMcpRecovery(pi, family);
-  registerGalaxyPollGuard(pi, family);
+  registerGalaxyPollGuard(pi, family, { invocations: !mcp });
   registerProgressUpdates(pi, family);
   registerSecretRedaction(pi);
   // AFTER redaction, deliberately. pi runs tool_result handlers in
@@ -144,6 +160,8 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // collector reads the content the model actually gets -- reading the raw
   // result would put an API key one normalization away from the wire.
   registerObservationTriggers(pi, family);
+  // After the triggers, whose session_start forgets the last session's version.
+  if (!mcp) registerGalaxyVersionCapture(pi, family);
   // AFTER redaction and after the observation triggers. pi feeds each
   // tool_result handler the previous one's content, so anything registered
   // after the hint reads it as part of the result -- a Galaxy error with no
@@ -154,9 +172,11 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // preview the model actually reads.
   registerLessonHint(pi);
 
-  // Both servers (galaxy via uvx, brc-analytics) are MCP: a shell with
-  // in-process Galaxy tools has no MCP layer to hand them to.
-  if (mcp) registerLoomMcpServers(pi);
+  // Both servers (galaxy via uvx, brc-analytics) are MCP. In-process Galaxy
+  // tools replace only the galaxy one, so a desktop running them keeps
+  // brc-analytics; a shell with no MCP layer at all (the browser worker) says
+  // so with mcpServers.
+  if (mcp || profile.mcpServers) registerLoomMcpServers(pi, { galaxy: mcp });
 
   setupUIBridge(pi);
   registerSessionLifecycle(pi);
@@ -208,7 +228,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   }
   // ── end capture, part two ─────────────────────────────────────────────────
 
-  registerPlanTools(pi);
+  registerPlanTools(pi, family);
   // Uploads a LOCAL file; without a file surface there is nothing to upload.
   if (profile.files) {
     registerGalaxyUploadTool(pi);
@@ -235,7 +255,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   registerInstructionsCommand(pi);
   registerSkillTriggers(pi, family);
   registerIwcPlanCheck(pi, family);
-  registerEvidenceGate(pi);
+  registerEvidenceGate(pi, family);
   registerSraImportGate(pi, family);
   registerGalaxyRepeatGuard(pi, family);
   registerGalaxyHistoryGuard(pi, family);

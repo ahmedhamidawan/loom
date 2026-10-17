@@ -62,3 +62,14 @@ export function bareFamily(tools) {
     toolName: (toolName) => (toolName !== undefined && known.has(toolName) ? toolName : undefined),
   });
 }
+
+/**
+ * Only the MCP server has a connect tool. A family without one has no session to re-bind, so a
+ * caller treats credentials as the connection and drops the re-bind steps from its wording.
+ *
+ * @param {GalaxyToolFamily} family
+ * @returns {boolean}
+ */
+export function hasConnectTool(family) {
+  return family.toolName(family.tool("connect")) !== undefined;
+}

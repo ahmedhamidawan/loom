@@ -191,6 +191,7 @@ export function factsForToolResult(
     kind: "tool-error",
     trigger: "tool_error",
     mcpTool: name,
+    ...(family === MCP_FAMILY ? {} : { inProcess: true as const }),
     toolIds: extractToolIds(args),
     datatypes: extractDatatypes(args),
     rawSignature: raw,
