@@ -8,6 +8,8 @@ import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profi
 import { eligibleAttempt, SERVER, T0, tmpAnalysisDir } from "./registry-fixtures";
 
 const clock = () => T0;
+// registry.ts builds its paths with path.join, so on Windows the Map keys carry backslashes.
+const STATE = (name: string) => path.join("/analysis", ".loom", "state", name);
 
 function store(fsLike: ReturnType<typeof memoryRegistryFs>, sessionId = "s-a", pid = 100) {
   return new RegistryStore({
@@ -30,12 +32,12 @@ describe("memoryRegistryFs", () => {
     first.update((r) => {
       r.attempts[attempt.attempt_id] = attempt;
     });
-    expect(mem.files.has("/analysis/.loom/state/registry.json")).toBe(true);
-    expect(mem.files.has("/analysis/.loom/state/lock")).toBe(true);
+    expect(mem.files.has(STATE("registry.json"))).toBe(true);
+    expect(mem.files.has(STATE("lock"))).toBe(true);
     // No temp file survives the atomic write.
     expect([...mem.files.keys()].filter((k) => k.endsWith(".tmp"))).toEqual([]);
     first.close();
-    expect(mem.files.has("/analysis/.loom/state/lock")).toBe(false);
+    expect(mem.files.has(STATE("lock"))).toBe(false);
 
     const second = store(mem, "s-b", 101);
     expect(second.open().kind).toBe("imported");
@@ -54,7 +56,7 @@ describe("memoryRegistryFs", () => {
     expect(second.notices.join(" ")).toContain("s-a");
     second.close();
     // A read-only store's close leaves the writer's lock alone.
-    expect(mem.files.has("/analysis/.loom/state/lock")).toBe(true);
+    expect(mem.files.has(STATE("lock"))).toBe(true);
     first.close();
   });
 
