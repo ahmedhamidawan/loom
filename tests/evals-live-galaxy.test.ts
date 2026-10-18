@@ -4,7 +4,7 @@ import path from "path";
 import { allOperations } from "@galaxyproject/galaxy-ops";
 import { evaluate } from "../evals/lib/assertions";
 import { filterScenarioDirs } from "../evals/lib/select";
-import { makeRunId, substituteRunId, uvCacheEnv } from "../evals/lib/runner";
+import { makeRunId, substituteRunId } from "../evals/lib/runner";
 import {
   EVAL_HISTORY_PREFIX,
   purgeEvalHistories,
@@ -159,20 +159,6 @@ describe("evals scenario selection", () => {
   });
 });
 
-describe("evals uv cache passthrough", () => {
-  it("defaults to the real home's cache and honors explicit settings", () => {
-    // path.join, not literals: the runner builds these with the platform separator.
-    expect(uvCacheEnv({}, "/home/u")).toEqual({
-      UV_CACHE_DIR: path.join("/home/u", ".cache", "uv"),
-      UV_PYTHON_INSTALL_DIR: path.join("/home/u", ".local", "share", "uv", "python"),
-    });
-    expect(uvCacheEnv({ UV_CACHE_DIR: "/c", XDG_DATA_HOME: "/d" }, "/home/u")).toEqual({
-      UV_CACHE_DIR: "/c",
-      UV_PYTHON_INSTALL_DIR: path.join("/d", "uv", "python"),
-    });
-  });
-});
-
 describe("evals run ids", () => {
   it("are timestamped, unique-ish, and substituted everywhere", () => {
     const id = makeRunId(new Date("2026-10-03T12:34:56.789Z"), () => 0.5);
@@ -245,36 +231,45 @@ describe("evals Galaxy teardown", () => {
   });
 });
 
-describe("evals bare-path clones", () => {
+describe("evals live Galaxy scenarios", () => {
   const scenariosDir = path.resolve(__dirname, "..", "evals", "scenarios");
   const load = (name: string) =>
     JSON.parse(
       fs.readFileSync(path.join(scenariosDir, name, "scenario.json"), "utf-8"),
     ) as Scenario;
-  const CLONES: Record<string, string> = {
-    "galaxy-tools-destructive-gate": "galaxy-mcp-destructive-gate",
-    "galaxy-tools-job-capture": "galaxy-mcp-job-capture",
-    "galaxy-tools-large-output": "galaxy-mcp-large-output",
-    "galaxy-tools-sra-gate": "galaxy-mcp-sra-gate",
-    "galaxy-tools-upload-hidden": "galaxy-mcp-upload-hidden",
-    "iwc-find-from-question-tools": "iwc-find-from-question",
-    "plan-consults-iwc-tools": "plan-consults-iwc",
-    "execution-after-approval-tools": "execution-after-approval",
-  };
+  const LIVE = [
+    "galaxy-tools-destructive-gate",
+    "galaxy-tools-job-capture",
+    "galaxy-tools-large-output",
+    "galaxy-tools-sra-gate",
+    "galaxy-tools-upload-hidden",
+    "iwc-find-from-question-tools",
+    "plan-consults-iwc-tools",
+    "execution-after-approval-tools",
+  ];
   // Snapshot: allOperations is one mutable array shared by both galaxy-ops entries.
   const ops = new Set([...allOperations].map((o) => o.name));
   const loomTools = new Set(["galaxy_read_output", "galaxy_upload_local_file"]);
 
-  for (const [clone, original] of Object.entries(CLONES)) {
-    it(`${clone} pins the bare flag and keeps ${original}'s run settings`, () => {
+  it("no scenario is left on the galaxy-mcp path", () => {
+    const dirs = fs.readdirSync(scenariosDir);
+    expect(dirs.filter((d) => d.startsWith("galaxy-mcp"))).toEqual([]);
+    for (const d of dirs) {
+      const env = load(d).env ?? {};
+      expect(
+        Object.keys(env).filter((k) => /GALAXY_TOOLS$/.test(k)),
+        d,
+      ).toEqual([]);
+    }
+  });
+
+  for (const clone of LIVE) {
+    it(`${clone} needs a model and a Galaxy, and names no MCP spelling`, () => {
       const c = load(clone);
-      const o = load(original);
-      // readEnv prefers ORBIT_ and the runner spreads ambient env first, so
-      // pinning only the LOOM_ spelling would lose to an ambient ORBIT_ value.
-      expect(c.env).toEqual({ LOOM_GALAXY_TOOLS: "bare", ORBIT_GALAXY_TOOLS: "bare" });
-      for (const k of ["tier", "timeoutMs", "requiresModel", "requiresGalaxy"] as const) {
-        expect(c[k], k).toEqual(o[k]);
-      }
+      expect(c.tier).toBe(2);
+      expect(c.requiresModel).toBe(true);
+      expect(c.requiresGalaxy).toBe(true);
+      expect(c.env).toBeUndefined();
       expect(JSON.stringify(c)).not.toContain("mcp__galaxy__");
       expect(JSON.stringify(c)).not.toContain("mcp_read_output");
     });
@@ -304,8 +299,8 @@ describe("evals bare-path clones", () => {
   });
 
   it("init-gate-galaxy-no-connection pins empty credentials", () => {
-    // Under bare, configured credentials count as connected (there is no
-    // connect tool), so ambient GALAXY_* would let /execute through.
+    // Configured credentials count as connected (there is no connect tool),
+    // so ambient GALAXY_* would let /execute through.
     expect(load("init-gate-galaxy-no-connection").env).toMatchObject({
       GALAXY_URL: "",
       GALAXY_API_KEY: "",

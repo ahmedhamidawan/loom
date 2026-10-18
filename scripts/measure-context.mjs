@@ -10,17 +10,13 @@
 //   npm run measure:context -- --galaxy-only
 //   npm run measure:context -- --json       # machine-readable
 //   npm run measure:context -- --save DIR   # also keep the raw request bodies
-//   LOOM_GALAXY_TOOLS=bare npm run measure:context  # in-process Galaxy tools
 //
 // The prompt is held until every MCP server reports connected, because the
-// adapter only exposes a server's tools once it has listed them -- a cold
-// galaxy-mcp start would otherwise race the first request and vanish from it.
-// pi counts only the servers that were registered, and under bare that is
-// brc-analytics alone (the Galaxy tools are in-process and need no wait), so
-// the same check serves both flag values.
+// adapter only exposes a server's tools once it has listed them. That is
+// brc-analytics alone; the Galaxy tools are in-process and need no wait.
 //
 // Token counts are chars/4 estimates -- good for before/after comparisons,
-// not for billing. The Galaxy run registers galaxy-mcp against usegalaxy.org
+// not for billing. The Galaxy run points the in-process tools at usegalaxy.org
 // with a dummy key, so it needs network access but never authenticates.
 
 import { spawn } from "node:child_process";
