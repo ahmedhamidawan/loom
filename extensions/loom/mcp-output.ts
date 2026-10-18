@@ -1,4 +1,7 @@
-/** Read saved MCP output without putting megabytes back into model context. */
+/**
+ * Read saved MCP output without putting megabytes back into model context. Only pi's MCP layer
+ * spills to a file, so this serves brc-analytics; the Galaxy tools have galaxy_read_output.
+ */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { constants } from "node:fs";
@@ -7,8 +10,6 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { inspectOutput, record } from "./galaxy-output";
 import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
-
-export { inspectOutput, type OutputQuery } from "./galaxy-output";
 
 const MAX_FILE_BYTES = 32 * 1024 * 1024;
 const MARKER = "[loom MCP output recovery]";
@@ -136,7 +137,7 @@ export function registerMcpOutputRecovery(pi: ExtensionAPI, inProcess?: GalaxyTo
   });
 
   pi.on("tool_result", async (event) => {
-    // In-process Galaxy tools spill to their own ring and galaxy_read_output.
+    // The Galaxy tools spill to their own ring, so their results are never this one's.
     if (inProcess?.toolName(event.toolName) !== undefined) return;
     const path = remember(event.toolCallId, event.details);
     if (!path || event.content.some((c) => c.type === "text" && c.text.includes(MARKER))) return;

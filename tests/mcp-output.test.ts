@@ -7,7 +7,8 @@ import type {
   ToolResultEvent,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { inspectOutput, registerMcpOutputRecovery } from "../extensions/loom/mcp-output";
+import { registerMcpOutputRecovery } from "../extensions/loom/mcp-output";
+import { inspectOutput } from "../extensions/loom/galaxy-output";
 import { registerSecretRedaction } from "../extensions/loom/secret-redaction";
 import { bareFamily } from "../shared/galaxy-mcp-tools.js";
 import { convertMcpResult } from "../node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/tools.js";

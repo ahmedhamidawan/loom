@@ -1,17 +1,48 @@
 /**
- * What kind of failure an in-process Galaxy call was, read from the call itself rather than from
- * its text.
+ * What kind of failure a Galaxy call was, read from the call itself rather than from its text.
  *
- * pi's MCP client only ever handed back a string, so `galaxy-transport-error.ts` has to recognise
- * a dropped transport or a timeout by its wording. galaxy-ops reports a typed `errorKind` on the
- * envelope, and the wrapper knows when its own deadline fired, so the wrapper records the kind on
- * `details.galaxy.kind` and the guards read that first. MCP results never carry `details.galaxy`,
- * so their classification is the text classifier's, unchanged.
+ * galaxy-ops reports a typed `errorKind` on the envelope, and the wrapper knows when its own
+ * deadline fired, so the wrapper records the kind on `details.galaxy.kind` and the guards read
+ * that first. A shell's extras record no kind, so their failures are read by their wording.
  */
 import type { GalaxyErrorKind } from "@galaxyproject/galaxy-ops";
-import { classifyGalaxyFailure, type GalaxyFailureKind } from "./galaxy-transport-error";
 import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 import { record } from "./galaxy-output";
+
+// A dropped transport: the server is gone and a new connection fixes it.
+const DROPPED_ERROR_PATTERNS: RegExp[] = [
+  /not connected(?!\s+to\s+galaxy)/i, // bare SDK "Not connected"; exclude the verbose auth error
+  /connection closed/i, // -32000, and pi's "MCP connection closed"
+  /MCP client is (?:closed|connecting)/i, // pi: a call on a client that already went away
+  /-32000/,
+];
+
+// A timeout proves only that no response arrived within the request budget.
+// Narrow reads first; reconnect can help a wedge but not an oversized query.
+const TIMEOUT_ERROR_PATTERNS: RegExp[] = [
+  /request timed out/i, // -32001
+  /-32001/,
+];
+
+/**
+ * Which kind of failure this is, so callers can give advice that can work. `auth` comes only from
+ * an in-process call's details; no text reads as one.
+ */
+export type GalaxyFailureKind = "dropped" | "timeout" | "auth" | null;
+
+/** The kind a failure's text reads as, for a result that recorded none. */
+export function classifyGalaxyFailure(
+  toolName: string | undefined,
+  text: string | undefined,
+  family: GalaxyToolFamily = MCP_FAMILY,
+): Exclude<GalaxyFailureKind, "auth"> {
+  if (family.toolName(toolName) === undefined || !text) return null;
+  // Timeout first: a -32001 body can also mention "not connected" downstream,
+  // and the timeout reading is the actionable one.
+  if (TIMEOUT_ERROR_PATTERNS.some((p) => p.test(text))) return "timeout";
+  if (DROPPED_ERROR_PATTERNS.some((p) => p.test(text))) return "dropped";
+  return null;
+}
 
 /** A failure kind the recovery guidance has advice for. */
 export type GalaxyCallKind = Exclude<GalaxyFailureKind, null>;
@@ -37,7 +68,7 @@ export function kindOfEnvelope(
  * `details.galaxy.kind` when an in-process call recorded one, else the text classifier's reading.
  * A failed in-process op always records the key, null when its errorKind has no recovery advice:
  * Galaxy's own message can quote a wire phrase ("request timed out") the text classifier would
- * misread. Only MCP results and a shell's extras, which record no kind, are read by their text.
+ * misread. Only a shell's extras, which record no kind, are read by their text.
  */
 export function galaxyFailureKind(
   details: unknown,

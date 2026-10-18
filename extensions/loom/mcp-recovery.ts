@@ -1,7 +1,6 @@
-/** Agent-facing recovery, alongside the short human-facing transport notice. */
+/** Agent-facing recovery for failed Galaxy calls. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { GalaxyFailureKind } from "./galaxy-transport-error";
-import { galaxyFailureKind } from "./galaxy-failure";
+import { galaxyFailureKind, type GalaxyFailureKind } from "./galaxy-failure";
 import {
   MCP_FAMILY,
   hasConnectTool as rebinds,

@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  classifyGalaxyFailure,
-  galaxyFailureNudge,
-  GALAXY_RECONNECT_NUDGE,
-  GALAXY_TIMEOUT_NUDGE,
-  isGalaxyTransportError,
-} from "../extensions/loom/galaxy-transport-error.js";
+import { classifyGalaxyFailure } from "../extensions/loom/galaxy-failure.js";
 
 describe("classifyGalaxyFailure", () => {
   it("calls a timed-out request a timeout, not a dropped connection", () => {
@@ -47,39 +41,5 @@ describe("classifyGalaxyFailure", () => {
     expect(classifyGalaxyFailure("bash", "Request timed out")).toBeNull();
     expect(classifyGalaxyFailure("mcp__galaxy__run_tool", undefined)).toBeNull();
     expect(classifyGalaxyFailure(undefined, "Request timed out")).toBeNull();
-  });
-});
-
-describe("galaxyFailureNudge", () => {
-  it("reports an unknown outcome without delegating recovery to the user", () => {
-    expect(galaxyFailureNudge("timeout")).toBe(GALAXY_TIMEOUT_NUDGE);
-    expect(GALAXY_TIMEOUT_NUDGE).toContain("result is unknown");
-    expect(GALAXY_TIMEOUT_NUDGE).not.toContain("Try asking");
-  });
-
-  it("identifies a dropped transport and keeps the manual command as a fallback", () => {
-    expect(galaxyFailureNudge("dropped")).toBe(GALAXY_RECONNECT_NUDGE);
-    expect(GALAXY_RECONNECT_NUDGE).toContain("agent can reconnect");
-    expect(GALAXY_RECONNECT_NUDGE).toContain("if that fails, run /mcp reconnect galaxy");
-  });
-
-  it("says nothing when there is nothing useful to say", () => {
-    expect(galaxyFailureNudge(null)).toBeNull();
-  });
-});
-
-describe("isGalaxyTransportError (unchanged arm/disarm behaviour)", () => {
-  it("still matches both classes, so the nudge cadence is unaffected", () => {
-    expect(isGalaxyTransportError("mcp__galaxy__run_tool", "Request timed out")).toBe(true);
-    expect(isGalaxyTransportError("mcp__galaxy__run_tool", "Connection closed")).toBe(true);
-  });
-
-  it("still ignores the auth error", () => {
-    expect(
-      isGalaxyTransportError(
-        "mcp__galaxy__get_histories",
-        "Not connected to Galaxy. Authenticate via OAuth or run connect()...",
-      ),
-    ).toBe(false);
   });
 });

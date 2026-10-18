@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import * as mcpOutput from "../extensions/loom/mcp-output";
-import * as galaxyOutput from "../extensions/loom/galaxy-output";
 import {
   GALAXY_OUTPUT_MARKER,
   inspectOutput,
@@ -62,12 +60,6 @@ function toolPanel() {
 }
 
 describe("inspectOutput extraction", () => {
-  // One function behind both imports, so tests/mcp-output.test.ts passing unedited is what pins
-  // the moved code's behaviour; comparing the two paths case by case would compare it with itself.
-  it("is the same function through mcp-output and galaxy-output", () => {
-    expect(mcpOutput.inspectOutput).toBe(galaxyOutput.inspectOutput);
-  });
-
   it("bounds catalog pages by UTF-8 bytes as before", () => {
     const page = inspectOutput(JSON.stringify(unicodeCatalog()), { outputId: "x", limit: 20 });
     expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThan(14_000);

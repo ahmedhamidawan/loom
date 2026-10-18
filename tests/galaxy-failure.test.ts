@@ -4,9 +4,9 @@ import {
   GALAXY_DEADLINE_TEXT,
   galaxyFailureKind,
   kindOfEnvelope,
+  classifyGalaxyFailure,
   transportCode,
 } from "../extensions/loom/galaxy-failure";
-import { classifyGalaxyFailure } from "../extensions/loom/galaxy-transport-error";
 import { runGalaxyCall, wrapGalaxyTool } from "../extensions/loom/galaxy-tool-wrap";
 import type { GalaxyTool } from "../extensions/loom/galaxy-tool-source";
 import { galaxyRecoveryHint, registerMcpRecovery } from "../extensions/loom/mcp-recovery";

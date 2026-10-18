@@ -9,7 +9,6 @@ import { loadConfig as loadLoomConfig } from "../shared/loom-config.js";
 import { migrateStateDir } from "../shared/state-dir.js";
 import { spawn } from "child_process";
 import { getLoomVersion, detectInstall } from "./update-check.js";
-import { isUvxAvailable, uvxMissingNotice } from "./uvx-check.js";
 import { resolveHideThinking, isInteractiveTerminal } from "./thinking-pref.js";
 import { hasStoredCredential, isProviderUsable, pickSignedInFallback } from "./provider-auth.js";
 import { SEED_OAUTH_ONLY_PROVIDERS } from "../shared/provider-auth-caps.js";
@@ -669,14 +668,6 @@ if (userArgs[0] === "update") {
   child.on("exit", (code) => process.exit(code ?? 0));
 } else {
   checkLLMProvider();
-
-  // Galaxy is configured but the uvx runner that launches galaxy-mcp is missing.
-  // Warn (don't block): Loom is still useful without Galaxy, and pi would
-  // otherwise fail to spawn that server with a buried error. Orbit bundles
-  // uv onto PATH before spawn, so this only fires for standalone CLI installs.
-  if (galaxyUrl && galaxyApiKey && !isUvxAvailable()) {
-    console.error(`\n${uvxMissingNotice()}\n`);
-  }
 
   // Resolve pi-coding-agent's own version by walking up from its entry point to
   // the package root. Used to pin the changelog watermark below.
