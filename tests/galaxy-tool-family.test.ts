@@ -351,7 +351,7 @@ describe("guards under a bare family with no connect tool", () => {
   });
 
   it("recovery hints without a connect tool drop the re-bind and the saved-output reader", () => {
-    const hint = galaxyRecoveryHint("get_tool_panel", "dropped", NO_CONNECT);
+    const hint = galaxyRecoveryHint("get_tool_panel", "timeout", NO_CONNECT);
     expect(hint).not.toContain("connect()");
     expect(hint).not.toContain("mcp_read_output");
     expect(hint).not.toContain("mcp__galaxy__");
@@ -366,6 +366,107 @@ describe("guards under a bare family with no connect tool", () => {
     expect(reason).toContain("one request per tool");
     expect(reason).not.toContain("MCP budget");
     expect(reason).not.toContain("mcp_read_output");
+  });
+
+  it("a bare dropped read gets retry-once advice, not the timeout's narrowing", () => {
+    const hint = galaxyRecoveryHint("get_history_details", "dropped", NO_CONNECT);
+    expect(hint.startsWith("[loom Galaxy recovery]\n")).toBe(true);
+    for (const absent of ["MCP", "Narrow or paginate", "saved response", "connect()"])
+      expect(hint).not.toContain(absent);
+    expect(hint).toContain("Retrying the identical call once is safe");
+    // galaxy-ops reports a 400 as a connection failure, so the advice must send the model to the
+    // message rather than straight to "unreachable".
+    expect(hint).toContain("read the error -- a rejected argument needs different input");
+    expect(hint).toContain("After one retry fails");
+    expect(hint).not.toContain("narrowed retry");
+  });
+
+  it("a bare dropped mutation is checked with a cheap read before any retry", () => {
+    for (const name of ["run_tool", "create_history"]) {
+      const hint = galaxyRecoveryHint(name, "dropped", NO_CONNECT);
+      expect(hint).toContain("UNKNOWN");
+      expect(hint).toContain("record it with galaxy_job_record or galaxy_invocation_record");
+      expect(hint).toContain("check once with a cheap read");
+      expect(hint).not.toContain("Narrow or paginate");
+      expect(hint).not.toContain("Retrying the identical call once is safe");
+    }
+  });
+
+  it("a bare timed-out read keeps narrowing without the saved-response advice", () => {
+    const hint = galaxyRecoveryHint("get_history_details", "timeout", NO_CONNECT);
+    expect(hint.startsWith("[loom Galaxy recovery]\n")).toBe(true);
+    expect(hint).toContain("Narrow or paginate");
+    expect(hint).not.toContain("saved response");
+  });
+
+  it("bare discovery advice follows a timeout, not a dropped call", () => {
+    expect(galaxyRecoveryHint("get_tool_panel", "timeout", NO_CONNECT)).toContain(
+      "fetch get_tool_panel once.",
+    );
+    const dropped = galaxyRecoveryHint("get_tool_panel", "dropped", NO_CONNECT);
+    expect(dropped).not.toContain("fetch get_tool_panel once");
+    expect(dropped).not.toContain("search_tools_by_name");
+  });
+
+  it("a bare auth refusal carries the bare marker", () => {
+    expect(
+      galaxyRecoveryHint("get_history_details", "auth", NO_CONNECT).startsWith(
+        "[loom Galaxy recovery]\n",
+      ),
+    ).toBe(true);
+  });
+
+  it("mcp-recovery appends one dropped hint under bare and does not block the retry", () => {
+    const fire = handlers((pi) => registerMcpRecovery(pi, NO_CONNECT));
+    const failed = (text: string) => ({
+      toolName: "get_history_details",
+      input: { history_id: "h1" },
+      isError: true,
+      content: [{ type: "text", text }],
+      details: { galaxy: { tool: "get_history_details", kind: "dropped" } },
+    });
+    const result = fire("tool_result")(failed("Get history details failed: fetch failed"));
+    expect(result?.content).toHaveLength(2);
+    expect(result?.content.at(-1).text).toBe(
+      galaxyRecoveryHint("get_history_details", "dropped", NO_CONNECT),
+    );
+    expect(
+      fire("tool_call")({ toolName: "get_history_details", input: { history_id: "h1" } }),
+    ).toBeUndefined();
+    for (const marker of ["[loom Galaxy recovery]", "[loom Galaxy MCP recovery]"])
+      expect(fire("tool_result")(failed(`x\n${marker}\ny`))).toBeUndefined();
+  });
+
+  it("under bare, another Galaxy call succeeding earns a timed-out read one identical retry", () => {
+    const fire = handlers((pi) => registerMcpRecovery(pi, NO_CONNECT));
+    const job = { toolName: "get_job_details", input: { job_id: "j1" } };
+    const timedOut = {
+      ...job,
+      isError: true,
+      content: [{ type: "text", text: "timed out" }],
+      details: { galaxy: { tool: "get_job_details", kind: "timeout" } },
+    };
+    fire("tool_result")(timedOut);
+    expect(fire("tool_call")(job)?.block).toBe(true);
+    // The same call succeeding is not news; a different one is Galaxy answering again.
+    fire("tool_result")({
+      toolName: "get_history_details",
+      input: { history_id: "h1" },
+      isError: false,
+      content: [{ type: "text", text: "{}" }],
+    });
+    expect(fire("tool_call")(job)).toBeUndefined();
+    // One retry per incident: timing out again blocks it until the user's next message.
+    fire("tool_result")(timedOut);
+    fire("tool_result")({
+      toolName: "get_history_details",
+      input: { history_id: "h1" },
+      isError: false,
+      content: [{ type: "text", text: "{}" }],
+    });
+    expect(fire("tool_call")(job)?.block).toBe(true);
+    fire("input")();
+    expect(fire("tool_call")(job)).toBeUndefined();
   });
 
   it("recovery guidance is the MCP text under MCP and an in-process text otherwise", () => {

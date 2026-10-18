@@ -12,6 +12,7 @@
  * module with fs/chokidar edges, and the browser's conformance test counts them.
  */
 
+import { GalaxyApiError } from "./galaxy-api";
 import { createFileRecordStore } from "./record-store-file";
 import { installedRecordStore } from "./record-store-seam";
 
@@ -60,6 +61,16 @@ export interface RecordStore {
    * only). Returns unsubscribe; the last unsubscribe releases the watcher.
    */
   onChange(cb: (content: string) => void): () => void;
+}
+
+/**
+ * Whether `read()` failed because the record is not there, as opposed to not reachable right
+ * now. Only the first means "no record yet"; a 5xx, a timeout or a dropped connection says
+ * nothing about what the record holds.
+ */
+export function isRecordMissing(error: unknown): boolean {
+  if (error instanceof GalaxyApiError) return error.status === 404;
+  return (error as { code?: unknown } | null)?.code === "ENOENT";
 }
 
 /** Thrown by a guarded `write` when the record moved under the caller. */

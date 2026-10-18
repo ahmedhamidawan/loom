@@ -116,7 +116,7 @@ import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "./config";
 import { getNotebookPath } from "./state";
-import { recordStore } from "./record-store";
+import { isRecordMissing, recordStore } from "./record-store";
 import { appendActivityEvent } from "./activity";
 import { findInvocationBlocks, type InvocationYaml } from "./notebook-writer";
 import { findJobBlocks, type JobYaml } from "./galaxy-job-block";
@@ -126,7 +126,7 @@ import { computeHandoffEligible, type Attempt, type Registry } from "./registry"
 import { NO_APPROVAL_REVISION } from "./registry-evaluation";
 import { getSessionRegistry, sessionView } from "./registry-runtime";
 import { readEnv } from "../../shared/orbit-env.js";
-import { applySectionEdit } from "../../shared/markdown-sections.js";
+import { applySectionEdit, repeatedHeadingRefusal } from "../../shared/markdown-sections.js";
 import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 
 /** pi emits its built-in file tools lowercase; mirrors exec-guard's FILE_WRITE_TOOLS. */
@@ -697,15 +697,17 @@ export function computeAfterContent(
 
 /**
  * The record page after an update_page call, as the page bridge would write it: whole content,
- * or one section rewritten. A title-only call, or a combination the bridge refuses, writes no
- * body we can judge.
+ * or one section rewritten. A title-only call, or a combination the bridge refuses (a repeated
+ * heading among them), writes no body we can judge.
  */
 function pageAfterContent(before: string, input: Record<string, unknown>): string | null {
   const { content, section_heading: heading, section_content: section } = input;
   const sectioned = heading != null || section != null;
   if (typeof content === "string") return sectioned ? null : content;
   if (typeof heading === "string" && typeof section === "string") {
-    return applySectionEdit(before, heading, section);
+    return repeatedHeadingRefusal(before, heading)
+      ? null
+      : applySectionEdit(before, heading, section);
   }
   return null;
 }
@@ -1207,10 +1209,23 @@ export function registerEvidenceGate(
     let before: string;
     try {
       before = (await recordStore(nbPath).read()).content;
-    } catch {
-      // No notebook on disk yet. Nothing to compare against -- unless the
-      // registry holds a step, in which case a notebook written from scratch
-      // with that step complete is still a completion.
+    } catch (error) {
+      // A record that can't be reached right now (a page GET that timed out or
+      // got a 5xx) says nothing about which steps it holds, and judging the
+      // write against "" would let it complete any of them unseen.
+      if (!isRecordMissing(error)) {
+        if (mode !== "deny") return;
+        return {
+          block: true,
+          reason:
+            `Could not read the notebook (${recordStore(nbPath).label}) to check this write ` +
+            `against its steps: ${error instanceof Error ? error.message : String(error)}. ` +
+            `Nothing was written. Try the same call again in a moment.`,
+        };
+      }
+      // No notebook yet. Nothing to compare against -- unless the registry
+      // holds a step, in which case a notebook written from scratch with that
+      // step complete is still a completion.
       if (registryHolds(registry).held.size === 0) return;
       before = "";
     }

@@ -26,6 +26,8 @@ const discoveryHint = (family: GalaxyToolFamily) =>
     ? `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once and search its saved response with mcp_read_output. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`
     : `Use ${family.tool("search_tools_by_name")} with a specific name, ID, or description term (one term per call), then inspect schemas only for matching candidates. If a full catalog is needed, fetch ${family.tool("get_tool_panel")} once. Name searches do not establish absence of tools matching only an input datatype; inspect candidate input schemas when that distinction matters.`;
 const MARKER = "[loom Galaxy MCP recovery]";
+const BARE_MARKER = "[loom Galaxy recovery]";
+const markerFor = (family: GalaxyToolFamily) => (rebinds(family) ? MARKER : BARE_MARKER);
 // Calls that never change Galaxy state, so a timeout can't leave an accepted
 // operation behind.
 const READ_ONLY = /^(get_|list_|search_|download_)/;
@@ -100,8 +102,9 @@ export function galaxyRecoveryHint(
   // Galaxy refused the request outright, so nothing was accepted and no retry can help until the
   // credentials change.
   if (kind === "auth") {
-    return `${MARKER}\n${GALAXY_AUTH_HINT}\nRespect Stop/pause.`;
+    return `${markerFor(family)}\n${GALAXY_AUTH_HINT}\nRespect Stop/pause.`;
   }
+  if (!rebinds(family)) return bareRecoveryHint(name, kind, family);
   const connect = family.tool("connect");
   const tool = family.toolName(name);
   const outcome =
@@ -109,16 +112,44 @@ export function galaxyRecoveryHint(
       ? `${connect} only binds this session and changes nothing in Galaxy; it is safe to call again once.`
       : isReadOnly(name, family)
         ? "This was a read-only lookup. Continue the authorized task using a smaller query or saved response."
-        : "This operation may already have been accepted by Galaxy. Its result is UNKNOWN. Inspect the destination history, jobs/invocations or affected resource before considering any retry. Reuse accepted work, and if you find the accepted job or invocation, record it with galaxy_job_record or galaxy_invocation_record -- Loom cannot capture a submission whose call failed. Do not blindly repeat a submission, upload, create, update or delete; do not invent IDs or claim success.";
-  const action = !rebinds(family)
-    ? "Narrow or paginate the request before one read-only retry; do not repeat the same expensive call."
-    : kind === "dropped"
+        : MUTATION_OUTCOME;
+  const action =
+    kind === "dropped"
       ? `The connection reconnects on the next call. Call ${connect}() yourself once and check its result before continuing; do not ask the user to reconnect or restart Orbit.`
       : `Narrow or paginate the request before one read-only retry; do not repeat the same expensive call. If even a small request times out, call ${connect}() once and check the result.`;
-  const closing = rebinds(family)
-    ? "After one narrowed retry and one re-bind fail, report a concrete blocker rather than looping."
-    : "After one narrowed retry fails, report a concrete blocker rather than looping.";
-  return `${MARKER}\n${action}\n${outcome}\n${name.includes("search_tools") || tool === "get_tool_panel" ? discoveryHint(family) : ""}\nDo the recovery now without another permission question. ${closing} Respect Stop/pause.`;
+  return `${MARKER}\n${action}\n${outcome}\n${name.includes("search_tools") || tool === "get_tool_panel" ? discoveryHint(family) : ""}\nDo the recovery now without another permission question. After one narrowed retry and one re-bind fail, report a concrete blocker rather than looping. Respect Stop/pause.`;
+}
+
+const MUTATION_OUTCOME =
+  "This operation may already have been accepted by Galaxy. Its result is UNKNOWN. Inspect the destination history, jobs/invocations or affected resource before considering any retry. Reuse accepted work, and if you find the accepted job or invocation, record it with galaxy_job_record or galaxy_invocation_record -- Loom cannot capture a submission whose call failed. Do not blindly repeat a submission, upload, create, update or delete; do not invent IDs or claim success.";
+
+// galaxy-ops reports any HTTP status but 401/403/404 as a connection failure, so a "dropped" bare
+// call is often a rejected argument (a 400 or 422): the advice sends the model to the message. A
+// 502/504 is "connection" too and the request may have run, so nothing claims no reply arrived.
+function bareRecoveryHint(
+  name: string,
+  kind: "timeout" | "dropped",
+  family: GalaxyToolFamily,
+): string {
+  const tool = family.toolName(name);
+  const readOnly = isReadOnly(name, family);
+  const outcome = readOnly ? "This was a read-only lookup." : MUTATION_OUTCOME;
+  const action =
+    kind === "timeout"
+      ? "Narrow or paginate the request before one read-only retry; do not repeat the same expensive call. A lookup with nothing to narrow can be repeated once, after another Galaxy request has succeeded."
+      : readOnly
+        ? "Galaxy did not complete the request. Retrying the identical call once is safe; if it fails the same way, read the error -- a rejected argument needs different input, otherwise report Galaxy as unreachable."
+        : "Before any retry, check once with a cheap read of the destination history, jobs or invocations.";
+  // Name search and a single panel fetch are the way around a slow catalog, not a failed one.
+  const discovery =
+    kind === "timeout" && (name.includes("search_tools") || tool === "get_tool_panel")
+      ? discoveryHint(family)
+      : "";
+  const closing =
+    kind === "timeout"
+      ? "After one narrowed retry fails, report a concrete blocker rather than looping."
+      : "After one retry fails, report a concrete blocker rather than looping.";
+  return `${BARE_MARKER}\n${action}\n${outcome}\n${discovery}\nDo the recovery now without another permission question. ${closing} Respect Stop/pause.`;
 }
 
 function stable(value: unknown): string {
@@ -145,7 +176,11 @@ export function registerMcpRecovery(pi: ExtensionAPI, family: GalaxyToolFamily =
     transportFailed = false;
     rebindAttempts = 0;
   };
-  pi.on("input", reset);
+  // A user's next message starts a new incident; an extension's follow-up (a poller auto-resume)
+  // does not, or it would re-arm the reads and re-binds this incident already spent.
+  pi.on("input", (event) => {
+    if (event?.source !== "extension") reset();
+  });
   pi.on("session_start", reset);
   pi.on("session_tree", reset);
   pi.on("tool_call", (event) => {
@@ -188,6 +223,13 @@ export function registerMcpRecovery(pi: ExtensionAPI, family: GalaxyToolFamily =
     const call = galaxyCall(event.toolName, event.input, family);
     if (!call) return;
     if (!event.isError && !details?.error) {
+      // With no connect to re-bind, Galaxy answering some other call is the sign it is back:
+      // each timed-out read gets the one retry a good re-bind would have earned it.
+      if (!rebinds(family) && transportFailed) {
+        const key = call.name + stable(call.args);
+        for (const read of timedOutReads)
+          if (read !== key && !retriedAfterRebind.has(read)) retryPermits.add(read);
+      }
       if (isReadOnly(call.name, family)) {
         // A verified read ends this incident. Future polling of the same
         // dataset/history must remain possible after a successful retry.
@@ -204,7 +246,7 @@ export function registerMcpRecovery(pi: ExtensionAPI, family: GalaxyToolFamily =
       .filter((c) => c.type === "text")
       .map((c) => c.text)
       .join("\n");
-    if (text.includes(MARKER)) return;
+    if (text.includes(MARKER) || text.includes(BARE_MARKER)) return;
     const kind = galaxyFailureKind(event.details, text, call.name, family);
     if (!kind) return;
     // A refused credential is not a transport incident: no re-bind or narrowed retry follows it.

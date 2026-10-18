@@ -1,6 +1,7 @@
-export function markdownSections(
+export function repeatedHeadingRefusal(
   content: string | null | undefined,
-): { heading: string; content: string }[];
+  heading: string,
+): string | undefined;
 export function applySectionEdit(
   original: string | null | undefined,
   heading: string,

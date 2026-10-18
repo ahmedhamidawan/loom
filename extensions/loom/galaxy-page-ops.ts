@@ -22,7 +22,7 @@ import {
   type Operation,
   type PageDetail,
 } from "@galaxyproject/galaxy-ops";
-import { applySectionEdit } from "../../shared/markdown-sections.js";
+import { applySectionEdit, repeatedHeadingRefusal } from "../../shared/markdown-sections.js";
 import { malformedObjectIds } from "../../shared/malformed-object-ids.js";
 import { pageContentHash } from "../../shared/page-content-hash.js";
 import type { GalaxyBridge } from "./galaxy-ops-tools";
@@ -75,10 +75,10 @@ export const getPageBridge: GalaxyBridge = {
 const updatePageInput = {
   ...updatePageOp.input,
   sectionHeading: updatePageOp.input.title.describe(
-    "Heading line of the section to rewrite, exactly as the page has it (for example '## Results'). Every section under that heading line is rewritten. Markdown pages only; send section_content with it and leave content out.",
+    "Heading line of the section to rewrite, exactly as the page has it (for example '## Results'). The section runs to the next heading of the same or a higher level, so its subsections go with it; a heading the page repeats is refused, so name the unique heading above it. Markdown pages only; send section_content with it and leave content out.",
   ),
   sectionContent: updatePageOp.input.content.describe(
-    "Everything the section should hold, its heading line first. When the page has no section under that heading, this goes on the end.",
+    "Everything the section should hold, its heading line first and its subsections included. Without any subsection heading it rewrites only the text above the section's first subsection and keeps the subsections. When the page has no section under that heading, this goes on the end.",
   ),
   expectHash: updatePageOp.input.content.describe(
     "The content_hash get_page gave you. If the page has been edited after that, nothing is written and you are told to read it again.",
@@ -126,6 +126,8 @@ const updatePageBridgeOp: Operation<
             `Page '${i.pageId}' is written in ${data.content_format}, and only a markdown page can have one section rewritten. Send the whole content instead.`,
           );
         }
+        const repeated = repeatedHeadingRefusal(pageBody(data), i.sectionHeading);
+        if (repeated) throw new GalaxyValidationError(repeated);
         content = applySectionEdit(pageBody(data), i.sectionHeading, i.sectionContent ?? "");
       }
       // The read can outlive the deadline on a transport that ignores its signal; by then the

@@ -193,7 +193,6 @@ describe("Orbit's Galaxy tools against the browser's galaxy-ops fork", () => {
       "## Plan\nnew\n",
     ],
     ["a heading the page lacks", "# T\n\n## Plan\nold\n", "## Methods", "## Methods\nm"],
-    ["a heading the page repeats", "## A\n1\n## B\n2\n## A\n3", "## A", "## A\nx"],
     ["a heading on the first line", "## Plan\nold\n## Next\nn", "## Plan", "## Plan\nnew"],
     ["text above the first heading", "intro\n\n## Plan\nold", "## Plan", "## Plan\nnew\n\n"],
     ["trailing blank lines", "## Plan\nold\n\n\n", "## Plan", "## Plan\nnew\n"],
@@ -204,7 +203,6 @@ describe("Orbit's Galaxy tools against the browser's galaxy-ops fork", () => {
       "## Plan",
       "## Plan\nnew",
     ],
-    ["a heading inside fenced code", "## Plan\n```\n## Plan\n```\nold", "## Plan", "## Plan\nnew"],
     ["a near-miss heading line", "## Plan \nold\n## Plan\nkeep", "## Plan", "## Plan\nnew"],
   ];
 
@@ -220,6 +218,60 @@ describe("Orbit's Galaxy tools against the browser's galaxy-ops fork", () => {
       expect(fork.sent[0]!.content).toBe(applySectionEdit(body, heading, section));
     },
   );
+
+  // Where Orbit's cut and the fork's disagree, Orbit's is the one both shells keep: a section
+  // holds its subsections, fenced code holds no headings, and a repeated heading is refused. The
+  // fork's update_page is slated for deletion; until then the browser's update_page policy hands
+  // it a whole-page write of Orbit's cut (record-edit.test.ts) and never a section edit it would
+  // cut its own way.
+  const DIVERGENT: [string, string, string, string, string][] = [
+    [
+      "a section with subsections",
+      "## Plan A\nq\n### Steps\n- [ ] 1\n## Plan B\nb",
+      "## Plan A",
+      "## Plan A\nq\n### Steps\n- [x] 1",
+      "## Plan A\nq\n### Steps\n- [x] 1\n## Plan B\nb",
+    ],
+    [
+      "a heading inside fenced code",
+      "## Plan\n```\n## Plan\n```\nold",
+      "## Plan",
+      "## Plan\nnew",
+      "## Plan\nnew",
+    ],
+  ];
+
+  it.each(DIVERGENT)(
+    "a section edit writes Orbit's cut, not the fork's, for %s",
+    async (_name, body, heading, section, expected) => {
+      const args = { pageId: "5a1cde2f3b4c5d6e", sectionHeading: heading, sectionContent: section };
+      const fork = pageContext(markdownPage(body));
+      await forkUpdatePageOp.run(args, fork.ctx);
+      const orbit = pageContext(markdownPage(body));
+      await updatePageBridge.op.run(args, orbit.ctx);
+      expect(orbit.sent[0]!.content).toBe(expected);
+      expect(applySectionEdit(body, heading, section)).toBe(expected);
+      // When this fails the fork has caught up, and the case joins SECTION_CASES.
+      expect(fork.sent[0]!.content).not.toBe(expected);
+    },
+  );
+
+  it("refuses a heading the page repeats, which the fork would rewrite at every match", async () => {
+    const body = "## Plan A\n### Steps\n1\n## Plan B\n### Steps\n2";
+    const args = {
+      pageId: "5a1cde2f3b4c5d6e",
+      sectionHeading: "### Steps",
+      sectionContent: "### Steps\nx",
+    };
+    const orbit = pageContext(markdownPage(body));
+    await expect(updatePageBridge.op.run(args, orbit.ctx)).rejects.toThrow(
+      /2 sections headed "### Steps".*"## Plan A", "## Plan B"/,
+    );
+    expect(orbit.sent).toEqual([]);
+    const fork = pageContext(markdownPage(body));
+    await forkUpdatePageOp.run(args, fork.ctx);
+    expect(fork.sent[0]!.content).toBe("## Plan A\n### Steps\nx\n## Plan B\n### Steps\nx");
+  });
 
   const DIRECTIVE_CASES = [
     "plain prose naming history_dataset_id=3 outside any directive",

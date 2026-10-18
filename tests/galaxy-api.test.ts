@@ -1,5 +1,8 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import {
+  GALAXY_VERSION_PROBE_MS,
+  galaxyOpsContext,
+  resetGalaxyOpsVersion,
   galaxyCredentials,
   galaxyGet,
   galaxyGetJobDetails,
@@ -209,5 +212,93 @@ describe("job details and listing requests", () => {
     for (const bad of [".", "..", "a/b", "", "0a24 8a", 7]) {
       expect(isGalaxyEncodedId(bad)).toBe(false);
     }
+  });
+});
+
+describe("galaxyOpsContext version cache", () => {
+  const VERSION = { version_major: "26.1", version_minor: "1" };
+  const reply = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
+  let versionCalls: number;
+  let url: string;
+
+  function serve(replies: Array<() => Promise<Response>>) {
+    versionCalls = 0;
+    setGalaxyTransport({
+      credentials: () => ({ url, apiKey: "k" }),
+      fetch: (u) => {
+        if (!u.endsWith("/api/version")) return Promise.resolve(reply({}));
+        versionCalls++;
+        return (replies.shift() ?? (() => Promise.resolve(reply(VERSION))))();
+      },
+    });
+  }
+  const after = (ms: number, body: unknown) => () =>
+    new Promise<Response>((r) => setTimeout(() => r(reply(body)), ms));
+
+  beforeEach(() => {
+    url = "https://galaxy.test";
+    resetGalaxyOpsVersion();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    setGalaxyTransport(null);
+    resetGalaxyOpsVersion();
+  });
+
+  it("asks /api/version once across contexts and keeps the whole report", async () => {
+    serve([]);
+    const first = await galaxyOpsContext()!.galaxyVersion!();
+    const second = await galaxyOpsContext()!.galaxyVersion!();
+    expect(versionCalls).toBe(1);
+    expect(second.payload).toEqual(VERSION);
+    expect(second.source).toBe("server");
+    expect(second).toEqual(first);
+  });
+
+  it("waits out a slow version reply instead of giving up at 3 s", async () => {
+    vi.useFakeTimers();
+    expect(GALAXY_VERSION_PROBE_MS).toBeGreaterThanOrEqual(10_000);
+    serve([after(GALAXY_VERSION_PROBE_MS - 100, VERSION)]);
+    const pending = galaxyOpsContext()!.galaxyVersion!();
+    await vi.advanceTimersByTimeAsync(GALAXY_VERSION_PROBE_MS);
+    const report = await pending;
+    expect(report.error).toBeUndefined();
+    expect(report.payload).toEqual(VERSION);
+  });
+
+  it("does not keep a failed lookup", async () => {
+    serve([() => Promise.resolve(reply({}, 500))]);
+    expect((await galaxyOpsContext()!.galaxyVersion!()).payload).toBeUndefined();
+    expect((await galaxyOpsContext()!.galaxyVersion!()).payload).toEqual(VERSION);
+    expect((await galaxyOpsContext()!.galaxyVersion!()).payload).toEqual(VERSION);
+    expect(versionCalls).toBe(2);
+  });
+
+  it("is keyed by server and cleared by a reset", async () => {
+    serve([]);
+    await galaxyOpsContext()!.galaxyVersion!();
+    url = "https://other.test";
+    await galaxyOpsContext()!.galaxyVersion!();
+    expect(versionCalls).toBe(2);
+    resetGalaxyOpsVersion();
+    await galaxyOpsContext()!.galaxyVersion!();
+    expect(versionCalls).toBe(3);
+  });
+
+  it("does not store a lookup that started before a reset", async () => {
+    let release!: () => void;
+    serve([
+      () => new Promise<Response>((r) => (release = () => r(reply({ version_major: "25.0" })))),
+    ]);
+    const stale = galaxyOpsContext()!.galaxyVersion!();
+    resetGalaxyOpsVersion();
+    release();
+    await stale;
+    expect((await galaxyOpsContext()!.galaxyVersion!()).payload).toEqual(VERSION);
+    expect(versionCalls).toBe(2);
   });
 });

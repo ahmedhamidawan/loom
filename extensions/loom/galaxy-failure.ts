@@ -51,3 +51,20 @@ export function galaxyFailureKind(
   }
   return classifyGalaxyFailure(toolName, text, family);
 }
+
+/**
+ * The first string `code` down an error's cause chain, or an AggregateError's first error's.
+ * undici hides why a request failed on `cause` and galaxy-ops keeps only `.message`, so this is
+ * the one place a connect timeout and a refused connection still differ.
+ */
+export function transportCode(err: unknown): string | undefined {
+  let cur: unknown = err;
+  for (let depth = 0; cur && depth < 6; depth++) {
+    const { code, errors, cause } = cur as { code?: unknown; errors?: unknown; cause?: unknown };
+    if (typeof code === "string" && code) return code;
+    const first = Array.isArray(errors) ? (errors[0] as { code?: unknown } | undefined) : undefined;
+    if (typeof first?.code === "string" && first.code) return first.code;
+    cur = cause;
+  }
+  return undefined;
+}

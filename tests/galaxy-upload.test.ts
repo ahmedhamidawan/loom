@@ -96,10 +96,12 @@ import { tusUpload, waitForDataset } from "../extensions/loom/galaxy-upload-tus"
 import { galaxyGet, galaxyPost, getGalaxyConfig } from "../extensions/loom/galaxy-api";
 import { getCurrentHistoryId } from "../extensions/loom/state";
 import { registerGalaxyUploadTool } from "../extensions/loom/galaxy-upload";
+import { MCP_FAMILY, bareFamily, type GalaxyToolFamily } from "../shared/galaxy-mcp-tools.js";
 
 interface ToolDef {
   name: string;
   label?: string;
+  description?: string;
   execute: (
     callId: string,
     params: Record<string, unknown>,
@@ -114,9 +116,9 @@ function makeFakeApi() {
   return { api: { registerTool: (d: ToolDef) => tools.push(d) } as any, tools };
 }
 
-function getTool() {
+function getTool(family: GalaxyToolFamily = MCP_FAMILY) {
   const { api, tools } = makeFakeApi();
-  registerGalaxyUploadTool(api);
+  registerGalaxyUploadTool(api, family);
   const tool = tools.find((t) => t.name === "galaxy_upload_local_file")!;
   expect(tool).toBeDefined();
   return tool;
@@ -155,6 +157,18 @@ beforeEach(() => {
 afterEach(() => {
   process.env.HOME = prevHome;
   vi.clearAllMocks();
+});
+
+describe("galaxy_upload_local_file description", () => {
+  it("names the MCP URL-upload tool under the MCP family", () => {
+    expect(getTool().description).toContain("use mcp__galaxy__upload_file_from_url instead");
+  });
+
+  it("names the bare URL-upload tool under a bare family", () => {
+    const description = getTool(bareFamily(["upload_file_from_url"])).description;
+    expect(description).toContain("use upload_file_from_url instead");
+    expect(description).not.toContain("mcp__galaxy__");
+  });
 });
 
 describe("galaxy_upload_local_file handler", () => {

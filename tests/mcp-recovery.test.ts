@@ -18,6 +18,7 @@ function harness() {
     ) =>
       fire("tool_result", { toolName, input, content: [{ type: "text", text }], isError, details }),
     reset: () => fire("input", {}),
+    followUp: () => fire("input", { source: "extension" }),
   };
 }
 
@@ -169,5 +170,14 @@ describe("Galaxy MCP recovery", () => {
     // Loom's own galaxy_* tools are not galaxy-mcp calls.
     expect(h.result("galaxy_job_record")).toBeUndefined();
     expect(galaxyCall("galaxy_job_record", {})).toBeUndefined();
+  });
+  it("keeps a timed-out read blocked across an extension's follow-up, not a user's message", () => {
+    // A poller auto-resume is sent as input from the extension; it is not the user moving on.
+    const h = harness();
+    h.result("mcp__galaxy__get_histories", { limit: 100 });
+    h.followUp();
+    expect(h.check("mcp__galaxy__get_histories", { limit: 100 }).block).toBe(true);
+    h.reset();
+    expect(h.check("mcp__galaxy__get_histories", { limit: 100 })).toBeUndefined();
   });
 });

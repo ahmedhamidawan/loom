@@ -148,9 +148,10 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // tool_call boundary and the gate above is skipped.
   // Inspect saved MCP output before redaction so its previews receive the same
   // secret scrubbing as ordinary tool results (including in remote shells).
-  // Only pi's MCP layer truncates to a file; in-process results never carry
-  // the metadata the recovery keys on.
-  if (mcp) registerMcpOutputRecovery(pi);
+  // Only pi's MCP layer truncates to a file, so it goes wherever an MCP server
+  // does: under bare that is brc-analytics, and the in-process Galaxy family
+  // keeps its own galaxy_read_output.
+  if (mcp || profile.mcpServers) registerMcpOutputRecovery(pi, mcp ? undefined : family);
   registerMcpRecovery(pi, family);
   registerGalaxyPollGuard(pi, family, { invocations: !mcp });
   registerProgressUpdates(pi, family);
@@ -231,7 +232,7 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   registerPlanTools(pi, family);
   // Uploads a LOCAL file; without a file surface there is nothing to upload.
   if (profile.files) {
-    registerGalaxyUploadTool(pi);
+    registerGalaxyUploadTool(pi, family);
   }
   registerNotebookSyncTools(pi, family);
   registerSyncCommand(pi);

@@ -98,7 +98,8 @@ describe("the desktop with LOOM_GALAXY_TOOLS=bare", () => {
       "galaxy_read_output",
     ])
       expect(tools, name).toContain(name);
-    expect(tools).not.toContain("mcp_read_output");
+    // brc-analytics is still on pi's MCP layer, so its oversized results keep their recovery.
+    expect(tools).toContain("mcp_read_output");
     expect(galaxyToolFamily().tool("run_tool")).toBe("run_tool");
     expect(registerGalaxyVersionCapture).toHaveBeenCalledTimes(1);
   });
@@ -114,10 +115,10 @@ describe("the desktop with LOOM_GALAXY_TOOLS=bare", () => {
         .map((e) => [e, (bare.on.get(e) ?? 0) - (unset.on.get(e) ?? 0)] as const)
         .filter(([, d]) => d !== 0),
     );
-    // The MCP output recovery (session_start, session_tree, tool_result) goes; the destructive
-    // confirm (tool_call), the page policy's reset (session_start) and the version capture
-    // (session_start, tool_result) come.
-    expect(delta).toEqual({ session_start: 1, session_tree: -1, tool_call: 1 });
+    // The MCP output recovery stays for brc-analytics; the destructive confirm (tool_call), the
+    // page policy's reset (session_start) and the version capture (session_start, tool_result)
+    // come.
+    expect(delta).toEqual({ session_start: 2, tool_call: 1, tool_result: 1 });
   });
 
   it("takes its profile down when a reload finds the flag gone", async () => {

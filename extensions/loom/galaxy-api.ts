@@ -12,9 +12,11 @@ import {
   getDatasetDetails,
   getInvocations,
   type GalaxyContext,
+  type GalaxyVersionReport,
   type InvocationDetail,
 } from "@galaxyproject/galaxy-ops";
-import { fetchSameOriginOnly } from "../../shared/redirect-guard.js";
+import { RedirectRefusedError, fetchSameOriginOnly } from "../../shared/redirect-guard.js";
+import { transportCode } from "./galaxy-failure";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Galaxy API response types
@@ -442,20 +444,71 @@ function galaxyOpsFetch(callerSignal?: AbortSignal): typeof fetch {
     const body =
       req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer();
     const signal = callerSignal ? AbortSignal.any([req.signal, callerSignal]) : req.signal;
-    return galaxyFetch(req.url, { method: req.method, headers: req.headers, body, signal });
+    try {
+      return await galaxyFetch(req.url, { method: req.method, headers: req.headers, body, signal });
+    } catch (err) {
+      throw withTransportCode(err);
+    }
   };
+}
+
+/**
+ * undici's "fetch failed" with its cause code appended, since galaxy-ops builds the model's
+ * message from `.message` alone. Aborts and refused redirects keep their own wording.
+ */
+function withTransportCode(err: unknown): unknown {
+  if (!(err instanceof Error) || err instanceof RedirectRefusedError) return err;
+  if (err.name === "AbortError" || err.name === "TimeoutError") return err;
+  const code = transportCode(err);
+  if (!code || err.message.includes(code)) return err;
+  const Ctor = err.constructor as new (message: string, options?: ErrorOptions) => Error;
+  return new Ctor(`${err.message} (${code})`, { cause: err.cause ?? err });
+}
+
+/**
+ * How long galaxy-ops' /api/version lookup may take. At least undici's 10 s connect timeout, so
+ * the probe cannot call a server unreachable that every other op would still reach -- and
+ * get_server_info is the one op that fails outright when the probe does.
+ */
+export const GALAXY_VERSION_PROBE_MS = 15_000;
+
+// galaxy-ops keeps a version report per context, and there is a context per call, so without
+// this every call would probe again. The whole report is kept rather than handed back as
+// `serverVersion`: a supplied version has no payload, so get_server_info would lose version_minor.
+let versionCache: { url: string; report: GalaxyVersionReport } | undefined;
+// Bumped by a reset, so a lookup that started before it cannot store an old server's answer.
+let versionEpoch = 0;
+
+/** Forget the cached Galaxy version, as a new session or a /connect must. */
+export function resetGalaxyOpsVersion(): void {
+  versionCache = undefined;
+  versionEpoch++;
 }
 
 /** A galaxy-ops context on the configured server, or null without credentials. */
 export function galaxyOpsContext(signal?: AbortSignal): GalaxyContext | null {
   const config = getGalaxyConfig();
   if (!config) return null;
-  return createGalaxyContext({
+  const ctx = createGalaxyContext({
     baseUrl: config.url,
     apiKey: config.apiKey,
     signal,
     fetchImpl: galaxyOpsFetch(signal),
+    versionProbeTimeoutMs: GALAXY_VERSION_PROBE_MS,
   });
+  const cached = versionCache?.url === config.url ? versionCache.report : undefined;
+  if (cached) return { ...ctx, galaxyVersion: () => Promise.resolve(cached) };
+  const lookup = ctx.galaxyVersion;
+  if (!lookup) return ctx;
+  const epoch = versionEpoch;
+  return {
+    ...ctx,
+    galaxyVersion: async () => {
+      const report = await lookup();
+      if (report.payload && epoch === versionEpoch) versionCache = { url: config.url, report };
+      return report;
+    },
+  };
 }
 
 /**

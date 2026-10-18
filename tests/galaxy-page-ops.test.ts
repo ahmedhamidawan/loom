@@ -128,30 +128,34 @@ describe("update_page", () => {
     expect(data).not.toHaveProperty("content");
   });
 
-  it("rewrites every section under the heading and leaves the rest byte for byte", async () => {
+  it("rewrites the one section under the heading and leaves the rest byte for byte", async () => {
+    const seen = galaxyWithPage(markdownPage());
+    const result = await run("update_page", {
+      page_id: PAGE_ID,
+      section_heading: "## Plan",
+      section_content: "## Plan\nnew plan\n",
+    });
+    expect(result.isError).toBe(false);
+    expect(seen.map((s) => s.method)).toEqual(["GET", "PUT"]);
+    expect(seen[1].body).toEqual({
+      edit_source: "agent",
+      content: BODY.replace("## Plan\nold plan\n", "## Plan\nnew plan\n"),
+    });
+    expect(seen[1].body?.content).toBe(applySectionEdit(BODY, "## Plan", "## Plan\nnew plan\n"));
+  });
+
+  it("refuses a heading the page repeats and writes nothing", async () => {
     const seen = galaxyWithPage(markdownPage());
     const result = await run("update_page", {
       page_id: PAGE_ID,
       section_heading: "## Results",
       section_content: "## Results\nnew results\n",
     });
-    expect(result.isError).toBe(false);
-    expect(seen.map((s) => s.method)).toEqual(["GET", "PUT"]);
-    expect(seen[1].body).toEqual({
-      edit_source: "agent",
-      content: [
-        "# Notebook",
-        "",
-        "## Plan",
-        "old plan",
-        "",
-        "## Results\nnew results\n",
-        "## Results\nnew results\n",
-      ].join("\n"),
-    });
-    expect(seen[1].body?.content).toBe(
-      applySectionEdit(BODY, "## Results", "## Results\nnew results\n"),
-    );
+    expect(result.isError).toBe(true);
+    expect(seen.map((s) => s.method)).toEqual(["GET"]);
+    expect(result.structuredContent).toMatchObject({ success: false, errorKind: "validation" });
+    expect(result.structuredContent.message).toMatch(/2 sections headed "## Results"/);
+    expect(result.structuredContent.message).toMatch(/"# Notebook"|holds once/);
   });
 
   it("appends a section whose heading the page lacks", async () => {

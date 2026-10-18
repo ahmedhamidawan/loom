@@ -1,0 +1,30 @@
+{
+  "op": "get_invocations",
+  "server": "https://test.galaxyproject.org",
+  "capturedAt": "2026-10-17",
+  "args": {
+    "history_id": "f1c07d6d09a43dbd"
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":[],\"success\":true,\"message\":\"Retrieved 0 workflow invocations\",\"count\":0,\"pagination\":null}"
+      }
+    ],
+    "structuredContent": {
+      "data": [],
+      "success": true,
+      "message": "Retrieved 0 workflow invocations",
+      "count": 0,
+      "pagination": null
+    },
+    "details": {
+      "galaxy": {
+        "tool": "get_invocations",
+        "elapsedMs": 46
+      }
+    },
+    "isError": false
+  }
+}

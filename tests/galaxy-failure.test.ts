@@ -4,6 +4,7 @@ import {
   GALAXY_DEADLINE_TEXT,
   galaxyFailureKind,
   kindOfEnvelope,
+  transportCode,
 } from "../extensions/loom/galaxy-failure";
 import { classifyGalaxyFailure } from "../extensions/loom/galaxy-transport-error";
 import { runGalaxyCall, wrapGalaxyTool } from "../extensions/loom/galaxy-tool-wrap";
@@ -19,6 +20,36 @@ describe("kindOfEnvelope", () => {
     expect(kindOfEnvelope("auth")).toBe("auth");
     for (const kind of ["not_found", "validation", "version", "job_failed", "unknown", undefined])
       expect(kindOfEnvelope(kind)).toBeUndefined();
+  });
+});
+
+/** The shape undici throws: a bare TypeError with the reason on cause. */
+function fetchFailed(code: string, message = "some transport failure"): TypeError {
+  return Object.assign(new TypeError("fetch failed"), {
+    cause: Object.assign(new Error(message), { code }),
+  });
+}
+
+describe("transportCode", () => {
+  it("finds the code undici leaves on cause", () => {
+    expect(transportCode(fetchFailed("UND_ERR_CONNECT_TIMEOUT"))).toBe("UND_ERR_CONNECT_TIMEOUT");
+  });
+
+  it("walks a nested cause chain", () => {
+    const inner = Object.assign(new Error("reset"), { code: "ECONNRESET" });
+    const err = new TypeError("fetch failed", { cause: new Error("socket", { cause: inner }) });
+    expect(transportCode(err)).toBe("ECONNRESET");
+  });
+
+  it("falls back to an AggregateError's first error", () => {
+    const agg = new AggregateError([Object.assign(new Error("refused"), { code: "ECONNREFUSED" })]);
+    expect(transportCode(new TypeError("fetch failed", { cause: agg }))).toBe("ECONNREFUSED");
+  });
+
+  it("ignores a numeric code and an error with none", () => {
+    expect(transportCode(new DOMException("aborted", "AbortError"))).toBeUndefined();
+    expect(transportCode(new TypeError("fetch failed"))).toBeUndefined();
+    expect(transportCode(undefined)).toBeUndefined();
   });
 });
 

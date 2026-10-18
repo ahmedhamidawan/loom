@@ -15,6 +15,7 @@ import {
 } from "../extensions/loom/evidence-gate";
 import { renderInvocationYaml } from "../extensions/loom/notebook-writer";
 import { setRecordStore, type RecordStore } from "../extensions/loom/record-store";
+import { GalaxyApiError } from "../extensions/loom/galaxy-api";
 import { bareFamily, MCP_FAMILY } from "../shared/galaxy-mcp-tools.js";
 import { sectionsHeaded } from "../shared/markdown-sections.js";
 
@@ -153,6 +154,36 @@ describe("update_page under a page record", () => {
     expect(decisions()).toEqual([]);
   });
 
+  it("refuses when the record page cannot be read right now, with a retry hint", async () => {
+    setRecordStore({
+      ...pageStore(),
+      read: async () => {
+        throw new GalaxyApiError(503, "", "Service Unavailable");
+      },
+    });
+    const verdict = await gate()("update_page", {
+      page_id: PAGE_ID,
+      content: BODY.replace(`- [ ] ${STEP2}`, `- [x] ${STEP2}`),
+    });
+    expect(verdict?.block).toBe(true);
+    expect(verdict?.reason).toMatch(/could not read/i);
+    expect(verdict?.reason).toMatch(/try .*again/i);
+  });
+
+  it("lets a write through when the record page does not exist yet and nothing is held", async () => {
+    setRecordStore({
+      ...pageStore(),
+      read: async () => {
+        throw new GalaxyApiError(404, "", "Not Found");
+      },
+    });
+    const verdict = await gate()("update_page", {
+      page_id: PAGE_ID,
+      content: BODY.replace(`- [ ] ${STEP2}`, `- [x] ${STEP2}`),
+    });
+    expect(verdict).toBeUndefined();
+  });
+
   it("is inert under a file notebook", async () => {
     fs.writeFileSync(nbPath, BODY);
     const verdict = await gate()("update_page", {
@@ -179,5 +210,12 @@ describe("computeAfterContent for update_page", () => {
       computeAfterContent(BODY, "update_page", { content: "# New\n", section_heading: "## X" }),
     ).toBeNull();
     expect(computeAfterContent(BODY, "update_page", { section_heading: "## X" })).toBeNull();
+    // So does a heading the page repeats.
+    expect(
+      computeAfterContent("## A\n### S\n1\n## B\n### S\n2", "update_page", {
+        section_heading: "### S",
+        section_content: "### S\nx",
+      }),
+    ).toBeNull();
   });
 });

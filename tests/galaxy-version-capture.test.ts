@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bareFamily } from "../shared/galaxy-mcp-tools.js";
-import { setGalaxyTransport } from "../extensions/loom/galaxy-api";
+import {
+  galaxyOpsContext,
+  resetGalaxyOpsVersion,
+  setGalaxyTransport,
+} from "../extensions/loom/galaxy-api";
 import { registerGalaxyVersionCapture, versionOf } from "../extensions/loom/galaxy-version-capture";
 import { getGalaxyVersion, resetGalaxyVersion } from "../extensions/loom/observations";
 
@@ -57,6 +61,7 @@ function versionsFrom(replies: Array<Promise<Response>>) {
 
 beforeEach(() => {
   resetGalaxyVersion();
+  resetGalaxyOpsVersion();
   load();
 });
 
@@ -87,6 +92,24 @@ describe("session_start", () => {
     await settle();
     expect(versionCalls).toBe(1);
     expect(getGalaxyVersion()).toBe("26.1.1");
+  });
+
+  it("seeds the version every later galaxy-ops context uses", async () => {
+    versionsFrom([Promise.resolve(json(VERSION))]);
+    await fire("session_start");
+    await settle();
+    const report = await galaxyOpsContext()!.galaxyVersion!();
+    expect(report.payload).toEqual(VERSION);
+    expect(versionCalls).toBe(1);
+  });
+
+  it("asks again after a new session starts", async () => {
+    versionsFrom([Promise.resolve(json(VERSION)), Promise.resolve(json(VERSION))]);
+    await fire("session_start");
+    await settle();
+    await fire("session_start");
+    await settle();
+    expect(versionCalls).toBe(2);
   });
 
   it("does not wait for the lookup", async () => {

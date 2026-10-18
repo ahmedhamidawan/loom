@@ -166,6 +166,57 @@ describe("failure kinds from galaxy-ops' error kinds", () => {
     expect(result.details.galaxy.kind).toBe("dropped");
   });
 
+  it("a dropped connection names undici's cause code", async () => {
+    const timeout = Object.assign(new TypeError("fetch failed"), {
+      cause: Object.assign(new Error("Connect Timeout Error"), { code: "UND_ERR_CONNECT_TIMEOUT" }),
+    });
+    const refused = new TypeError("fetch failed", {
+      cause: new AggregateError([Object.assign(new Error("refused"), { code: "ECONNREFUSED" })]),
+    });
+    for (const [err, code] of [
+      [timeout, "UND_ERR_CONNECT_TIMEOUT"],
+      [refused, "ECONNREFUSED"],
+    ] as const) {
+      setGalaxyTransport({
+        credentials: CREDENTIALS,
+        fetch: async () => {
+          throw err;
+        },
+      });
+      const result = await run(toolFromOperation(op("get_user")));
+      expect(result.structuredContent.message).toContain(`fetch failed (${code})`);
+      expect(result.content[0].text).toContain(`fetch failed (${code})`);
+      expect(result.structuredContent.errorKind).toBe("connection");
+      expect(result.details.galaxy.kind).toBe("dropped");
+    }
+  });
+
+  it("a code-less fetch failure keeps galaxy-ops' wording", async () => {
+    setGalaxyTransport({
+      credentials: CREDENTIALS,
+      fetch: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    const result = await run(toolFromOperation(op("get_user")));
+    expect(result.structuredContent.message).toContain("fetch failed");
+    expect(result.structuredContent.message).not.toContain("fetch failed (");
+  });
+
+  it("an abort carrying a cause code is not rewritten", async () => {
+    const abort = Object.assign(new DOMException("This operation was aborted", "AbortError"), {
+      cause: { code: "UND_ERR_ABORTED" },
+    });
+    setGalaxyTransport({
+      credentials: CREDENTIALS,
+      fetch: async () => {
+        throw abort;
+      },
+    });
+    const result = await run(toolFromOperation(op("get_user")));
+    expect(result.structuredContent.message).not.toContain("UND_ERR_ABORTED");
+  });
+
   it("a 401 is auth", async () => {
     setGalaxyTransport({
       credentials: CREDENTIALS,

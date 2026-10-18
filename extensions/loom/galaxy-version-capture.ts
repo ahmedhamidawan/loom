@@ -9,7 +9,7 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
-import { galaxyOpsContext } from "./galaxy-api";
+import { galaxyOpsContext, resetGalaxyOpsVersion } from "./galaxy-api";
 import { recordGalaxyVersion } from "./observations";
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -45,6 +45,8 @@ let generation = 0;
 export function registerGalaxyVersionCapture(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   pi.on("session_start", async () => {
     const g = ++generation;
+    // A /connect reloads into a new session, possibly on another server or release.
+    resetGalaxyOpsVersion();
     const ctx = galaxyOpsContext();
     if (!ctx?.galaxyVersion) return;
     // Not awaited: session start must not wait on a Galaxy round trip.

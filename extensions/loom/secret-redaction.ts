@@ -200,6 +200,48 @@ export function registerSecretRedaction(pi: ExtensionAPI): void {
   pi.on("tool_result", async (event) => {
     const secrets = currentSecretValues();
     const content = redactContent(event.content, secrets);
-    if (content) return { content };
+    // An in-process Galaxy result keeps its whole envelope here, and codemode hands it to the
+    // model's script; a spilled one previews only part of it in `content`.
+    const structured = event.structuredContent;
+    const scrubbed = structured === undefined ? undefined : redactValue(structured, secrets);
+    if (!content && scrubbed === structured) return;
+    return {
+      ...(content ? { content } : {}),
+      ...(scrubbed === undefined ? {} : { structuredContent: scrubbed }),
+    };
   });
+}
+
+/** `value` with every string redacted, or `value` itself when nothing matched. */
+function redactValue<T>(value: T, secrets: string[]): T {
+  if (secrets.length === 0) return value;
+  if (typeof value === "string") return redactSecrets(value, secrets) as T;
+  if (Array.isArray(value)) {
+    const next = value.map((v) => redactValue(v, secrets));
+    return next.some((v, i) => v !== value[i]) ? (next as T) : value;
+  }
+  if (value && typeof value === "object") {
+    // What reaches the model is the serialized form, which an object's toJSON decides.
+    if (typeof (value as { toJSON?: unknown }).toJSON === "function") {
+      let plain: unknown;
+      try {
+        plain = JSON.parse(JSON.stringify(value));
+      } catch {
+        return value;
+      }
+      const r = redactValue(plain, secrets);
+      return r !== plain ? (r as T) : value;
+    }
+    let changed = false;
+    const next = Object.fromEntries(
+      Object.entries(value).map(([k, v]) => {
+        const key = redactSecrets(k, secrets);
+        const r = redactValue(v, secrets);
+        if (r !== v || key !== k) changed = true;
+        return [key, r];
+      }),
+    );
+    return changed ? (next as T) : value;
+  }
+  return value;
 }

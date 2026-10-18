@@ -8,8 +8,10 @@ import {
   loadPiAuth,
   redactSecrets,
   redactContent,
+  registerSecretRedaction,
   REDACTED,
 } from "../extensions/loom/secret-redaction";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { setGalaxyTransport } from "../extensions/loom/galaxy-api";
 import { setConfigSource } from "../shared/config-source.js";
 
@@ -243,5 +245,69 @@ describe("currentSecretValues (what the hooks scrub right now)", () => {
     expect(secrets).toContain("source-config-key-000");
     expect(secrets).toContain("shell-held-secret-000");
     expect(secrets).not.toContain("AUTH-JSON-TOKEN-00000");
+  });
+});
+
+describe("the tool_result redactor and structuredContent", () => {
+  afterEach(() => setGalaxyTransport(null));
+  const KEY = "transport-key-1234567";
+  function handler() {
+    let h: ((event: unknown) => Promise<unknown>) | undefined;
+    registerSecretRedaction({
+      on: (_name: string, fn: typeof h) => (h = fn),
+    } as unknown as ExtensionAPI);
+    setGalaxyTransport({ credentials: () => ({ url: "http://g.test", apiKey: KEY }) });
+    return h!;
+  }
+
+  it("scrubs a secret only structuredContent carries, as with a spilled preview", async () => {
+    const out = (await handler()({
+      content: [{ type: "text", text: "Large Galaxy response saved. Preview: {...}" }],
+      structuredContent: { success: true, data: { deep: [{ token: `x ${KEY} y` }] } },
+    })) as { content?: unknown; structuredContent: unknown };
+    expect(out.content).toBeUndefined();
+    expect(out.structuredContent).toEqual({
+      success: true,
+      data: { deep: [{ token: `x ${REDACTED} y` }] },
+    });
+  });
+
+  it("keeps structuredContent, scrubbed, when it rewrites the text", async () => {
+    const env = { success: true, data: { key: KEY, n: 3 } };
+    const out = (await handler()({
+      content: [{ type: "text", text: JSON.stringify(env) }],
+      structuredContent: env,
+    })) as { content: { text: string }[]; structuredContent: unknown };
+    expect(out.content[0].text).not.toContain(KEY);
+    expect(out.structuredContent).toEqual({ success: true, data: { key: REDACTED, n: 3 } });
+    expect(env.data.key).toBe(KEY);
+  });
+
+  it("changes nothing when neither holds a secret", async () => {
+    expect(
+      await handler()({
+        content: [{ type: "text", text: "fine" }],
+        structuredContent: { success: true, data: { n: 1 } },
+      }),
+    ).toBeUndefined();
+  });
+  it("scrubs a secret that is an object key", async () => {
+    const env = { success: true, data: { [KEY]: { n: 1 } } };
+    const out = (await handler()({
+      content: [{ type: "text", text: JSON.stringify(env) }],
+      structuredContent: env,
+    })) as { content: { text: string }[]; structuredContent: unknown };
+    expect(out.content[0].text).not.toContain(KEY);
+    expect(JSON.stringify(out.structuredContent)).not.toContain(KEY);
+    expect(out.structuredContent).toEqual({ success: true, data: { [REDACTED]: { n: 1 } } });
+  });
+
+  it("scrubs a secret an object's toJSON serializes", async () => {
+    const leaky = { toJSON: () => ({ token: KEY }) };
+    const out = (await handler()({
+      content: [{ type: "text", text: JSON.stringify({ data: leaky }) }],
+      structuredContent: { data: leaky },
+    })) as { structuredContent?: unknown };
+    expect(JSON.stringify(out.structuredContent ?? null)).not.toContain(KEY);
   });
 });

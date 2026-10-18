@@ -19,7 +19,7 @@ import {
   snake,
   toolFromOperation,
 } from "../extensions/loom/galaxy-ops-tools";
-import { setGalaxyTransport } from "../extensions/loom/galaxy-api";
+import { resetGalaxyOpsVersion, setGalaxyTransport } from "../extensions/loom/galaxy-api";
 import {
   createMemoryOutputStore,
   galaxyOutputStore,
@@ -64,7 +64,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   setGalaxyTransport(null);
+  resetGalaxyOpsVersion();
   setGalaxyOutputStore(null);
   setGalaxyToolSource(null);
   setCapabilityProfile(null);
@@ -286,6 +288,35 @@ describe("running an operation", () => {
     );
     expect(result.isError).toBe(false);
     expect(given).toEqual({ historyId: "f00d", limit: 100, view: "collection" });
+  });
+
+  it("get_server_info waits for a slow version reply and keeps its full payload", async () => {
+    vi.useFakeTimers();
+    resetGalaxyOpsVersion();
+    setGalaxyTransport({
+      credentials: CREDENTIALS,
+      fetch: (url) =>
+        url.endsWith("/api/version")
+          ? new Promise((r) =>
+              setTimeout(() => r(json({ version_major: "26.1", version_minor: "1" })), 5_000),
+            )
+          : Promise.resolve(json({})),
+    });
+    const pending = toolFromOperation(op("get_server_info")).execute(
+      "c1",
+      {},
+      undefined,
+      undefined,
+      {} as never,
+    );
+    await vi.advanceTimersByTimeAsync(6_000);
+    const result = await pending;
+    expect(result.isError).toBe(false);
+    expect(result.structuredContent.success).toBe(true);
+    expect(result.structuredContent.data.version).toEqual({
+      version_major: "26.1",
+      version_minor: "1",
+    });
   });
 
   it("answers an invalid argument with a validation envelope and no request", async () => {

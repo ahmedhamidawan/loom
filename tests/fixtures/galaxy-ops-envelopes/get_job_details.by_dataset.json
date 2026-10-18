@@ -1,0 +1,74 @@
+{
+  "op": "get_job_details",
+  "server": "https://test.galaxyproject.org",
+  "capturedAt": "2026-10-17",
+  "args": {
+    "dataset_id": "6154384954d94839"
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":{\"job\":{\"model_class\":\"Job\",\"id\":\"6cdd6edf01c98f71\",\"history_id\":\"f1c07d6d09a43dbd\",\"tool_id\":\"cat1\",\"state\":\"ok\",\"exit_code\":0,\"create_time\":\"2026-10-17T20:59:59.702896\",\"update_time\":\"2026-10-17T21:00:27.564802\",\"galaxy_version\":\"27.0\",\"external_id\":\"1536105\",\"handler\":\"handler0\",\"job_runner_name\":\"jetstream2\",\"command_line\":\"cat '/jetstream2/scratch/test/jobs/1536105/inputs/dataset_ffffd0d7-e8a0-4c4a-93a6-d2e344a84d43.dat' > '/jetstream2/scratch/test/jobs/1536105/outputs/dataset_e45bf599-5c5b-436c-aefe-da6f1e08453a.dat'\",\"user_email\":null,\"user_id\":\"0000000000000001\",\"command_version\":\"\",\"params\":{\"queries\":\"[]\",\"chromInfo\":\"\\\"/cvmfs/data.galaxyproject.org/managed/len/ucsc/?.len\\\"\",\"dbkey\":\"\\\"?\\\"\",\"__input_ext\":\"\\\"input\\\"\"},\"inputs\":{\"input1\":{\"id\":\"69f114a93d358944\",\"src\":\"hda\",\"uuid\":\"ffffd0d7-e8a0-4c4a-93a6-d2e344a84d43\"}},\"outputs\":{\"out_file1\":{\"id\":\"6154384954d94839\",\"src\":\"hda\",\"uuid\":\"e45bf599-5c5b-436c-aefe-da6f1e08453a\"}},\"copied_from_job_id\":null,\"output_collections\":{},\"implicit_collection_jobs_id\":null},\"dataset_id\":\"6154384954d94839\",\"job_id\":\"6cdd6edf01c98f71\"},\"success\":true,\"message\":\"Retrieved job details for dataset '6154384954d94839'\",\"count\":null,\"pagination\":null}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "job": {
+          "model_class": "Job",
+          "id": "6cdd6edf01c98f71",
+          "history_id": "f1c07d6d09a43dbd",
+          "tool_id": "cat1",
+          "state": "ok",
+          "exit_code": 0,
+          "create_time": "2026-10-17T20:59:59.702896",
+          "update_time": "2026-10-17T21:00:27.564802",
+          "galaxy_version": "27.0",
+          "external_id": "1536105",
+          "handler": "handler0",
+          "job_runner_name": "jetstream2",
+          "command_line": "cat '/jetstream2/scratch/test/jobs/1536105/inputs/dataset_ffffd0d7-e8a0-4c4a-93a6-d2e344a84d43.dat' > '/jetstream2/scratch/test/jobs/1536105/outputs/dataset_e45bf599-5c5b-436c-aefe-da6f1e08453a.dat'",
+          "user_email": null,
+          "user_id": "0000000000000001",
+          "command_version": "",
+          "params": {
+            "queries": "[]",
+            "chromInfo": "\"/cvmfs/data.galaxyproject.org/managed/len/ucsc/?.len\"",
+            "dbkey": "\"?\"",
+            "__input_ext": "\"input\""
+          },
+          "inputs": {
+            "input1": {
+              "id": "69f114a93d358944",
+              "src": "hda",
+              "uuid": "ffffd0d7-e8a0-4c4a-93a6-d2e344a84d43"
+            }
+          },
+          "outputs": {
+            "out_file1": {
+              "id": "6154384954d94839",
+              "src": "hda",
+              "uuid": "e45bf599-5c5b-436c-aefe-da6f1e08453a"
+            }
+          },
+          "copied_from_job_id": null,
+          "output_collections": {},
+          "implicit_collection_jobs_id": null
+        },
+        "dataset_id": "6154384954d94839",
+        "job_id": "6cdd6edf01c98f71"
+      },
+      "success": true,
+      "message": "Retrieved job details for dataset '6154384954d94839'",
+      "count": null,
+      "pagination": null
+    },
+    "details": {
+      "galaxy": {
+        "tool": "get_job_details",
+        "elapsedMs": 112
+      }
+    },
+    "isError": false
+  }
+}

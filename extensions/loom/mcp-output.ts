@@ -6,6 +6,7 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { inspectOutput, record } from "./galaxy-output";
+import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
 
 export { inspectOutput, type OutputQuery } from "./galaxy-output";
 
@@ -68,7 +69,7 @@ export async function readMcpOutputFile(
   }
 }
 
-export function registerMcpOutputRecovery(pi: ExtensionAPI): void {
+export function registerMcpOutputRecovery(pi: ExtensionAPI, inProcess?: GalaxyToolFamily): void {
   const artifacts = new Map<string, string>();
   function remember(id: string, details: unknown): string | undefined {
     const d = record(details);
@@ -135,6 +136,8 @@ export function registerMcpOutputRecovery(pi: ExtensionAPI): void {
   });
 
   pi.on("tool_result", async (event) => {
+    // In-process Galaxy tools spill to their own ring and galaxy_read_output.
+    if (inProcess?.toolName(event.toolName) !== undefined) return;
     const path = remember(event.toolCallId, event.details);
     if (!path || event.content.some((c) => c.type === "text" && c.text.includes(MARKER))) return;
     let overview: string;

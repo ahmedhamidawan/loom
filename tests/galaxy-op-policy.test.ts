@@ -332,6 +332,18 @@ describe("update_page against the page as it is now", () => {
     expect(g.seen.some((s) => s.method === "PUT")).toBe(false);
   });
 
+  it("counts a subsection as part of the section, so a change there is not repaired", async () => {
+    const g = galaxy();
+    g.edit(PAGE_ID, (b) => `${b}### Table\nold rows\n`);
+    const shownHash = await read();
+    g.edit(PAGE_ID, (b) => b.replace("old rows", "rows the poller wrote"));
+    g.seen.length = 0;
+    const result = await run("update_page", sectionEdit(shownHash));
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent.message).toContain(`not ${shownHash}`);
+    expect(g.seen.some((s) => s.method === "PUT")).toBe(false);
+  });
+
   it("never supplies an expect_hash the model did not send", async () => {
     const g = galaxy();
     await read();

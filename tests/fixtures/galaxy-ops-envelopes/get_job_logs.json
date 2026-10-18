@@ -1,0 +1,40 @@
+{
+  "op": "get_job_logs",
+  "server": "https://test.galaxyproject.org",
+  "capturedAt": "2026-10-17",
+  "args": {
+    "job_id": "6cdd6edf01c98f71"
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":{\"job_id\":\"6cdd6edf01c98f71\",\"state\":\"ok\",\"exit_code\":0,\"stdout\":\"\",\"stderr\":\"\",\"job_stdout\":\"\",\"job_stderr\":\"\",\"tool_stdout\":\"\",\"tool_stderr\":\"\"},\"success\":true,\"message\":\"Retrieved logs for job '6cdd6edf01c98f71'\",\"count\":null,\"pagination\":null}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "job_id": "6cdd6edf01c98f71",
+        "state": "ok",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "job_stdout": "",
+        "job_stderr": "",
+        "tool_stdout": "",
+        "tool_stderr": ""
+      },
+      "success": true,
+      "message": "Retrieved logs for job '6cdd6edf01c98f71'",
+      "count": null,
+      "pagination": null
+    },
+    "details": {
+      "galaxy": {
+        "tool": "get_job_logs",
+        "elapsedMs": 99
+      }
+    },
+    "isError": false
+  }
+}

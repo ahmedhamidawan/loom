@@ -1,0 +1,110 @@
+{
+  "op": "get_history_contents",
+  "server": "https://test.galaxyproject.org",
+  "capturedAt": "2026-10-17",
+  "args": {
+    "history_id": "f1c07d6d09a43dbd"
+  },
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"data\":{\"history_id\":\"f1c07d6d09a43dbd\",\"contents\":[{\"id\":\"69f114a93d358944\",\"name\":\"input.txt\",\"history_id\":\"f1c07d6d09a43dbd\",\"hid\":1,\"deleted\":false,\"visible\":true,\"type_id\":\"dataset-69f114a93d358944\",\"type\":\"file\",\"create_time\":\"2026-10-17T20:59:38.858710\",\"update_time\":\"2026-10-17T20:59:57.569504\",\"url\":\"/api/histories/f1c07d6d09a43dbd/contents/69f114a93d358944\",\"tags\":[],\"history_content_type\":\"dataset\",\"dataset_id\":\"c4815a6675dc5b81\",\"state\":\"ok\",\"extension\":\"bed\",\"purged\":false,\"genome_build\":\"?\",\"object_store_id\":\"corral-test\",\"quota_source_label\":null},{\"id\":\"d3c4434d4a45f5c7\",\"name\":\"https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed\",\"history_id\":\"f1c07d6d09a43dbd\",\"hid\":2,\"deleted\":false,\"visible\":true,\"type_id\":\"dataset-d3c4434d4a45f5c7\",\"type\":\"file\",\"create_time\":\"2026-10-17T20:59:39.165502\",\"update_time\":\"2026-10-17T21:00:11.671345\",\"url\":\"/api/histories/f1c07d6d09a43dbd/contents/d3c4434d4a45f5c7\",\"tags\":[],\"history_content_type\":\"dataset\",\"dataset_id\":\"4f4c45bd5b24f2d1\",\"state\":\"ok\",\"extension\":\"bed\",\"purged\":false,\"genome_build\":\"?\",\"object_store_id\":\"corral-test\",\"quota_source_label\":null},{\"id\":\"6154384954d94839\",\"name\":\"Concatenate multiple datasets or collections on dataset 1\",\"history_id\":\"f1c07d6d09a43dbd\",\"hid\":3,\"deleted\":false,\"visible\":true,\"type_id\":\"dataset-6154384954d94839\",\"type\":\"file\",\"create_time\":\"2026-10-17T20:59:59.711648\",\"update_time\":\"2026-10-17T21:00:27.527744\",\"url\":\"/api/histories/f1c07d6d09a43dbd/contents/6154384954d94839\",\"tags\":[],\"history_content_type\":\"dataset\",\"dataset_id\":\"e78e39712310eaac\",\"state\":\"ok\",\"extension\":\"bed\",\"purged\":false,\"genome_build\":\"?\",\"object_store_id\":\"corral-test\",\"quota_source_label\":null}]},\"success\":true,\"message\":\"Retrieved 3 items from history\",\"count\":3,\"pagination\":{\"total_items\":3,\"returned_items\":3,\"limit\":100,\"offset\":0,\"has_next\":false,\"has_previous\":false,\"next_offset\":null,\"previous_offset\":null,\"helper_text\":\"Showing 3 of 3 items (offset 0). This is the last page.\"}}"
+      }
+    ],
+    "structuredContent": {
+      "data": {
+        "history_id": "f1c07d6d09a43dbd",
+        "contents": [
+          {
+            "id": "69f114a93d358944",
+            "name": "input.txt",
+            "history_id": "f1c07d6d09a43dbd",
+            "hid": 1,
+            "deleted": false,
+            "visible": true,
+            "type_id": "dataset-69f114a93d358944",
+            "type": "file",
+            "create_time": "2026-10-17T20:59:38.858710",
+            "update_time": "2026-10-17T20:59:57.569504",
+            "url": "/api/histories/f1c07d6d09a43dbd/contents/69f114a93d358944",
+            "tags": [],
+            "history_content_type": "dataset",
+            "dataset_id": "c4815a6675dc5b81",
+            "state": "ok",
+            "extension": "bed",
+            "purged": false,
+            "genome_build": "?",
+            "object_store_id": "corral-test",
+            "quota_source_label": null
+          },
+          {
+            "id": "d3c4434d4a45f5c7",
+            "name": "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+            "history_id": "f1c07d6d09a43dbd",
+            "hid": 2,
+            "deleted": false,
+            "visible": true,
+            "type_id": "dataset-d3c4434d4a45f5c7",
+            "type": "file",
+            "create_time": "2026-10-17T20:59:39.165502",
+            "update_time": "2026-10-17T21:00:11.671345",
+            "url": "/api/histories/f1c07d6d09a43dbd/contents/d3c4434d4a45f5c7",
+            "tags": [],
+            "history_content_type": "dataset",
+            "dataset_id": "4f4c45bd5b24f2d1",
+            "state": "ok",
+            "extension": "bed",
+            "purged": false,
+            "genome_build": "?",
+            "object_store_id": "corral-test",
+            "quota_source_label": null
+          },
+          {
+            "id": "6154384954d94839",
+            "name": "Concatenate multiple datasets or collections on dataset 1",
+            "history_id": "f1c07d6d09a43dbd",
+            "hid": 3,
+            "deleted": false,
+            "visible": true,
+            "type_id": "dataset-6154384954d94839",
+            "type": "file",
+            "create_time": "2026-10-17T20:59:59.711648",
+            "update_time": "2026-10-17T21:00:27.527744",
+            "url": "/api/histories/f1c07d6d09a43dbd/contents/6154384954d94839",
+            "tags": [],
+            "history_content_type": "dataset",
+            "dataset_id": "e78e39712310eaac",
+            "state": "ok",
+            "extension": "bed",
+            "purged": false,
+            "genome_build": "?",
+            "object_store_id": "corral-test",
+            "quota_source_label": null
+          }
+        ]
+      },
+      "success": true,
+      "message": "Retrieved 3 items from history",
+      "count": 3,
+      "pagination": {
+        "total_items": 3,
+        "returned_items": 3,
+        "limit": 100,
+        "offset": 0,
+        "has_next": false,
+        "has_previous": false,
+        "next_offset": null,
+        "previous_offset": null,
+        "helper_text": "Showing 3 of 3 items (offset 0). This is the last page."
+      }
+    },
+    "details": {
+      "galaxy": {
+        "tool": "get_history_contents",
+        "elapsedMs": 68
+      }
+    },
+    "isError": false
+  }
+}
