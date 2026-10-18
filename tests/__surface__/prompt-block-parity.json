@@ -5,27 +5,27 @@
       "browser": "NO_LOCAL_SHELL",
       "loom": "buildNoLocalShellBlock(). Shared text; what this shell has instead of a shell.",
       "identical": false,
-      "similarity": 0.485,
+      "similarity": 0.492,
       "diff": [
         "@@ -1,3 +1,3 @@",
         " ## Execution: remote-only (Galaxy)",
         " ",
         "-This build has no local shell. All computation runs on Galaxy via your Galaxy tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. `run_python` is a browser-side scratchpad for inspecting and summarizing data, not a compute path: real work is a Galaxy job, which is also what makes it reproducible.",
-        "+This build has no local shell. All computation runs on Galaxy via the Galaxy MCP tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. You can still read and write files in the workspace (the notebook and its inputs/outputs)."
+        "+This build has no local shell. All computation runs on Galaxy via the Galaxy tools -- there is no bash, conda, or local-pipeline path here. Tag every plan `[remote]`; do not propose local shell or conda steps. You can still read and write files in the workspace (the notebook and its inputs/outputs)."
       ]
     },
     {
       "browser": "galaxyTerminology",
       "loom": "buildGalaxyContextBlock(), the \"Galaxy terminology\" section. Shared text, under this shell's heading.",
       "identical": false,
-      "similarity": 0.712,
+      "similarity": 0.709,
       "diff": [
         "@@ -1,7 +1,10 @@",
         "-## Galaxy",
         "-",
         " ### Galaxy terminology",
         " ",
-        " - **User-defined tool** (\"UDT\"): a server-side custom tool the user registers in their Galaxy account, runs unprivileged. The connected Galaxy MCP exposes the full lifecycle: `create_user_tool`, `list_user_tools`, `run_user_tool`, `delete_user_tool`. **Do not generate old-style XML tool wrappers locally when the user asks for a UDT** -- that's a different concept (legacy ToolShed tools). Reach for the MCP tools rather than inventing a local workaround. When authoring the UDT definition, fetch the `udt-authoring` skill first (see Skills repositories below) rather than writing the YAML from memory.",
+        " - **User-defined tool** (\"UDT\"): a server-side custom tool the user registers in their Galaxy account, runs unprivileged. The Galaxy tools cover the full lifecycle: `create_user_tool`, `list_user_tools`, `run_user_tool`, `delete_user_tool`. **Do not generate old-style XML tool wrappers locally when the user asks for a UDT** -- that's a different concept (legacy ToolShed tools). Reach for those Galaxy tools rather than inventing a local workaround. When authoring the UDT definition, fetch the `udt-authoring` skill first (see Skills repositories below) rather than writing the YAML from memory.",
         "-- **Workflow invocation**: a single run of a Galaxy workflow on a history.",
         "+- **Workflow invocation**: a single run of a Galaxy workflow on a history. Tracked in the notebook via `loom-invocation` blocks.",
         " - **IWC**: Intergalactic Workflow Commission -- registry of curated workflows. See \"Finding a community workflow\" above.",
@@ -154,7 +154,7 @@
       "browser": "OPERATING_DISCIPLINE",
       "loom": "buildOperatingDisciplineBlock(). Shared text; this shell's credentials and compaction.",
       "identical": false,
-      "similarity": 0.732,
+      "similarity": 0.73,
       "diff": [
         "@@ -3,5 +3,5 @@",
         " ### Act within the user's authorized scope",
@@ -170,7 +170,7 @@
         "+If a tool call fails because a credential is missing or wrong:",
         " ",
         "-If the user volunteers a key in chat anyway, **do not echo it back**, do not write it to the the record or activity log, and tell them once that the value is now in their LLM provider's request logs and they should rotate it.",
-        "+- **Galaxy** -- point the user at Orbit's Preferences -> Galaxy panel (URL + API key fields), or the brain config at `~/.loom/config.json` for headless setups. Galaxy MCP is registered automatically when the key is present; no chat paste needed.",
+        "+- **Galaxy** -- point the user at Orbit's Preferences -> Galaxy panel (URL + API key fields), or the brain config at `~/.loom/config.json` for headless setups. The Galaxy tools pick the key up automatically when it is present; no chat paste needed.",
         "+- **LLM providers** -- same path: Orbit's Preferences -> API Key, or `~/.loom/config.json`'s `llm.providers` map (one entry per provider, pointed to by `llm.active`). The renderer encrypts via Electron `safeStorage` if available.",
         "+- **Other MCP credentials** -- point at the relevant config file or environment variable; never invite a paste.",
         " ",
@@ -202,7 +202,7 @@
       "browser": "VERIFICATION",
       "loom": "buildVerificationDisciplineBlock(). Shared text; no local file here, and runs announce themselves.",
       "identical": false,
-      "similarity": 0.889,
+      "similarity": 0.892,
       "diff": [
         "@@ -1,5 +1,5 @@",
         " ## Verification before completion",
@@ -216,7 +216,7 @@
         " ",
         "-- **Galaxy workflow or tool run** -- verify once you are told it reached a terminal state, then inspect resulting datasets/collections enough to confirm they exist and look plausible for the request. Don't block a turn waiting for an in-progress invocation just to verify it. Submitting is not verifying, and a pending run is reported as pending.",
         "-- **Authored Galaxy workflow** (`.ga` or workflow JSON) -- upload/import it to Galaxy, invoke it on a small appropriate test input, and inspect its outputs when it finishes.",
-        "+- **Galaxy workflow or tool run** -- verify automatically once the run reaches a terminal state, including during the submission turn if it has already finished. Confirm terminal state with `galaxy_invocation_check_all` or the relevant Galaxy MCP inspection call, then inspect resulting datasets/collections enough to confirm they exist and look plausible for the request. Don't block a turn waiting for an in-progress invocation just to verify it. Submitting is not verifying, and a pending run is reported as pending.",
+        "+- **Galaxy workflow or tool run** -- verify automatically once the run reaches a terminal state, including during the submission turn if it has already finished. Confirm terminal state with `galaxy_invocation_check_all` or the relevant Galaxy inspection call, then inspect resulting datasets/collections enough to confirm they exist and look plausible for the request. Don't block a turn waiting for an in-progress invocation just to verify it. Submitting is not verifying, and a pending run is reported as pending.",
         "+- **Authored Galaxy workflow** (`.ga` or workflow JSON) -- upload/import it to Galaxy, invoke it on a small appropriate test input, poll to completion, and inspect outputs.",
         " - **Galaxy dataset or collection output** -- inspect state, datatype, metadata, size, preview/peek, expected element count, and failed or hidden elements when collections are involved. Re-running failed elements on their own does not repair the collection they came from: build a replacement collection and verify that before anything downstream consumes it.",
         "+- **Local data file** -- read or parse the file with an appropriate tool for its format, such as BAM/CRAM, VCF/BCF, FASTQ/FASTA, CSV/TSV, JSON, YAML, or similar project artifacts.",

@@ -9,7 +9,6 @@
     "extensions/loom/exec-guard/path-jail.ts -> fs",
     "extensions/loom/exec-guard/sensitive-read.ts -> fs",
     "extensions/loom/feedback.ts -> fs",
-    "extensions/loom/galaxy-cred-drift.ts -> fs",
     "extensions/loom/galaxy-fixture.ts -> fs",
     "extensions/loom/galaxy-live-source.ts -> node:fs/promises",
     "extensions/loom/galaxy-upload-tus.ts -> fs",
@@ -71,8 +70,7 @@
     "shared/dashboard-layout-store.js -> node:fs",
     "shared/dashboard-layout-store.js -> node:fs/promises",
     "shared/loom-config.js -> node:fs",
-    "shared/state-dir.js -> node:fs",
-    "shared/uvx-runner.js -> node:fs"
+    "shared/state-dir.js -> node:fs"
   ],
   "notes": [
     "command | dropped ctx.ui.setWidget notebook",

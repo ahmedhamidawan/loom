@@ -219,12 +219,12 @@ export function galaxyTerminology({
   return `### Galaxy terminology
 
 - **User-defined tool** ("UDT"): a server-side custom tool the user
-  registers in their Galaxy account, runs unprivileged. The connected
-  Galaxy MCP exposes the full lifecycle: \`${tool("create_user_tool")}\`,
+  registers in their Galaxy account, runs unprivileged. The Galaxy tools
+  cover the full lifecycle: \`${tool("create_user_tool")}\`,
   \`${tool("list_user_tools")}\`, \`${tool("run_user_tool")}\`,
   \`${tool("delete_user_tool")}\`. **Do not generate old-style XML tool
   wrappers locally when the user asks for a UDT** -- that's a different
-  concept (legacy ToolShed tools). Reach for the MCP tools rather than
+  concept (legacy ToolShed tools). Reach for those Galaxy tools rather than
   inventing a local workaround. When authoring the UDT definition, fetch
   the \`udt-authoring\` skill first (see Skills repositories below) rather
   than writing the YAML from memory.
@@ -298,7 +298,7 @@ timestamps, and non-artifact metadata are plain text, not invented links.`;
  * @param {{ tools?: string, instead?: string }} [options] @returns {string}
  */
 export function noLocalShellBlock({
-  tools = "the Galaxy MCP tools",
+  tools = "the Galaxy tools",
   instead = "You can still read and write files in the workspace (the notebook and its inputs/outputs).",
 } = {}) {
   return `## Execution: remote-only (Galaxy)
@@ -403,8 +403,8 @@ export function operatingDiscipline({
 
 - **Galaxy** -- point the user at Orbit's Preferences -> Galaxy panel
   (URL + API key fields), or the brain config at \`~/.loom/config.json\`
-  for headless setups. Galaxy MCP is registered automatically when the
-  key is present; no chat paste needed.
+  for headless setups. The Galaxy tools pick the key up automatically
+  when it is present; no chat paste needed.
 - **LLM providers** -- same path: Orbit's Preferences -> API Key, or
   \`~/.loom/config.json\`'s \`llm.providers\` map (one entry per provider,
   pointed to by \`llm.active\`). The renderer encrypts via Electron
@@ -516,7 +516,7 @@ export function verificationBlock({
   runCheck = `verify automatically once the run
   reaches a terminal state, including during the submission turn if it has
   already finished. Confirm
-  terminal state with \`galaxy_invocation_check_all\` or the relevant Galaxy MCP
+  terminal state with \`galaxy_invocation_check_all\` or the relevant Galaxy
   inspection call,`,
   await: awaitRun = "poll to completion, and inspect outputs",
   awaitJobs = "poll jobs to `ok`",

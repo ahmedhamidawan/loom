@@ -643,13 +643,12 @@ describe("Orbit on pi-host", () => {
   it("registers through the shim without reaching Node", () => {
     const total = [...host.handlers.values()].reduce((a, b) => a + b, 0);
     expect({ on: total, tools: host.tools.length, commands: host.commands.size }).toEqual({
-      // The MCP output recovery (three handlers) is not registered under bare Galaxy tools; the
-      // capture follow-through (session_start, tool_execution_end) now is, over the memory
-      // provenance fs. Bare Galaxy tools add the destructive confirm (tool_call), the page
+      // The MCP output recovery (three handlers) is not registered: this shell has no MCP layer.
+      // The capture follow-through (session_start; it has no connect trigger) is, over the memory
+      // provenance fs. The Galaxy tools add the destructive confirm (tool_call), the page
       // policy's shown-page reset (session_start) and the Galaxy version capture (session_start,
-      // tool_result), which observations read in place of galaxy-mcp's connect result; none of
-      // them is registered under mcp.
-      on: 71 + 7 + 2 + 2,
+      // tool_result), which is where observations get the Galaxy version.
+      on: 71 + 7 + 1 + 2,
       // Orbit's own tools; the Galaxy family (the browser entry's 42 operations, the shell's three
       // extras, and Loom's list_jobs and get_job_logs bridges); galaxy_read_output beside it; and
       // the probe. mcp_read_output is MCP-only.

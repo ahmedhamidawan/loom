@@ -14,7 +14,7 @@ import { setupContextInjection } from "../extensions/loom/context";
 import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerGalaxyTools, setGalaxyToolSource } from "../extensions/loom/galaxy-tool-source";
-import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
+import { setCapabilityProfile } from "../shared/capability-profile.js";
 
 type Handler = (event: unknown, ctx: unknown) => Promise<unknown>;
 
@@ -76,19 +76,16 @@ describe("Orbit's assembled system prompt", () => {
     );
   });
 
-  // The in-process Galaxy tools, pinned before they become the default so the
-  // flip can be read as a diff. The "Galaxy MCP" prose in it is expected until
-  // the prompt blocks learn the bare family.
-  it("with Galaxy connected through the in-process tools", async () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare", mcpServers: true });
-    // The default source, so the family the prompt names is the real one.
+  // index.ts registers the default source before the prompt is built; the golden
+  // above renders without it, and the two must not differ.
+  it("with Galaxy connected and the default tool source registered, as at boot", async () => {
     setGalaxyToolSource(null);
     registerGalaxyTools({ registerTool: () => {} } as never);
     vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
     vi.stubEnv("GALAXY_API_KEY", "fixture-key");
     setGalaxyFetchOverride(fixtureFetch([]));
     await expect(await systemPrompt()).toMatchFileSnapshot(
-      "__surface__/system-prompt-bare-connected.txt",
+      "__surface__/system-prompt-connected.txt",
     );
   });
 });
