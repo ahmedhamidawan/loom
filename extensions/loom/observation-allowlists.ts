@@ -3,7 +3,7 @@
 // Sources:
 //   @galaxyproject/galaxy-ops 0.3.1, allOperations (Node entry)
 //   extra names, scripts/galaxy-allowlist-extra-names.mjs:
-//     connect, search, get_schemas, run_galaxy_tool
+//     (none)
 //   galaxy v26.1.1 (094145bc809e0dcd8c6e7784d4ff44f8db9bfbcb), read with `git show`:
 //     lib/galaxy/config/sample/datatypes_conf.xml.sample
 //     tools/, lib/galaxy/tools/, lib/galaxy/datatypes/converters/ (tool ids)
@@ -18,7 +18,6 @@
  */
 export const GALAXY_MCP_TOOLS: ReadonlySet<string> = new Set([
   "galaxy_cancel_workflow_invocation",
-  "galaxy_connect",
   "galaxy_create_history",
   "galaxy_create_page",
   "galaxy_create_user_tool",
@@ -35,7 +34,6 @@ export const GALAXY_MCP_TOOLS: ReadonlySet<string> = new Set([
   "galaxy_get_job_details",
   "galaxy_get_page",
   "galaxy_get_page_revision",
-  "galaxy_get_schemas",
   "galaxy_get_server_info",
   "galaxy_get_tool_citations",
   "galaxy_get_tool_details",
@@ -55,10 +53,8 @@ export const GALAXY_MCP_TOOLS: ReadonlySet<string> = new Set([
   "galaxy_recommend_biocontainer",
   "galaxy_recommend_iwc_workflows",
   "galaxy_revert_page_revision",
-  "galaxy_run_galaxy_tool",
   "galaxy_run_tool",
   "galaxy_run_user_tool",
-  "galaxy_search",
   "galaxy_search_iwc_workflows",
   "galaxy_search_tools_by_keywords",
   "galaxy_search_tools_by_name",

@@ -88,10 +88,16 @@ describe("the generated Galaxy tool allowlist", () => {
     expect(source).toContain(`@galaxyproject/galaxy-ops ${version}, allOperations (Node entry)`);
   });
 
-  it("only gained recommend_biocontainer when it moved to galaxy-ops", () => {
+  it("gained only recommend_biocontainer from galaxy-ops, and lost only galaxy-mcp's own tools", () => {
     expect(generated.filter((name) => !BEFORE_GALAXY_OPS.includes(name))).toEqual([
       "galaxy_recommend_biocontainer",
     ]);
-    expect(BEFORE_GALAXY_OPS.filter((name) => !GALAXY_MCP_TOOLS.has(name))).toEqual([]);
+    // connect and the code-mode meta-tools left with the Python server.
+    expect(BEFORE_GALAXY_OPS.filter((name) => !GALAXY_MCP_TOOLS.has(name))).toEqual([
+      "galaxy_connect",
+      "galaxy_get_schemas",
+      "galaxy_run_galaxy_tool",
+      "galaxy_search",
+    ]);
   });
 });
