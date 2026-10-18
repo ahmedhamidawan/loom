@@ -13,7 +13,7 @@ describe("profileFromEnv", () => {
       files: true,
       notebook: "file",
       network: true,
-      galaxyTools: "mcp",
+      galaxyTools: "bare",
       mcpServers: true,
       ui: "terminal",
     });

@@ -174,7 +174,7 @@ describe("the bare-path destructive confirm", () => {
   });
 });
 
-describe("index.ts registers the gate and the page policy only under bare", () => {
+describe("index.ts registers the gate and the page policy", () => {
   async function load(): Promise<void> {
     const noop = () => undefined;
     const pi = new Proxy(
@@ -191,28 +191,30 @@ describe("index.ts registers the gate and the page policy only under bare", () =
     mod.default(pi as never);
   }
 
-  it("registers neither under the default profile, and both under bare", async () => {
+  it("registers both everywhere, leaving the container's history delete to web-mode-gate", async () => {
     setGalaxyToolSource(null);
     setCapabilityProfile(null);
     const saved = { ...process.env };
     // No files surface, so exec-guard and the sandbox stay out of a stand-in pi.
     process.env.LOOM_LOCAL_EXEC = "off";
-    delete process.env.LOOM_GALAXY_TOOLS;
-    delete process.env.ORBIT_GALAXY_TOOLS;
     try {
       vi.mocked(registerGalaxyDestructiveGate).mockClear();
       vi.mocked(registerGalaxyOpPolicy).mockClear();
       await load();
-      expect(registerGalaxyDestructiveGate).not.toHaveBeenCalled();
-      expect(registerGalaxyOpPolicy).not.toHaveBeenCalled();
-
-      setCapabilityProfile({ ...profileFromEnv(), galaxyTools: "bare" });
-      await load();
       expect(registerGalaxyDestructiveGate).toHaveBeenCalledTimes(1);
       expect(vi.mocked(registerGalaxyDestructiveGate).mock.calls[0][2]).toEqual({
-        classifyArgs: true,
+        classifyArgs: false,
       });
       expect(registerGalaxyOpPolicy).toHaveBeenCalledTimes(1);
+
+      // A shell with no files and no gate of its own (the browser worker) asks about it here.
+      delete process.env.LOOM_LOCAL_EXEC;
+      setGalaxyToolSource(null);
+      setCapabilityProfile({ ...profileFromEnv(), files: false, shell: false });
+      await load();
+      expect(vi.mocked(registerGalaxyDestructiveGate).mock.calls[1][2]).toEqual({
+        classifyArgs: true,
+      });
     } finally {
       process.env = saved;
     }

@@ -608,8 +608,8 @@ export function createPiHost(options: PiHostOptions): PiHost {
       assertActive();
       throw new NotInThisShell(member);
     };
-    // Built without `reload`, so /connect's `typeof ctx.reload === "function"` takes the
-    // sendUserMessage branch instead of asking for a reload this shell cannot do.
+    // Built without `reload`: this shell cannot do one, and /connect, the one command that asks
+    // for it, returns before then in a shell with no files.
     return Object.defineProperties(makeCtx(undefined), {
       waitForIdle: {
         value: () => {
@@ -960,7 +960,8 @@ export function createPiHost(options: PiHostOptions): PiHost {
       return undefined;
     },
     setLabel: () => refused("setLabel"),
-    // Hit unconditionally by mcp-servers.ts; pi reports an unhandled registration too, never throws.
+    // Hit by mcp-servers.ts under a profile with an MCP layer; pi reports an unhandled registration
+    // too, never throws.
     registerMcpServer: (name: string) => refused("registerMcpServer", name),
     unregisterMcpServer: (name: string) => refused("unregisterMcpServer", name),
     getMcpServers: () => {

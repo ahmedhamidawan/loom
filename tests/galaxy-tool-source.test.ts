@@ -31,10 +31,13 @@ afterEach(() => {
 });
 
 describe("galaxy tool source", () => {
-  it("with no profile installed the family is MCP, whatever source is installed", () => {
+  it("with no profile installed the family is bare: the registered source's names", () => {
     setGalaxyToolSource({ tools: () => [stub("run_tool")] });
-    expect(galaxyToolFamily()).toBe(MCP_FAMILY);
     expect(installedGalaxyToolSource()).not.toBeNull();
+    const family = registerGalaxyTools(fakePi().pi);
+    expect(galaxyToolFamily()).toBe(family);
+    expect(galaxyToolFamily().tool("run_tool")).toBe("run_tool");
+    expect(galaxyToolFamily()).not.toBe(MCP_FAMILY);
   });
 
   it("under a bare profile registers the source's tools in order and names them as the family", () => {
