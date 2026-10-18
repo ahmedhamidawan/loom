@@ -22,13 +22,10 @@ import {
 } from "./notebook-writer.js";
 import { activeGalaxyStatus, type ActiveGalaxyStatus } from "./profiles.js";
 import { recordStore } from "./record-store.js";
-import { isUvxAvailable, uvxMissingNotice } from "../../shared/uvx-runner.js";
-import { maybeNudgeGalaxyReconnect } from "./galaxy-cred-drift.js";
 import * as fs from "fs";
 import * as path from "path";
 import { readEnv } from "../../shared/orbit-env.js";
 import { capabilityProfile } from "../../shared/capability-profile.js";
-import { MCP_FAMILY } from "../../shared/galaxy-mcp-tools.js";
 import {
   closeSessionRegistry,
   openSessionRegistry,
@@ -155,17 +152,6 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
     const freshSession = readEnv("FRESH_SESSION") === "1";
     const isResume = process.argv.includes("--continue");
 
-    // Galaxy credential drift: on a resume the startup greeting -- the only
-    // thing that prompts mcp__galaxy__connect() -- is suppressed, so a key/server
-    // change made while this session was idle would leave the model believing
-    // it's still connected as the old account. Refresh the per-cwd credential
-    // baseline and, on a resume where it changed, nudge a reconnect. The nudge
-    // asks for mcp__galaxy__connect and the baseline only advances on that
-    // tool, so it has nothing to say where Galaxy tools are not the MCP ones.
-    if (capabilityProfile().galaxyTools === "mcp") {
-      maybeNudgeGalaxyReconnect(pi, { isResume });
-    }
-
     if (freshSession || isResume) {
       return;
     }
@@ -279,18 +265,13 @@ type GreetingAction = { kind: "model"; message: string } | NotifyAction;
  * Decide the startup greeting from the active Galaxy credential status. Pure so
  * it can be unit-tested without a live session.
  *
- * `usable` keeps a real model turn -- under MCP it has to nudge the connect
- * tool; a shell whose Galaxy tools are in-process has no such tool and passes
- * null, and the turn says the tools are ready instead. The other two states
- * are pure pleasantries, so they render as a static notify: no model
- * round-trip, no leaked instruction, and the same call surfaces in both the
- * terminal TUI and Orbit (which renders the notify RPC event).
+ * `usable` keeps a real model turn, which says the Galaxy tools are ready.
+ * The other two states are pure pleasantries, so they render as a static
+ * notify: no model round-trip, no leaked instruction, and the same call
+ * surfaces in both the terminal TUI and Orbit (which renders the notify RPC
+ * event).
  */
-export function planStartupGreeting(
-  status: ActiveGalaxyStatus,
-  isOrbit: boolean,
-  connectTool: string | null = MCP_FAMILY.tool("connect"),
-): GreetingAction {
+export function planStartupGreeting(status: ActiveGalaxyStatus, isOrbit: boolean): GreetingAction {
   if (status === "usable") {
     const message =
       `Session started in this project directory. Read \`notebook.md\` to see prior work. ` +
@@ -299,10 +280,7 @@ export function planStartupGreeting(
           `No greeting, no emojis, no product branding.`
         : `Give a brief welcome, then ask what to work on next, referencing the notebook contents if there is prior work. ` +
           `Keep it to 2-3 sentences.`) +
-      (connectTool
-        ? ` Galaxy credentials are configured -- call ${connectTool}() to establish the connection.` +
-          ` Do NOT call other Galaxy tools until connected.`
-        : ` Galaxy credentials are configured and the Galaxy tools are ready to use.`);
+      ` Galaxy credentials are configured and the Galaxy tools are ready to use.`;
     return { kind: "model", message };
   }
 
@@ -326,49 +304,9 @@ export function planStartupGreeting(
   };
 }
 
-/**
- * Warn at startup when Galaxy is configured but the runner that launches
- * galaxy-mcp is missing, so the gap is visible before the user asks for Galaxy
- * work rather than as a failed tool call mid-analysis.
- *
- * The CLI already prints this (bin/loom.js), but it writes to stderr -- which
- * in a GUI shell lands in a log file nobody reads. Returning a notify action
- * puts the same text where Orbit renders it. Pure so it can be unit-tested.
- */
-export function planUvxWarning(
-  status: ActiveGalaxyStatus,
-  uvxAvailable: boolean,
-): NotifyAction | null {
-  // "none" has no Galaxy to reach, so a missing runner is not yet a problem;
-  // "configured-unusable" already gets its own, more specific warning.
-  if (status !== "usable" || uvxAvailable) return null;
-  return { kind: "notify", level: "warning", text: uvxMissingNotice() };
-}
-
-// No MCP server means no runner to look for, so the probe (a walk of PATH) is
-// skipped and the warning cannot fire.
-export function sendStartupGreeting(
-  pi: ExtensionAPI,
-  ctx: ExtensionContext,
-  uvxAvailable: boolean = capabilityProfile().galaxyTools === "mcp" ? isUvxAvailable() : true,
-): void {
-  // Surface the missing-runner warning before the greeting: the MCP greeting
-  // tells the model to call mcp__galaxy__connect(), which is exactly what will fail.
-  const uvxWarning = planUvxWarning(activeGalaxyStatus(), uvxAvailable);
-  if (uvxWarning) {
-    try {
-      ctx.ui.notify(uvxWarning.text, uvxWarning.level);
-    } catch {
-      /* headless/stale ctx -- the CLI still prints this to stderr */
-    }
-  }
-
+export function sendStartupGreeting(pi: ExtensionAPI, ctx: ExtensionContext): void {
   const isOrbit = capabilityProfile().ui === "desktop";
-  const action = planStartupGreeting(
-    activeGalaxyStatus(),
-    isOrbit,
-    capabilityProfile().galaxyTools === "mcp" ? MCP_FAMILY.tool("connect") : null,
-  );
+  const action = planStartupGreeting(activeGalaxyStatus(), isOrbit);
   if (action.kind === "model") {
     pi.sendUserMessage(action.message);
   } else {

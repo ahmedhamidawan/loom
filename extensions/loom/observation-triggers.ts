@@ -36,7 +36,6 @@ import {
   extractDatatypes,
   extractToolIds,
   observationToolName,
-  recordGalaxyVersionFromConnect,
   resetGalaxyVersion,
   saveRetractToken,
   sentLogEntryFor,
@@ -518,11 +517,6 @@ export function registerObservationTriggers(
     // Registered AFTER secret redaction in index.ts, so `content` here is the
     // already-scrubbed text the model sees. Reading the raw result would put
     // an API key one normalization away from the wire.
-    const called =
-      event.toolName === "mcp" ? proxiedGalaxyCall(event.input ?? {})?.toolName : event.toolName;
-    if (observationToolName(called, family) === "galaxy_connect" && !event.isError) {
-      recordGalaxyVersionFromConnect(errorTextOf(event.content));
-    }
     if (resolveObservationsMode() === "off") return;
 
     const failed = event.isError || Boolean((event.details as { error?: unknown })?.error);

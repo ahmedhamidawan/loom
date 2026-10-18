@@ -58,7 +58,6 @@ import {
   verificationBlock,
 } from "../../shared/prompt-blocks.js";
 import { galaxyToolFamily } from "./galaxy-tool-source";
-import { capabilityProfile } from "../../shared/capability-profile.js";
 import {
   buildReproductionLessonsContext,
   LOOM_LESSONS_CONTEXT_TYPE,
@@ -175,7 +174,7 @@ async function buildLiveNotebookContext(): Promise<string> {
 /**
  * Execution mode gate. When the user has set executionMode=local in
  * config (footer toggle), the agent must not propose Galaxy steps even
- * if Galaxy MCP is registered. Cloud mode is the default and the
+ * if Galaxy is connected. Cloud mode is the default and the
  * unrestricted, per-plan-routing behavior.
  */
 function buildActiveModelBlock(): string {
@@ -232,7 +231,7 @@ export function buildExecutionModeBlock(): string {
   return `## Execution mode: LOCAL
 
 The user has set this project to local-only for this session. **Do NOT
-propose Galaxy steps even if Galaxy MCP is registered.** All step
+propose Galaxy steps even if Galaxy is connected.** All step
 routing must be \`[local]\`. When drafting a plan, mention this
 constraint so the user understands the sandbox is intentional and can
 flip the toggle to Cloud if they want Galaxy back.
@@ -257,11 +256,62 @@ interactive tool, where there is no user machine to read from -- use the URL upl
 `;
 }
 
+// A session started before the Galaxy tools moved in-process carries mcp__galaxy__* calls and a
+// greeting that asks for mcp__galaxy__connect(); a model following its own history calls a tool
+// that no longer exists and can conclude Galaxy is down.
+const LEGACY_GALAXY_PREFIX = "mcp__galaxy__";
+
+function messageMentionsLegacyGalaxy(message: unknown): boolean {
+  if (!message || typeof message !== "object") return false;
+  const { content } = message as { content?: unknown };
+  if (typeof content === "string") return content.includes(LEGACY_GALAXY_PREFIX);
+  if (!Array.isArray(content)) return false;
+  return content.some((part) => {
+    if (!part || typeof part !== "object") return false;
+    const { type, name, text } = part as { type?: unknown; name?: unknown; text?: unknown };
+    if (type === "toolCall")
+      return typeof name === "string" && name.startsWith(LEGACY_GALAXY_PREFIX);
+    return type === "text" && typeof text === "string" && text.includes(LEGACY_GALAXY_PREFIX);
+  });
+}
+
+function branchOf(ctx: ExtensionContext): readonly unknown[] {
+  try {
+    return ctx.sessionManager?.getBranch?.() ?? [];
+  } catch {
+    // A stale or headless ctx has no transcript to read, so nothing to warn about.
+    return [];
+  }
+}
+
+/** Whether a session branch holds Galaxy calls or instructions in the retired MCP spelling. */
+export function transcriptUsesLegacyGalaxyNames(entries: readonly unknown[]): boolean {
+  return entries.some((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const { type, message } = entry as { type?: unknown; message?: unknown };
+    return type === "message" && messageMentionsLegacyGalaxy(message);
+  });
+}
+
+function legacyGalaxyNamesBlock(tool: (name: string) => string): string {
+  return `### Galaxy tool names in earlier turns
+
+Earlier turns of this conversation call Galaxy tools as \`mcp__galaxy__<name>\` and may ask
+for \`mcp__galaxy__connect()\` first. Those names are retired: the same tools are now called by
+their own names (\`${tool("run_tool")}\`, \`${tool("get_histories")}\`, ...), there is no connect step,
+and they are ready to use. Don't call an \`mcp__galaxy__\` tool, and don't tell the user Galaxy is
+disconnected because one is missing.
+
+`;
+}
+
 /**
  * Galaxy connection status block — replaces the old Local|Remote toggle
  * with agent-side per-plan routing decisions.
  */
-export function buildGalaxyContextBlock(): string {
+export function buildGalaxyContextBlock({
+  legacyTranscript = false,
+}: { legacyTranscript?: boolean } = {}): string {
   const cfg = loadConfig();
   // Local mode short-circuits — no Galaxy guidance, even if connected.
   if (cfg.executionMode === "local") {
@@ -289,41 +339,13 @@ once — don't badger.
   }
 
   const family = galaxyToolFamily();
-  // The re-bind steer is about pi's MCP transport; in-process Galaxy tools have
-  // no session to re-bind and no connect tool to call.
-  const mcpTransport = capabilityProfile().galaxyTools === "mcp";
-  const reconnectSteer = !mcpTransport
-    ? ""
-    : `### If a Galaxy tool reports it's not connected
-
-The live Galaxy MCP connection may need to be re-established after a resume
-or long idle period, even though credentials stay configured. Distinguish
-Galaxy authentication errors from a dropped MCP transport and request timeouts.
-A timeout alone does not prove that the connection is dead.
-
-When it happens -- and before you ever tell the user Galaxy is disconnected:
-1. For "Not connected to Galaxy", call \`mcp__galaxy__connect()\` to re-bind
-   this session. Do not report a disconnection you haven't tried to fix.
-2. For a dropped transport, the connection comes back on the next call; call
-   \`mcp__galaxy__connect()\` yourself once and verify the result before continuing.
-3. For timeouts, narrow read-only queries first. Before retrying a mutation,
-   check whether Galaxy accepted it. Never blindly replay a submission.
-4. Only if your own reconnect fails, tell the user they can run
-   \`/mcp reconnect galaxy\` (no restart needed). That includes small read-only
-   requests that still time out after a re-bind: the server may be stuck, and
-   \`mcp__galaxy__connect()\` only re-binds the session -- it can't restart it.
-
-Never report "Galaxy is disconnected" as a final answer without attempting
-\`mcp__galaxy__connect()\` in the same turn.
-
-`;
 
   return `
 ## Galaxy connection: ${galaxyUrl}
 
 Galaxy is connected.
 
-${reconnectSteer}### Resuming existing Galaxy work ("pick up where I left off")
+${legacyTranscript ? legacyGalaxyNamesBlock(family.tool) : ""}### Resuming existing Galaxy work ("pick up where I left off")
 
 If the user asks to connect to, catch up on, or resume work they did in
 the Galaxy interface (a history notebook / Page) and hasn't handed you a
@@ -780,6 +802,11 @@ function lastUserText(messages: readonly { role: string; content?: unknown }[]):
 
 export function setupContextInjection(pi: ExtensionAPI): void {
   pi.on("before_agent_start", async (_event, ctx) => {
+    // Orbit resumes the newest session on first launch, so an upgrading user's first session is
+    // an MCP-era one. Read from the branch each turn rather than on session_start, so a resume,
+    // a new session and a tree move all land without another handler; the old entries never
+    // leave a branch, so the answer (and the cached prefix) holds for the session.
+    const legacyTranscript = transcriptUsesLegacyGalaxyNames(branchOf(ctx));
     // The system prompt is sent as one cached block (Anthropic cache_control
     // sits on the whole system text). Anything that changes turn-to-turn busts
     // that cache for the entire ~8K-token prefix. So the blocks below stay
@@ -804,7 +831,7 @@ export function setupContextInjection(pi: ExtensionAPI): void {
       buildChatFormattingBlock(),
       buildNotebookWriteBlock(),
       buildExecutionModeBlock(),
-      buildGalaxyContextBlock(),
+      buildGalaxyContextBlock({ legacyTranscript }),
       galaxyRecoveryGuidance(galaxyToolFamily()),
       galaxyPollGuidance(galaxyToolFamily()),
       buildSkillsContext(),
@@ -887,9 +914,8 @@ export function setupContextInjection(pi: ExtensionAPI): void {
 
   // Reflect Galaxy connection state in the status bar after each turn.
   pi.on("turn_end", async (_event, ctx) => {
-    const state = getState();
     const { url: galaxyUrl, apiKey } = galaxyCredentials();
-    const connected = Boolean(galaxyUrl && apiKey) || state.galaxyConnected;
+    const connected = Boolean(galaxyUrl && apiKey);
     const text = connected ? `🟢 Galaxy: ${galaxyUrl || "connected"}` : "⚪ Local-only";
     ctx.ui.setStatus("galaxy-plan", text);
   });
@@ -901,7 +927,7 @@ export function setupContextInjection(pi: ExtensionAPI): void {
 export function formatConnectionStatus(_ctx: ExtensionContext): string[] {
   const state = getState();
   const { url: galaxyUrl, apiKey } = galaxyCredentials();
-  const connected = Boolean(galaxyUrl && apiKey) || state.galaxyConnected;
+  const connected = Boolean(galaxyUrl && apiKey);
 
   const lines: string[] = [];
   if (connected) {

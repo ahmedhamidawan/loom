@@ -9,9 +9,7 @@ import {
   normalizeRouting,
   renderFailures,
 } from "../extensions/loom/init-gate";
-import { setNotebookPath, setGalaxyConnection, resetState } from "../extensions/loom/state";
-import { registerGalaxyTools, setGalaxyToolSource } from "../extensions/loom/galaxy-tool-source";
-import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
+import { setNotebookPath, setCurrentHistoryId, resetState } from "../extensions/loom/state";
 
 let tmpDir: string;
 let nbPath: string;
@@ -24,8 +22,15 @@ beforeEach(() => {
 
 afterEach(() => {
   resetState();
+  vi.unstubAllEnvs();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+
+/** The Galaxy tools reach Galaxy whenever both credentials are set; nothing else connects. */
+function galaxyCredentials(configured: boolean) {
+  vi.stubEnv("GALAXY_URL", configured ? "https://galaxy.example.org" : "");
+  vi.stubEnv("GALAXY_API_KEY", configured ? "key" : "");
+}
 
 function writeNotebook(contents: string) {
   fs.writeFileSync(nbPath, contents, "utf-8");
@@ -203,7 +208,7 @@ describe("checkPreconditions -- hard failures", () => {
 
 - [ ] 1. **Heavy alignment** -- bwa-mem on big WGS
 `);
-    setGalaxyConnection(false);
+    galaxyCredentials(false);
     const result = await checkPreconditions();
     expect(result.hardFailed).toBe(true);
     expect(result.failures.find((f) => f.name === "galaxy_connection")).toBeTruthy();
@@ -216,7 +221,7 @@ describe("checkPreconditions -- hard failures", () => {
 - [ ] 1. **Parse data** -- awk magic over CSV
   - Verification: confirm the parsed CSV exists and has the expected header
 `);
-    setGalaxyConnection(false);
+    galaxyCredentials(false);
     const result = await checkPreconditions();
     expect(result.ok).toBe(true);
     expect(result.hardFailed).toBe(false);
@@ -238,7 +243,7 @@ describe("checkPreconditions -- soft failures", () => {
 
 - [ ] 1. **Step** -- with a description that exceeds the threshold
 `);
-    setGalaxyConnection(true); // connected, but no history
+    galaxyCredentials(true); // connected, but no history
     const result = await checkPreconditions();
     expect(result.failures.find((f) => f.name === "history")).toBeTruthy();
     expect(result.failures.find((f) => f.name === "history")!.severity).toBe("soft");
@@ -254,7 +259,7 @@ history_id: f5912ab34
 
 - [ ] 1. **Step** -- with a description that exceeds the threshold
 `);
-    setGalaxyConnection(true);
+    galaxyCredentials(true);
     const result = await checkPreconditions();
     expect(result.failures.find((f) => f.name === "history")).toBeUndefined();
   });
@@ -265,7 +270,8 @@ history_id: f5912ab34
 
 - [ ] 1. **Step** -- adequate description here
 `);
-    setGalaxyConnection(true, "history_from_state");
+    galaxyCredentials(true);
+    setCurrentHistoryId("history_from_state");
     const result = await checkPreconditions();
     expect(result.failures.find((f) => f.name === "history")).toBeUndefined();
   });
@@ -315,13 +321,14 @@ describe("checkPreconditions -- happy path", () => {
 - [ ] 1. **bwa-mem PE** {#plan-a-step-1} -- 4 samples on chrM reference
   - Verification: poll the Galaxy invocation to completion and inspect BAM outputs
 `);
-    setGalaxyConnection(true, "abc123");
+    galaxyCredentials(true);
+    setCurrentHistoryId("abc123");
     const result = await checkPreconditions();
     expect(result.ok).toBe(true);
   });
 });
 
-describe("checkPreconditions -- Galaxy readiness without a connect tool", () => {
+describe("checkPreconditions -- Galaxy readiness is the credentials", () => {
   const REMOTE = `
 ## Plan A: Aligned [remote]
 
@@ -329,43 +336,18 @@ describe("checkPreconditions -- Galaxy readiness without a connect tool", () => 
 `;
   const connectionFailure = async () =>
     (await checkPreconditions()).failures.find((f) => f.name === "galaxy_connection");
-  const bare = () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
-    // The default in-process source: galaxy-ops' operations, which have no connect tool.
-    registerGalaxyTools({ registerTool: () => {} } as never);
-  };
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    setGalaxyToolSource(null);
-    setCapabilityProfile(null);
-  });
-
-  it("passes a [remote] plan under bare once credentials are configured", async () => {
+  it("passes a [remote] plan once credentials are configured, with nothing connected", async () => {
     writeNotebook(REMOTE);
-    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
-    vi.stubEnv("GALAXY_API_KEY", "key");
-    bare();
-    // Nothing called connect: in-process tools have no such step.
-    setGalaxyConnection(false);
+    galaxyCredentials(true);
     expect(await connectionFailure()).toBeUndefined();
   });
 
-  it("hard-fails a [remote] plan under bare without credentials", async () => {
+  it("hard-fails a [remote] plan without credentials", async () => {
     writeNotebook(REMOTE);
-    vi.stubEnv("GALAXY_URL", "");
-    vi.stubEnv("GALAXY_API_KEY", "");
-    bare();
+    galaxyCredentials(false);
     const result = await checkPreconditions();
     expect(result.hardFailed).toBe(true);
-    expect(await connectionFailure()).toBeTruthy();
-  });
-
-  it("still asks for connect under mcp, credentials or not", async () => {
-    writeNotebook(REMOTE);
-    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
-    vi.stubEnv("GALAXY_API_KEY", "key");
-    setGalaxyConnection(false);
     expect(await connectionFailure()).toBeTruthy();
   });
 });

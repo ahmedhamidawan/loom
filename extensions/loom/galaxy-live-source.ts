@@ -477,8 +477,8 @@ export async function fetchGalaxyLiveSnapshot(
  * Galaxy would otherwise have us probe a stranger's id and render "this history
  * belongs to another account" forever.
  *
- * `getCurrentHistoryId()` from state.ts is deliberately not used: nothing in
- * production calls `setGalaxyConnection`, so it is null in a real session.
+ * `getCurrentHistoryId()` from state.ts is deliberately not used: it follows
+ * the last create_history, not the history the notebook is bound to.
  */
 export function historyIdFromNotebook(content: string | null, serverUrl: string): string | null {
   if (!content) return null;

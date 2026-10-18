@@ -296,29 +296,15 @@ export function currentGalaxyUrl(env?: NodeJS.ProcessEnv): string | undefined {
   return active ? profiles[active]?.url : undefined;
 }
 
-// Under galaxy-mcp nothing in the brain asks Galaxy for its version, and adding
-// a probe is its own change with its own auth question. What we can have for
-// free is the version galaxy-mcp already reports on a successful connect (the
-// in-process tools ask galaxy-ops instead: galaxy-version-capture.ts) -- shape-checked
-// hard (a release number, optionally devN/rcN/postN, nothing free-form that
-// could carry a site name), so a hostile or absent value just leaves the field
-// off. It is remembered against the server it came from, so switching servers
-// mid-session can't label one server's failure with another's version.
+// The Galaxy version on an observation comes from galaxy-ops (galaxy-version-capture.ts),
+// shape-checked hard (a release number, optionally devN/rcN/postN, nothing free-form that
+// could carry a site name), so a hostile or absent value just leaves the field off. It is
+// remembered against the server it came from, so switching servers mid-session can't label
+// one server's failure with another's version.
 const GALAXY_VERSION_SHAPE = /^\d{2}\.\d{1,2}(?:\.\d{1,3})?(?:\.?(?:dev|rc|post)\d{1,3})?$/;
 let galaxyVersion: { version: string; url: string | undefined } | undefined;
 
-export function recordGalaxyVersionFromConnect(resultText: string | undefined): void {
-  if (!resultText) return;
-  const m = resultText.match(/"version"\s*:\s*"([^"]{1,40})"/);
-  if (m && GALAXY_VERSION_SHAPE.test(m[1])) {
-    galaxyVersion = { version: m[1], url: currentGalaxyUrl() };
-  }
-}
-
-/**
- * The in-process tools have no connect result to read, so they hand over a
- * version already assembled from /api/version; it gets the same shape check.
- */
+/** A version already assembled from /api/version, kept only if it has the release shape. */
 export function recordGalaxyVersion(version: string | undefined): void {
   if (version && GALAXY_VERSION_SHAPE.test(version)) {
     galaxyVersion = { version, url: currentGalaxyUrl() };

@@ -9,7 +9,7 @@ import {
   extractDatatypes,
   resolveObservationServer,
   currentGalaxyUrl,
-  recordGalaxyVersionFromConnect,
+  recordGalaxyVersion,
   getGalaxyVersion,
   resetGalaxyVersion,
   buildObservation,
@@ -298,26 +298,26 @@ describe("currentGalaxyUrl", () => {
   });
 });
 
-describe("recordGalaxyVersionFromConnect", () => {
+describe("recordGalaxyVersion", () => {
   beforeEach(() => resetGalaxyVersion());
 
   it("captures a version-shaped value", () => {
-    recordGalaxyVersionFromConnect('{"success": true, "version": "24.2.1"}');
+    recordGalaxyVersion("24.2.1");
     expect(getGalaxyVersion()).toBe("24.2.1");
   });
 
   it("ignores anything that is not version-shaped", () => {
-    recordGalaxyVersionFromConnect('{"version": "/Users/alice"}');
+    recordGalaxyVersion("/Users/alice");
     expect(getGalaxyVersion()).toBeUndefined();
-    recordGalaxyVersionFromConnect('{"version": "dev"}');
+    recordGalaxyVersion("dev");
     expect(getGalaxyVersion()).toBeUndefined();
-    recordGalaxyVersionFromConnect(undefined);
+    recordGalaxyVersion(undefined);
     expect(getGalaxyVersion()).toBeUndefined();
   });
 
-  it("caps a hostile long value", () => {
-    recordGalaxyVersionFromConnect(`{"version": "24.2.1${"9".repeat(200)}"}`);
-    expect((getGalaxyVersion() ?? "").length).toBeLessThanOrEqual(40);
+  it("refuses a hostile long value", () => {
+    recordGalaxyVersion(`24.2.1${"9".repeat(200)}`);
+    expect(getGalaxyVersion()).toBeUndefined();
   });
 });
 
@@ -532,9 +532,9 @@ describe("shape checks on model-authored fields", () => {
 
   it("keeps a free-form site suffix out of the galaxy version", () => {
     resetGalaxyVersion();
-    recordGalaxyVersionFromConnect('{"version": "24.1.2+cancer.ctr"}');
+    recordGalaxyVersion("24.1.2+cancer.ctr");
     expect(getGalaxyVersion()).toBeUndefined();
-    recordGalaxyVersionFromConnect('{"version": "26.1.rc1"}');
+    recordGalaxyVersion("26.1.rc1");
     expect(getGalaxyVersion()).toBe("26.1.rc1");
     resetGalaxyVersion();
   });

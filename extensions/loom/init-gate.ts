@@ -16,22 +16,16 @@
  *   resolve with the user before invoking anything.
  */
 
-import { getNotebookPath, isGalaxyConnected, getCurrentHistoryId } from "./state.js";
+import { getNotebookPath, getCurrentHistoryId } from "./state.js";
 import { recordStore } from "./record-store.js";
 import { isLocalShellDisabled } from "./local-exec.js";
 import { getGalaxyConfig } from "./galaxy-api.js";
-import { galaxyToolFamily } from "./galaxy-tool-source.js";
-import { hasConnectTool } from "../../shared/galaxy-mcp-tools.js";
 
 export type Routing = "local" | "hybrid" | "remote" | "unknown";
 
-/**
- * Whether Galaxy can take this plan's work. With a connect tool in the family, connecting is a
- * step the model takes and `isGalaxyConnected()` records it. In-process tools have no such step:
- * they reach Galaxy whenever credentials are configured.
- */
+/** Whether Galaxy can take this plan's work: the tools reach it whenever credentials are configured. */
 function galaxyReady(): boolean {
-  return hasConnectTool(galaxyToolFamily()) ? isGalaxyConnected() : getGalaxyConfig() !== null;
+  return getGalaxyConfig() !== null;
 }
 
 /** `[galaxy]` is the old spelling of `[remote]`; existing notebooks still use it. */

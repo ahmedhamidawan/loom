@@ -19,7 +19,6 @@ import * as path from "path";
 // ─────────────────────────────────────────────────────────────────────────────
 
 let state: AnalystState = {
-  galaxyConnected: false,
   currentHistoryId: null,
   notebookPath: null,
   notebookLoaded: false,
@@ -52,7 +51,6 @@ export function resetState(): void {
   lastEmittedNotebookContent = null;
   lastInspectedFingerprint = null;
   state = {
-    galaxyConnected: false,
     currentHistoryId: null,
     notebookPath: null,
     notebookLoaded: false,
@@ -232,18 +230,11 @@ export async function initSessionArtifacts(cwd: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Galaxy connection state
+// Current Galaxy history
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function setGalaxyConnection(
-  connected: boolean,
-  historyId?: string,
-  _serverUrl?: string,
-): void {
-  state.galaxyConnected = connected;
-  if (historyId) {
-    state.currentHistoryId = historyId;
-  }
+export function setCurrentHistoryId(historyId: string | null): void {
+  state.currentHistoryId = historyId;
 }
 
 export function getCurrentHistoryId(): string | null {
@@ -271,8 +262,4 @@ export function setCurrentStepAnchor(anchor: string | null): void {
 
 export function getCurrentStepAnchor(): string | null {
   return state.currentStepAnchor;
-}
-
-export function isGalaxyConnected(): boolean {
-  return state.galaxyConnected;
 }

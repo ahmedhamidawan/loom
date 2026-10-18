@@ -479,12 +479,10 @@ describe("guards under a bare family with no connect tool", () => {
     expect(bare).toContain("prefer search_tools_by_name");
   });
 
-  it("the capture follow-through's connect trigger is inert without a connect tool", async () => {
+  it("the capture follow-through has no connect trigger to wait on", () => {
     const registerCommand = vi.fn();
     const on = vi.fn();
-    registerCaptureFollowThrough({ on, registerCommand } as unknown as ExtensionAPI, NO_CONNECT);
-    const end = on.mock.calls.find(([n]) => n === "tool_execution_end")![1];
-    // Returns before queueing anything: no followThrough promise is created.
-    await expect(end({ toolName: "connect", isError: false })).resolves.toBeUndefined();
+    registerCaptureFollowThrough({ on, registerCommand } as unknown as ExtensionAPI);
+    expect(on.mock.calls.map(([n]) => n)).not.toContain("tool_execution_end");
   });
 });

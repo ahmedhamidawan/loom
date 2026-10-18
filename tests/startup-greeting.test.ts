@@ -3,17 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { planStartupGreeting, sendStartupGreeting } from "../extensions/loom/session-lifecycle.js";
-import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
 
 describe("planStartupGreeting", () => {
-  it("usable -> a model turn that nudges mcp__galaxy__connect", () => {
+  it("usable -> a model turn that says the tools are ready, with no connect step", () => {
     const action = planStartupGreeting("usable", false);
-    expect(action.kind).toBe("model");
-    if (action.kind === "model") expect(action.message).toContain("mcp__galaxy__connect");
-  });
-
-  it("usable with no connect tool -> a model turn that says the tools are ready", () => {
-    const action = planStartupGreeting("usable", false, null);
     expect(action.kind).toBe("model");
     if (action.kind === "model") {
       expect(action.message).toContain("ready to use");
@@ -94,31 +87,12 @@ describe("sendStartupGreeting (dispatch)", () => {
     process.env.GALAXY_URL = "https://x.galaxyproject.org";
     process.env.GALAXY_API_KEY = "injected-by-orbit";
     const { pi, ctx } = fakes();
-    // uvx presence is an independent axis -- pin it so the suite doesn't depend
-    // on whether the machine running it happens to have uv installed.
-    sendStartupGreeting(pi as never, ctx as never, true);
+    sendStartupGreeting(pi as never, ctx as never);
     expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
     expect(ctx.ui.notify).not.toHaveBeenCalled();
   });
 
-  it("usable but no uvx -> warning notify AND the model turn", () => {
-    writeConfig({
-      active: "default",
-      profiles: { default: { url: "https://x.galaxyproject.org", apiKeyEncrypted: "ZW5j" } },
-    });
-    process.env.GALAXY_URL = "https://x.galaxyproject.org";
-    process.env.GALAXY_API_KEY = "injected-by-orbit";
-    const { pi, ctx } = fakes();
-    sendStartupGreeting(pi as never, ctx as never, false);
-    // Both, not either: the warning explains why Galaxy tools will fail, and the
-    // greeting still runs because credentials are fine.
-    expect(ctx.ui.notify).toHaveBeenCalledTimes(1);
-    expect(ctx.ui.notify.mock.calls[0][1]).toBe("warning");
-    expect(ctx.ui.notify.mock.calls[0][0]).toContain("uvx");
-    expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
-  });
-
-  it("usable with no uvx on PATH -> the default probe finds none and warns", () => {
+  it("usable with no uvx on PATH -> no warning, and the turn says the tools are ready", () => {
     writeConfig({
       active: "default",
       profiles: { default: { url: "https://x.galaxyproject.org", apiKeyEncrypted: "ZW5j" } },
@@ -127,37 +101,14 @@ describe("sendStartupGreeting (dispatch)", () => {
     process.env.GALAXY_API_KEY = "injected-by-orbit";
     const prevPath = process.env.PATH;
     process.env.PATH = "";
-    try {
-      const { pi, ctx } = fakes();
-      sendStartupGreeting(pi as never, ctx as never);
-      expect(ctx.ui.notify).toHaveBeenCalledTimes(1);
-      expect(ctx.ui.notify.mock.calls[0][0]).toContain("uvx");
-      expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
-    } finally {
-      process.env.PATH = prevPath;
-    }
-  });
-
-  it("usable under a profile with in-process Galaxy tools -> no probe, no warning", () => {
-    writeConfig({
-      active: "default",
-      profiles: { default: { url: "https://x.galaxyproject.org", apiKeyEncrypted: "ZW5j" } },
-    });
-    process.env.GALAXY_URL = "https://x.galaxyproject.org";
-    process.env.GALAXY_API_KEY = "injected-by-orbit";
-    const prevPath = process.env.PATH;
-    process.env.PATH = "";
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
     try {
       const { pi, ctx } = fakes();
       sendStartupGreeting(pi as never, ctx as never);
       expect(ctx.ui.notify).not.toHaveBeenCalled();
       expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
-      // No MCP server means no connect tool to ask for.
       expect(pi.sendUserMessage.mock.calls[0][0]).not.toContain("connect()");
       expect(pi.sendUserMessage.mock.calls[0][0]).toContain("ready to use");
     } finally {
-      setCapabilityProfile(null);
       process.env.PATH = prevPath;
     }
   });

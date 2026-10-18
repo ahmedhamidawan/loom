@@ -16,7 +16,6 @@ vi.mock("../extensions/loom/galaxy-page-sync.js", () => ({
   initGalaxyPageSync: vi.fn(),
   flushNotebookToGalaxy: vi.fn(),
 }));
-vi.mock("../extensions/loom/galaxy-cred-drift.js", () => ({ maybeNudgeGalaxyReconnect: vi.fn() }));
 vi.mock("../extensions/loom/config", () => ({ loadConfig: vi.fn(() => ({})) }));
 // Opening the real registry would take a lock under the test runner's cwd.
 vi.mock("../extensions/loom/registry-runtime.js", () => ({

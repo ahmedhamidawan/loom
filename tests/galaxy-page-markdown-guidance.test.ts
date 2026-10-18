@@ -3,7 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import * as state from "../extensions/loom/state";
-import { GALAXY_PAGE_MARKDOWN_GUIDANCE } from "../extensions/loom/galaxy-page-markdown-guidance";
+import {
+  GALAXY_PAGE_MARKDOWN_GUIDANCE,
+  galaxyPageMarkdownGuidance,
+} from "../extensions/loom/galaxy-page-markdown-guidance";
+import { galaxyToolFamily } from "../extensions/loom/galaxy-tool-source";
 import { NOTEBOOK_PUSH_TO_GALAXY_DESCRIPTION } from "../extensions/loom/tools-sync";
 import { buildGalaxyPageBindingBlock } from "../extensions/loom/context";
 
@@ -61,6 +65,8 @@ describe("Galaxy page binding context block", () => {
       "",
     ].join("\n");
     writeFileSync(nbPath, nb, "utf-8");
-    expect(await buildGalaxyPageBindingBlock()).toContain(GALAXY_PAGE_MARKDOWN_GUIDANCE);
+    expect(await buildGalaxyPageBindingBlock()).toContain(
+      galaxyPageMarkdownGuidance(galaxyToolFamily()),
+    );
   });
 });

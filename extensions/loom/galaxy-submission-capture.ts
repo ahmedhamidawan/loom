@@ -672,13 +672,14 @@ async function recordAttempt(
 /**
  * The submission table's name for a tool the family names, or undefined when it
  * isn't a submission. The table is spelled in the MCP family, plus Loom's own
- * galaxy_upload_local_file, which no family renames.
+ * galaxy_upload_local_file, which no family renames. An MCP spelling the family
+ * does not name is not this shell's tool, so it is not a submission either.
  */
 export function submissionToolName(
   toolName: string,
   family: GalaxyToolFamily = MCP_FAMILY,
 ): string | undefined {
-  if (isSubmissionTool(toolName)) return toolName;
+  if (toolName === "galaxy_upload_local_file") return toolName;
   const tool = family.toolName(toolName);
   const canonical = tool === undefined ? undefined : MCP_FAMILY.tool(tool);
   return canonical !== undefined && isSubmissionTool(canonical) ? canonical : undefined;

@@ -756,7 +756,7 @@ describe("registerObservationTriggers", () => {
     });
   });
 
-  it("takes the Galaxy version from galaxy-mcp's connect under its pi spelling", async () => {
+  it("takes no Galaxy version from a connect-shaped result; galaxy-ops reports it", async () => {
     const { registerObservationTriggers } =
       await import("../extensions/loom/observation-triggers.js");
     const { getGalaxyVersion } = await import("../extensions/loom/observations.js");
@@ -774,7 +774,7 @@ describe("registerObservationTriggers", () => {
       },
       {},
     );
-    expect(getGalaxyVersion()).toBe("26.1.1");
+    expect(getGalaxyVersion()).toBeUndefined();
   });
 
   it("raises nothing for a failure on a server named galaxy__x", async () => {
