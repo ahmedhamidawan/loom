@@ -436,7 +436,7 @@ Loom uses a single brain-level config at `~/.loom/config.json`. Every consumer (
 }
 ```
 
-All sections are optional. If `llm` is missing, consumers fall back to environment variables or OAuth login. If `galaxy` is missing, use `/connect` to add a server interactively -- credentials save to the config automatically. Galaxy MCP registers whenever credentials are present; the agent decides per-plan whether to use Galaxy. If `skills` is missing or empty, `galaxy-skills` is lazy-seeded.
+All sections are optional. If `llm` is missing, consumers fall back to environment variables or OAuth login. If `galaxy` is missing, use `/connect` to add a server interactively -- credentials save to the config automatically. The Galaxy tools are always registered and use those credentials; the agent decides per-plan whether to use Galaxy. If `skills` is missing or empty, `galaxy-skills` is lazy-seeded.
 
 #### Galaxy credential storage
 
@@ -515,8 +515,8 @@ full and sent only if you say yes. In `auto` mode no free text is sent at all:
 no error text and no description, only the structured fields (tool, stage,
 datatypes, server, client). `/observe` is the one exception -- it always asks
 first and shows your note, whatever the mode. Every field is checked before it
-leaves the machine: the mcp tool name, Galaxy's own tool ids and the datatypes
-against lists generated from galaxy-mcp and Galaxy releases (a toolshed tool's
+leaves the machine: the Galaxy tool name, Galaxy's own tool ids and the datatypes
+against lists generated from galaxy-ops and Galaxy releases (a toolshed tool's
 owner and repository can only be shape-checked), and the error line in
 stages: URLs and email addresses are replaced first, then the line is checked
 for hosts, ports, network addresses, UUIDs and the like before paths, ids and
@@ -647,7 +647,7 @@ To be precise about the boundary: the workspace jail (default-on, every platform
 
 Shell (`bash`) commands are **not** OS-sandboxed by default -- they're gated per action by the same approval flow (catastrophic patterns blocked outright, everything else prompts), but a bash command that writes a file or touches the network doesn't go through the write-jail path. To also confine bash writes and limit its network access inside a real OS sandbox, enable the opt-in bash sandbox (`--sandbox` / `LOOM_SANDBOX=1` / `guardian.sandbox`), available on macOS and Linux/WSL2.
 
-What this does **not** confine: reading files (the write-jail is not an exfiltration control), and data leaving via remote channels -- syncing the notebook to a Galaxy Page, Galaxy MCP operations (uploads, running tools), `skills_fetch`'s cache writes under `~/.loom`, or web fetches. Treat the working-dir confinement as "the AI's edits stay in your analysis directory," not "your data cannot leave the machine."
+What this does **not** confine: reading files (the write-jail is not an exfiltration control), and data leaving via remote channels -- syncing the notebook to a Galaxy Page, Galaxy tool operations (uploads, running tools), `skills_fetch`'s cache writes under `~/.loom`, or web fetches. Treat the working-dir confinement as "the AI's edits stay in your analysis directory," not "your data cannot leave the machine."
 
 ## Cost tracking
 
@@ -700,21 +700,22 @@ Loom registers a small set of extension tools. Plans, decisions, results, and in
 | **Skills**                     | `skills_fetch` (SKILL.md / reference docs; `repo: "foundry"` reads bundled Foundry casts) |
 | **Multi-agent (experimental)** | `team_dispatch` (gated by `LOOM_TEAM_DISPATCH=1`)                                         |
 
-Galaxy MCP (registered separately when credentials are present) provides `mcp__galaxy__connect`, `mcp__galaxy__search_tools_by_name`, `mcp__galaxy__run_tool`, `mcp__galaxy__invoke_workflow`, `mcp__galaxy__search_iwc_workflows`, `mcp__galaxy__recommend_iwc_workflows`, `mcp__galaxy__import_workflow_from_iwc`, user-defined tool lifecycle (`mcp__galaxy__create_user_tool`, `mcp__galaxy__list_user_tools`, `mcp__galaxy__run_user_tool`, `mcp__galaxy__delete_user_tool`), history/dataset operations, and more.
+The Galaxy tools run in-process through [galaxy-ops](https://github.com/galaxyproject/galaxy-mcp) under the operations' own names: `search_tools_by_name`, `run_tool`, `invoke_workflow`, `search_iwc_workflows`, `recommend_iwc_workflows`, `import_workflow_from_iwc`, user-defined tool lifecycle (`create_user_tool`, `list_user_tools`, `run_user_tool`, `delete_user_tool`), history/dataset operations, and more. There is no connect step: `/connect` stores the credentials they use.
 
 ## Tech stack
 
-| Component  | Technology                                            |
-| ---------- | ----------------------------------------------------- |
-| Agent      | Pi.dev (`@earendil-works/pi-coding-agent`)            |
-| MCP bridge | pi built-in MCP, `uvx galaxy-mcp`                     |
-| Language   | TypeScript (strict)                                   |
-| Tests      | Vitest                                                |
-| Desktop    | Electron 35                                           |
-| Build      | Vite + electron-forge                                 |
-| Markdown   | `marked`                                              |
-| Fonts      | Inter (body), JetBrains Mono (code)                   |
-| Theme      | Galaxy brand dark (`#2c3143` + gold accent `#ffd700`) |
+| Component    | Technology                                            |
+| ------------ | ----------------------------------------------------- |
+| Agent        | Pi.dev (`@earendil-works/pi-coding-agent`)            |
+| Galaxy tools | `@galaxyproject/galaxy-ops`, in-process               |
+| MCP bridge   | pi built-in MCP (brc-analytics)                       |
+| Language     | TypeScript (strict)                                   |
+| Tests        | Vitest                                                |
+| Desktop      | Electron 35                                           |
+| Build        | Vite + electron-forge                                 |
+| Markdown     | `marked`                                              |
+| Fonts        | Inter (body), JetBrains Mono (code)                   |
+| Theme        | Galaxy brand dark (`#2c3143` + gold accent `#ffd700`) |
 
 ## Terminal-only validation
 
@@ -739,7 +740,7 @@ For a full terminal-only runbook, see [docs/terminal-validation.md](docs/termina
 ## Related projects
 
 - [Galaxy](https://galaxyproject.org) — open-source platform for data-intensive biomedical research
-- [galaxy-mcp](https://github.com/galaxyproject/galaxy-mcp) — MCP server for the Galaxy API
+- [galaxy-mcp](https://github.com/galaxyproject/galaxy-mcp) — MCP server for the Galaxy API, and home of galaxy-ops, the operations Loom runs in-process
 - [galaxy-skills](https://github.com/galaxyproject/galaxy-skills) — curated operational skills, bundled with Loom at a pinned commit
 - [agentic-plugins](https://github.com/galaxyproject/agentic-plugins) — the pinned source Loom vendors its skill content from
 - [Pi coding agent](https://github.com/badlogic/pi-mono) — the Pi.dev agent framework

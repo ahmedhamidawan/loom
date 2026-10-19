@@ -64,7 +64,7 @@ const TOOL_GROUPS = [
   ],
   ["skills", (n) => n.startsWith("skills_")],
   ["galaxy-ops", (n) => GALAXY_OPS_NAMES.has(n)],
-  ["galaxy-mcp", (n) => n.startsWith("galaxy_")],
+  ["galaxy (loom)", (n) => n.startsWith("galaxy_")],
   ["loom", () => true],
 ];
 

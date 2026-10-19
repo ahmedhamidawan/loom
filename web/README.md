@@ -102,7 +102,7 @@ Browser  ──(WebSocket /ws)──>  web/server.ts  ──(JSON-line stdio)─
   calls over a WebSocket (`/ws`) instead of IPC.
 - For each browser it spawns one `node bin/loom.js --mode rpc` subprocess --
   identical brain (`extensions/loom`), identical agent loop, identical Galaxy
-  MCP path to Orbit and the CLI. Some control channels (config get/save,
+  tool path to Orbit and the CLI. Some control channels (config get/save,
   cwd get/set, restart, reset-session) are handled by the server directly;
   everything else forwards to the brain.
 
@@ -119,7 +119,7 @@ some flows are stubbed.
 - Config get/save and cwd selection (directory picker is prompt-based, no
   native dialog)
 - Agent event streaming and extension UI requests
-- The real LLM planning/execution and Galaxy MCP connectivity
+- The real LLM planning/execution and Galaxy tool calls
 
 **Stubbed / not bridged (will error or silently no-op):**
 

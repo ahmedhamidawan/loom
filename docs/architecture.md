@@ -33,7 +33,7 @@ Shell (CLI / Orbit / future web)
   ↓ Pi RPC over JSON-line stdio
 Loom brain (Pi extension in extensions/loom/)
   ↓
-Galaxy MCP (galaxy-mcp via uvx) + Galaxy tools/workflows
+In-process Galaxy tools (galaxy-ops) + Galaxy tools/workflows
   ↓
 notebook.md + git history in the analysis directory
 ```
@@ -85,7 +85,7 @@ The Loom brain is loaded as a Pi extension from [`extensions/loom/`](../extensio
 
 - boots Pi in RPC mode with `extensions/loom` loaded
 - loads `~/.loom/config.json` via `shared/loom-config.js`
-- clears the Galaxy/BRC entries older versions left in `~/.pi/agent/mcp.json` (the brain now registers those servers with pi itself, Galaxy only when credentials are present), saving the old file as `mcp.json.loom-backup` first; a `galaxy` or `brc-analytics` entry the user wrote for pi's built-in MCP is left alone and reported, since a file entry wins over the registration
+- clears the Galaxy/BRC entries older versions left in `~/.pi/agent/mcp.json` (the brain now registers brc-analytics with pi itself and runs the Galaxy tools in-process), saving the old file as `mcp.json.loom-backup` first; a `galaxy` or `brc-analytics` entry the user wrote for pi's built-in MCP is left alone and reported, since a file entry wins over the registration
 - forwards `GALAXY_URL` / `GALAXY_API_KEY` into the agent's environment
 
 The CLI never owns analysis semantics. Slash commands behave the same as in Orbit; widget events collapse to text summaries in the terminal.
@@ -129,7 +129,7 @@ User types in Orbit
 → main forwards to AgentManager
 → AgentManager writes a JSON-RPC line to the brain's stdin
 → Pi + Loom process the turn
-→ tools edit notebook.md (Edit/Write) or call galaxy-mcp
+→ tools edit notebook.md (Edit/Write) or call the in-process Galaxy tools
 → chokidar fires on notebook write
 → ui-bridge encodes a Notebook widget payload
 → main forwards events to renderer
