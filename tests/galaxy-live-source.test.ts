@@ -1343,6 +1343,12 @@ describe("normalizeGalaxyLivePayload", () => {
   });
 
   it("clamps a payload built to be enormous", () => {
+    // One shared item: 5000 fresh copies of 300 KB timed out on slow CI runners.
+    const item = {
+      id: "x".repeat(100_000),
+      name: "y".repeat(100_000),
+      extension: "z".repeat(100_000),
+    };
     const p = normalizeGalaxyLivePayload({
       version: 1,
       serverHost: "h".repeat(100_000),
@@ -1350,11 +1356,7 @@ describe("normalizeGalaxyLivePayload", () => {
         id: "i".repeat(100_000),
         name: "n".repeat(100_000),
         updateTime: "u".repeat(100_000),
-        items: Array.from({ length: 5000 }, () => ({
-          id: "x".repeat(100_000),
-          name: "y".repeat(100_000),
-          extension: "z".repeat(100_000),
-        })),
+        items: Array.from({ length: 5000 }, () => item),
       },
       updatedAt: "d".repeat(100_000),
     });

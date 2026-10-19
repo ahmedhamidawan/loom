@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import {
   GALAXY_OUTPUT_MARKER,
   inspectOutput,
@@ -153,6 +153,8 @@ const HOT_PATH = [
 // The transport seam, reached through galaxyOpsContext. Its process.env read is the fallback
 // when no transport supplies credentials, and the browser installs one; nothing else may read env.
 const ENV_FALLBACK = new Set(["extensions/loom/galaxy-api.ts"]);
+// Posix spelling, so the set and the reach list match on Windows too.
+const rel = (file: string) => relative(ROOT, file).split(sep).join("/");
 
 const FORBIDDEN_TOKEN = /node:|\bBuffer\b|\btmpdir\b|process\.env|\bcrypto\b|\brequire\s*\(/;
 const NODE_SPECIFIER = /^(?:node:|fs$|fs\/|path$|os$|crypto$)/;
@@ -199,21 +201,21 @@ describe("hot-path modules stay Node-free", () => {
       if (seen.has(file)) continue;
       seen.add(file);
       const source = readFileSync(file, "utf8");
-      const node = ENV_FALLBACK.has(relative(ROOT, file))
+      const node = ENV_FALLBACK.has(rel(file))
         ? /\bBuffer\b|\btmpdir\b/
         : /\bBuffer\b|\btmpdir\b|process\.env/;
-      expect(source, relative(ROOT, file)).not.toMatch(node);
+      expect(source, rel(file)).not.toMatch(node);
       for (const spec of specifiers(source)) {
-        expect(spec, `${relative(ROOT, file)} imports ${spec}`).not.toMatch(NODE_SPECIFIER);
+        expect(spec, `${rel(file)} imports ${spec}`).not.toMatch(NODE_SPECIFIER);
         if (spec.startsWith(".")) {
           const target = resolveRelative(file, spec);
-          expect(target, `${relative(ROOT, file)} -> ${spec}`).toBeDefined();
+          expect(target, `${rel(file)} -> ${spec}`).toBeDefined();
           queue.push(target!);
         }
       }
     }
     // Proves the walk follows imports; the ring's ids come through ulid.ts.
-    const reached = [...seen].map((f) => relative(ROOT, f));
+    const reached = [...seen].map(rel);
     expect(reached).toContain("shared/random.js");
     expect(reached).toContain("extensions/loom/galaxy-api.ts");
     expect(reached).toContain("shared/page-content-hash.js");

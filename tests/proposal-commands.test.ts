@@ -102,7 +102,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   closeSessionRegistry();
-  fs.rmSync(dir, { recursive: true, force: true });
+  // A registry write can still be landing when the session closes; retry the rmdir race.
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
 });
 
 describe("loom_propose", () => {
