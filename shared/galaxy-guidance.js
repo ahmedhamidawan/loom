@@ -1,6 +1,6 @@
 // Galaxy workflow guidance both shells put in the system prompt. The text is the browser's, byte for
-// byte; `tool` maps a galaxy-mcp tool name to what the shell offers it as (the browser's bare
-// name, Orbit's mcp__galaxy__ one).
+// byte; `tool` maps a Galaxy tool name to what the shell offers it as (both shells offer the bare
+// name today).
 
 /** @param {string} name */
 const bare = (name) => name;

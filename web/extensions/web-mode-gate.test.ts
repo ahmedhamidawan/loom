@@ -257,7 +257,7 @@ describe("shouldBlockTool", () => {
     const result = shouldBlockTool(
       "mcp",
       {
-        tool: "mcp__galaxy__update_history",
+        tool: "update_history",
         args: '{"purged":true,"history_id":"abc"}',
         server: "galaxy",
       },
@@ -271,7 +271,7 @@ describe("shouldBlockTool", () => {
     const result = shouldBlockTool(
       "mcp",
       {
-        tool: "mcp__galaxy__update_history",
+        tool: "update_history",
         args: '{"deleted":true,"history_id":"abc"}',
         server: "galaxy",
       },

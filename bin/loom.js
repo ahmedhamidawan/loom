@@ -307,12 +307,12 @@ if (activeLlmProvider && OAUTH_ONLY_PROVIDERS.has(activeLlmProvider)) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Galaxy credential + MCP registration
+// Galaxy credentials
 //
 // Credentials come from ~/.loom/config.json (written by /connect) or env
-// vars (CI/testing). Galaxy MCP registers whenever credentials are present;
+// vars (CI/testing). The in-process Galaxy tools are always registered;
 // the agent decides per-plan whether to use Galaxy. The `executionMode`
-// field affects prompt guidance, not MCP registration.
+// field affects prompt guidance, not which tools are registered.
 // ─────────────────────────────────────────────────────────────────────────────
 
 let galaxyUrl = null;

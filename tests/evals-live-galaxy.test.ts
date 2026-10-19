@@ -43,7 +43,7 @@ function chat(text: string): AnyEvent {
 }
 
 describe("evals toolResults assertions", () => {
-  const userResult = end("mcp__galaxy__get_user", '{"data":{"username":"alice","id":"1"}}', {
+  const userResult = end("get_user", '{"data":{"username":"alice","id":"1"}}', {
     details: { server: "galaxy", tool: "get_user" },
   });
 
@@ -53,7 +53,7 @@ describe("evals toolResults assertions", () => {
         toolResults: {
           mustSucceed: [
             {
-              name: "mcp__galaxy__get_user",
+              name: "get_user",
               detailsContains: { server: "galaxy" },
               textContains: "username",
             },
@@ -65,12 +65,12 @@ describe("evals toolResults assertions", () => {
   });
 
   it("mustSucceed fails on an error result, wrong details, or missing text", () => {
-    const errored = end("mcp__galaxy__get_user", "Tool not found", { isError: true });
+    const errored = end("get_user", "Tool not found", { isError: true });
     for (const [events, expectation] of [
-      [[errored], { name: "mcp__galaxy__get_user" }],
-      [[userResult], { name: "mcp__galaxy__get_user", detailsContains: { server: "brc" } }],
-      [[userResult], { name: "mcp__galaxy__get_user", textContains: "[loom MCP output" }],
-      [[], { name: "mcp__galaxy__get_user" }],
+      [[errored], { name: "get_user" }],
+      [[userResult], { name: "get_user", detailsContains: { server: "brc" } }],
+      [[userResult], { name: "get_user", textContains: "[loom MCP output" }],
+      [[], { name: "get_user" }],
     ] as const) {
       const failures = evaluate(
         run([...events], { toolResults: { mustSucceed: [{ ...expectation }] } }),
@@ -116,10 +116,10 @@ describe("evals toolResults assertions", () => {
   });
 
   it("mustNotSucceed tolerates a blocked call but not a successful one", () => {
-    const blocked = end("mcp__galaxy__update_history", "Destructive op denied", { isError: true });
-    const ok = end("mcp__galaxy__update_history", '{"data":{"deleted":true}}');
+    const blocked = end("update_history", "Destructive op denied", { isError: true });
+    const ok = end("update_history", '{"data":{"deleted":true}}');
     const assertions: Assertions = {
-      toolResults: { mustNotSucceed: ["mcp__galaxy__update_history"] },
+      toolResults: { mustNotSucceed: ["update_history"] },
     };
     expect(evaluate(run([blocked], assertions))).toEqual([]);
     expect(evaluate(run([blocked, ok], assertions)).map((f) => f.assertion)).toEqual([
@@ -130,28 +130,31 @@ describe("evals toolResults assertions", () => {
   it("echoedInChat requires the captured value in the chat", () => {
     const assertions: Assertions = {
       toolResults: {
-        echoedInChat: [{ name: "mcp__galaxy__get_user", pattern: '"username":\\s*"([^"]+)"' }],
+        echoedInChat: [{ name: "get_user", pattern: '"username":\\s*"([^"]+)"' }],
       },
     };
     expect(evaluate(run([userResult, chat("You are alice.")], assertions))).toEqual([]);
     const miss = evaluate(run([userResult, chat("You are bob.")], assertions));
     expect(miss.map((f) => f.detail)).toEqual([
-      "chat never repeated the 'mcp__galaxy__get_user' value \"alice\"",
+      "chat never repeated the 'get_user' value \"alice\"",
     ]);
     const noResult = evaluate(run([chat("You are alice.")], assertions));
-    expect(noResult[0].detail).toMatch(/no successful 'mcp__galaxy__get_user' result/);
+    expect(noResult[0].detail).toMatch(/no successful 'get_user' result/);
   });
 });
 
 describe("evals scenario selection", () => {
-  const dirs = ["/s/galaxy-mcp-a", "/s/galaxy-mcp-b", "/s/routing-clear-galaxy", "/s/galaxy"];
+  const dirs = ["/s/galaxy-tools-a", "/s/galaxy-tools-b", "/s/routing-clear-galaxy", "/s/galaxy"];
 
   it("an exact name wins over a prefix", () => {
     expect(filterScenarioDirs(dirs, "galaxy")).toEqual(["/s/galaxy"]);
   });
 
   it("a non-exact filter selects the whole prefix family", () => {
-    expect(filterScenarioDirs(dirs, "galaxy-mcp")).toEqual(["/s/galaxy-mcp-a", "/s/galaxy-mcp-b"]);
+    expect(filterScenarioDirs(dirs, "galaxy-tools")).toEqual([
+      "/s/galaxy-tools-a",
+      "/s/galaxy-tools-b",
+    ]);
   });
 
   it("no filter selects everything", () => {

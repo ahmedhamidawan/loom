@@ -3,8 +3,9 @@
  * selection, literal search over scalar fields, paging, and a summary view of user-defined tool
  * catalogs. Pure string-in, object-out, so the same code serves Orbit and the browser worker.
  *
- * Moved here from mcp-output.ts, whose file reader pulls in Node-only modules; that file keeps
- * re-exporting `inspectOutput` until the MCP path is deleted.
+ * Kept apart from mcp-output.ts, whose file reader pulls in Node-only modules: that file's
+ * `mcp_read_output` (other MCP servers, such as brc-analytics) and galaxy-ops-tools.ts'
+ * `galaxy_read_output` both inspect through this module.
  */
 import { truncateMiddle, utf8ByteLength } from "../../shared/truncate-middle.js";
 

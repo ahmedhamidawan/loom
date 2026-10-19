@@ -121,7 +121,7 @@ outputs merely to hide clutter; reuse them and preserve provenance.`;
 }
 
 /**
- * Drafting a plan: Galaxy first, then what runs where. `tool` maps a galaxy-mcp tool name to
+ * Drafting a plan: Galaxy first, then what runs where. `tool` maps a Galaxy tool name to
  * what the shell offers it as; `local` says whether the shell has a local step to route light
  * work to (without one, light work goes to run_python and plans are remote-only); `resume` is a
  * paragraph a shell adds about picking up earlier work.

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -8,6 +9,7 @@ import {
   inferAnalysisStart,
   parseGalaxyTime,
   reconcile,
+  registerCaptureFollowThrough,
   resetReconcileState,
   runReconcile,
   type ReconcileDeps,
@@ -454,5 +456,14 @@ describe("reconcile", () => {
     expect((await runReconcile("command", deps())).historyId).toBe(HISTORY);
     write(binding("eeee000000000009"));
     expect((await runReconcile("command", deps())).historyId).toBe(HISTORY);
+  });
+});
+
+describe("registerCaptureFollowThrough", () => {
+  it("has no connect trigger to wait on", () => {
+    const registerCommand = vi.fn();
+    const on = vi.fn();
+    registerCaptureFollowThrough({ on, registerCommand } as unknown as ExtensionAPI);
+    expect(on.mock.calls.map(([n]) => n)).not.toContain("tool_execution_end");
   });
 });

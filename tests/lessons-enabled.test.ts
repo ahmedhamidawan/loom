@@ -176,7 +176,7 @@ describe("setLessonsEnabled", () => {
 
 describe("every surface is silent while the switch is off", () => {
   const failing = {
-    toolName: "mcp__galaxy__run_tool",
+    toolName: "run_tool",
     input: { tool_id: "bwa_mem" },
     content: [{ type: "text" as const, text: `Error: ${SIGNATURE} hg38` }],
   };

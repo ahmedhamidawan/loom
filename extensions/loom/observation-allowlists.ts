@@ -13,8 +13,8 @@
 
 /**
  * Galaxy tool names in the observation wire spelling, `galaxy_<name>`.
- * pi calls them `mcp__galaxy__<name>`; the collector normalises to this
- * spelling before it checks the list, so a pi spelling is never on it.
+ * The model calls them by their bare names; the collector normalises to this
+ * spelling before it checks the list, so a bare name is never on it.
  */
 export const GALAXY_MCP_TOOLS: ReadonlySet<string> = new Set([
   "galaxy_cancel_workflow_invocation",

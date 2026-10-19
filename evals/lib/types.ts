@@ -183,9 +183,9 @@ export interface Scenario {
    */
   requiresModel?: boolean;
   /**
-   * The scenario needs a live Galaxy MCP server: GALAXY_URL and GALAXY_API_KEY
-   * in the environment (or evals/.env). Without them no galaxy server
-   * registers, and a run would fail as if the model had chosen not to call a
+   * The scenario needs a live Galaxy: GALAXY_URL and GALAXY_API_KEY in the
+   * environment (or evals/.env). Without them every Galaxy call fails on
+   * credentials, and a run would fail as if the model had chosen not to call a
    * Galaxy tool -- so the runner skips it instead.
    */
   requiresGalaxy?: boolean;
