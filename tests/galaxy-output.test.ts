@@ -157,7 +157,8 @@ const ENV_FALLBACK = new Set(["extensions/loom/galaxy-api.ts"]);
 const rel = (file: string) => relative(ROOT, file).split(sep).join("/");
 
 const FORBIDDEN_TOKEN = /node:|\bBuffer\b|\btmpdir\b|process\.env|\bcrypto\b|\brequire\s*\(/;
-const NODE_SPECIFIER = /^(?:node:|fs$|fs\/|path$|os$|crypto$)/;
+const NODE_SPECIFIER =
+  /^(?:node:|fs$|fs\/|path$|os$|crypto$|tus-js-client$|@earendil-works\/pi-coding-agent)/;
 
 // Type-only imports are erased before anything runs, so they reach nothing.
 function withoutTypeImports(text: string): string {

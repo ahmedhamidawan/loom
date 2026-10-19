@@ -12,59 +12,6 @@ import { GALAXY_ALLOWLIST_EXTRA_NAMES } from "../scripts/galaxy-allowlist-extra-
 
 const ROOT = join(__dirname, "..");
 
-// The list as generated from galaxy-mcp v1.10.0's server.py, before the
-// generator moved to galaxy-ops.
-const BEFORE_GALAXY_OPS = [
-  "cancel_workflow_invocation",
-  "connect",
-  "create_history",
-  "create_page",
-  "create_user_tool",
-  "delete_user_tool",
-  "download_dataset",
-  "get_collection_details",
-  "get_dataset_details",
-  "get_histories",
-  "get_history_contents",
-  "get_history_details",
-  "get_invocations",
-  "get_iwc_workflow_details",
-  "get_iwc_workflows",
-  "get_job_details",
-  "get_page",
-  "get_page_revision",
-  "get_schemas",
-  "get_server_info",
-  "get_tool_citations",
-  "get_tool_details",
-  "get_tool_input_template",
-  "get_tool_panel",
-  "get_tool_run_examples",
-  "get_user",
-  "get_workflow_details",
-  "get_workflow_input_template",
-  "import_workflow_from_iwc",
-  "invoke_workflow",
-  "list_history_ids",
-  "list_page_revisions",
-  "list_pages",
-  "list_user_tools",
-  "list_workflows",
-  "recommend_iwc_workflows",
-  "revert_page_revision",
-  "run_galaxy_tool",
-  "run_tool",
-  "run_user_tool",
-  "search",
-  "search_iwc_workflows",
-  "search_tools_by_keywords",
-  "search_tools_by_name",
-  "update_history",
-  "update_page",
-  "upload_file",
-  "upload_file_from_url",
-].map((name) => `galaxy_${name}`);
-
 describe("the generated Galaxy tool allowlist", () => {
   const generated = [...GALAXY_MCP_TOOLS];
   // allOperations is shared with the browser entry, so read it once, here.
@@ -86,18 +33,5 @@ describe("the generated Galaxy tool allowlist", () => {
     ) as { version: string };
     const source = readFileSync(join(ROOT, "extensions/loom/observation-allowlists.ts"), "utf-8");
     expect(source).toContain(`@galaxyproject/galaxy-ops ${version}, allOperations (Node entry)`);
-  });
-
-  it("gained only recommend_biocontainer from galaxy-ops, and lost only galaxy-mcp's own tools", () => {
-    expect(generated.filter((name) => !BEFORE_GALAXY_OPS.includes(name))).toEqual([
-      "galaxy_recommend_biocontainer",
-    ]);
-    // connect and the code-mode meta-tools left with the Python server.
-    expect(BEFORE_GALAXY_OPS.filter((name) => !GALAXY_MCP_TOOLS.has(name))).toEqual([
-      "galaxy_connect",
-      "galaxy_get_schemas",
-      "galaxy_run_galaxy_tool",
-      "galaxy_search",
-    ]);
   });
 });

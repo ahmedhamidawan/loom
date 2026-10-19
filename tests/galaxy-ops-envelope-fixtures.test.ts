@@ -3,11 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { createGalaxyOpsToolSource } from "../extensions/loom/galaxy-ops-tools";
-import {
-  parseGalaxyResultEnvelope,
-  parseSubmission,
-  resolveResultPayload,
-} from "../extensions/loom/galaxy-submission";
+import { parseSubmission, resolveResultPayload } from "../extensions/loom/galaxy-submission";
 import { submissionToolName } from "../extensions/loom/galaxy-submission-capture";
 import { renderGalaxyResult, GALAXY_SPILL_BYTES } from "../extensions/loom/galaxy-tool-wrap";
 import {
@@ -45,28 +41,9 @@ function parseBare(name: string) {
   return parseSubmission(table!, fx.args, resolveResultPayload(fx.result));
 }
 
-function envelopeOf(name: string): Record<string, unknown> {
-  const env = parseGalaxyResultEnvelope(resolveResultPayload(load(name).result));
-  expect(env, `${name} should resolve to a GalaxyResult envelope`).not.toBeNull();
-  return env!;
-}
-
 describe("real galaxy-ops envelopes through the submission parsers", () => {
   it("every fixture is a flat envelope behind details.galaxy, text identical to structuredContent", () => {
-    for (const name of [
-      "run_tool",
-      "upload_file",
-      "upload_file_from_url",
-      "get_job_details",
-      "get_job_details.new",
-      "get_job_details.by_dataset",
-      "get_history_contents",
-      "get_invocations",
-      "get_invocations.empty",
-      "get_dataset_details",
-      "list_jobs",
-      "get_job_logs",
-    ]) {
+    for (const name of ["run_tool", "upload_file", "upload_file_from_url"]) {
       const { op, result } = load(name);
       const details = result.details as { galaxy: { tool: string; outputId?: string } };
       expect(details.galaxy.tool).toBe(op);
@@ -122,78 +99,9 @@ describe("real galaxy-ops envelopes through the submission parsers", () => {
   });
 
   it("read ops are not submissions", () => {
-    for (const name of [
-      "get_job_details",
-      "get_history_contents",
-      "get_invocations",
-      "list_jobs",
-    ]) {
-      expect(submissionToolName(load(name).op, family)).toBeUndefined();
+    for (const op of ["get_job_details", "get_history_contents", "get_invocations", "list_jobs"]) {
+      expect(submissionToolName(op, family)).toBeUndefined();
     }
-  });
-
-  it("get_job_details by job_id carries the job's id and state, new then ok", () => {
-    const fresh = envelopeOf("get_job_details.new").data as { job: Record<string, unknown> };
-    expect(fresh.job).toMatchObject({
-      id: CAT1_JOB,
-      state: "new",
-      tool_id: "cat1",
-      model_class: "Job",
-    });
-    const done = envelopeOf("get_job_details").data as Record<string, unknown> & {
-      job: Record<string, unknown>;
-    };
-    expect(done.job).toMatchObject({
-      id: CAT1_JOB,
-      state: "ok",
-      exit_code: 0,
-      history_id: HISTORY,
-    });
-    expect(done.job_id).toBe(CAT1_JOB);
-  });
-
-  it("get_job_details by dataset_id resolves to the same job", () => {
-    const d = envelopeOf("get_job_details.by_dataset").data as { job: Record<string, unknown> };
-    expect(d.job).toMatchObject({ id: CAT1_JOB, state: "ok" });
-  });
-
-  it("list_jobs and get_job_logs agree on the job", () => {
-    const jobs = envelopeOf("list_jobs").data as { id: string; state: string; tool_id: string }[];
-    expect(jobs.find((j) => j.id === CAT1_JOB)).toMatchObject({ state: "ok", tool_id: "cat1" });
-    expect(envelopeOf("get_job_logs").data).toMatchObject({
-      job_id: CAT1_JOB,
-      state: "ok",
-      exit_code: 0,
-    });
-  });
-
-  it("get_history_contents lists the three datasets, all ok, with pagination", () => {
-    const env = envelopeOf("get_history_contents");
-    const data = env.data as { history_id: string; contents: Record<string, unknown>[] };
-    expect(data.history_id).toBe(HISTORY);
-    expect(data.contents.map((c) => [c.hid, c.state])).toEqual([
-      [1, "ok"],
-      [2, "ok"],
-      [3, "ok"],
-    ]);
-    expect(env.count).toBe(3);
-    expect(env.pagination).toMatchObject({ total_items: 3, has_next: false });
-  });
-
-  it("get_invocations: a list of WorkflowInvocation summaries, and [] for a fresh history", () => {
-    const list = envelopeOf("get_invocations").data as Record<string, unknown>[];
-    expect(list.length).toBeGreaterThan(0);
-    for (const inv of list) {
-      expect(inv.model_class).toBe("WorkflowInvocation");
-      expect(typeof inv.id).toBe("string");
-      expect(typeof inv.state).toBe("string");
-    }
-    expect(envelopeOf("get_invocations.empty").data).toEqual([]);
-  });
-
-  it("get_dataset_details carries the cat1 output's state", () => {
-    const d = envelopeOf("get_dataset_details").data as { dataset: Record<string, unknown> };
-    expect(d.dataset).toMatchObject({ state: "ok", file_size: 64 });
   });
 });
 

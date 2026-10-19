@@ -59,18 +59,49 @@ async function systemPrompt(): Promise<string> {
   return result.systemPrompt;
 }
 
+function connectGalaxy(): void {
+  vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
+  vi.stubEnv("GALAXY_API_KEY", "fixture-key");
+  // Any Galaxy call the prompt path makes is answered here, never by a server.
+  setGalaxyFetchOverride(fixtureFetch([]));
+}
+
+// The two prompts share most of their text, which the connected golden already
+// pins. Keep only what differs, with the shared line counts, so the disconnected
+// prompt is still pinned exactly.
+function differingLines(text: string, base: string): string {
+  const a = text.split("\n");
+  const b = base.split("\n");
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  ) {
+    tail++;
+  }
+  return [
+    `[first ${head} lines shared with system-prompt-connected.txt]`,
+    ...a.slice(head, a.length - tail),
+    `[last ${tail} lines shared with system-prompt-connected.txt]`,
+    "",
+  ].join("\n");
+}
+
 describe("Orbit's assembled system prompt", () => {
   it("with Galaxy disconnected", async () => {
-    await expect(await systemPrompt()).toMatchFileSnapshot(
+    const disconnected = await systemPrompt();
+    connectGalaxy();
+    const connected = await systemPrompt();
+    await expect(differingLines(disconnected, connected)).toMatchFileSnapshot(
       "__surface__/system-prompt-disconnected.txt",
     );
   });
 
   it("with Galaxy connected", async () => {
-    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
-    vi.stubEnv("GALAXY_API_KEY", "fixture-key");
-    // Any Galaxy call the prompt path makes is answered here, never by a server.
-    setGalaxyFetchOverride(fixtureFetch([]));
+    connectGalaxy();
     await expect(await systemPrompt()).toMatchFileSnapshot(
       "__surface__/system-prompt-connected.txt",
     );
@@ -81,9 +112,7 @@ describe("Orbit's assembled system prompt", () => {
   it("with Galaxy connected and the default tool source registered, as at boot", async () => {
     setGalaxyToolSource(null);
     registerGalaxyTools({ registerTool: () => {} } as never);
-    vi.stubEnv("GALAXY_URL", "https://galaxy.example.org");
-    vi.stubEnv("GALAXY_API_KEY", "fixture-key");
-    setGalaxyFetchOverride(fixtureFetch([]));
+    connectGalaxy();
     await expect(await systemPrompt()).toMatchFileSnapshot(
       "__surface__/system-prompt-connected.txt",
     );

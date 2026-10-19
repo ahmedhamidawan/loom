@@ -60,19 +60,25 @@ describe("registerGalaxyHistoryGuard", () => {
         reads: { src: "hdca", id: "c1" },
       },
     };
-    const out = (await check(RUN, input)) as { block: boolean; reason: string };
-    expect(out.block).toBe(true);
-    expect(out.reason).toContain(
-      JSON.stringify([
-        {
-          input: "queries_1.input2.values[0]",
-          supplied_id: "d2",
-          history_id: "elsewhere",
-          name: "d2.txt",
-        },
-        { input: "reads", supplied_id: "c1", history_id: "other", name: "pairs" },
-      ]),
-    );
+    const foreign = [
+      {
+        input: "queries_1.input2.values[0]",
+        supplied_id: "d2",
+        history_id: "elsewhere",
+        name: "d2.txt",
+      },
+      { input: "reads", supplied_id: "c1", history_id: "other", name: "pairs" },
+    ];
+    // Orbit's text is the base; the browser's guards.test.ts follows it when slice 4 lands.
+    expect(await check(RUN, input)).toEqual({
+      block: true,
+      reason:
+        "Refused: these inputs are in another history, not in history here " +
+        `where this job runs: ${JSON.stringify(foreign)}. An id from another history is ` +
+        "usually the wrong one: take the input's `id` from get_history_contents for this " +
+        "history. If the user does mean that data, say which history it is in and ask them " +
+        "to copy it into this one in Galaxy, then use the copy's id.",
+    });
   });
 
   it("leaves an id Galaxy can't resolve for the run to report", async () => {

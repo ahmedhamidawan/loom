@@ -66,7 +66,13 @@ describe("registerGalaxyRepeatGuard", () => {
   it("refuses once per streak of failures", () => {
     const g = guard();
     for (let i = 0; i < 3; i++) g.fail(RUN, { a: 1 });
-    expect(g.call(RUN, { a: 1 }).refused).toMatchObject({ block: true });
+    // Orbit's text is the base; the browser's guards.test.ts follows it when slice 4 lands.
+    expect(g.call(RUN, { a: 1 }).refused).toEqual({
+      block: true,
+      reason:
+        `Refused: '${RUN}' was already called with these exact arguments 3 times and failed each time. ` +
+        "Change the arguments or the approach; resending the same call cannot succeed.",
+    });
     expect(g.call(RUN, { a: 1 }).refused).toBeFalsy();
   });
 

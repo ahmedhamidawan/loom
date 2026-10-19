@@ -4,7 +4,7 @@
  * capability profile, with a tripwire on every Node reach. The run is pinned as a file snapshot
  * (pi-host.orbit.golden.json): every fs/child_process/chokidar/better-sqlite3 call site Orbit makes,
  * by phase, plus the shim's own notes. Slices 1 and 2 shrink that list; a change that grows it fails
- * here. With ONE_BRAIN_REPORT=<path> the run also writes a markdown report with file:line detail.
+ * here.
  */
 import cp from "node:child_process";
 import crypto from "node:crypto";
@@ -34,9 +34,9 @@ import type { CapabilityProfile } from "../../../../shared/capability-profile.js
 const tripwire = vi.hoisted(() => {
   const ledger = {
     phase: "import",
-    hits: new Map<string, { count: number; lines: Set<string> }>(),
+    hits: new Map<string, { count: number }>(),
   };
-  const FRAME = /\/(extensions\/loom|shared|lessons)\/([^\s):]+)(?::(\d+))?/;
+  const FRAME = /\/(extensions\/loom|shared|lessons)\/([^\s):]+)/;
   /** Node's own frames: the module loader resolving an import, or fs calling fs (writeFileSync -> openSync). */
   const NODE = /\(node:|^\s*at node:/;
   /** The runner's frames: vite transforming a source is not Orbit reading a file. */
@@ -64,9 +64,8 @@ const tripwire = vi.hoisted(() => {
     const via = caller === owner ? "" : ` via ${PACKAGE.exec(caller)?.[1] ?? "?"}`;
     const file = `${m[1]}/${m[2]}${via}`;
     const key = `${ledger.phase} | ${label}.${api} @ ${file}`;
-    const hit = ledger.hits.get(key) ?? { count: 0, lines: new Set<string>() };
+    const hit = ledger.hits.get(key) ?? { count: 0 };
     hit.count += 1;
-    if (m[3]) hit.lines.add(m[3]);
     ledger.hits.set(key, hit);
   }
   /** A module that records every member reached and answers with more of itself. */
@@ -113,7 +112,6 @@ vi.mock("better-sqlite3", () => ({ default: tripwire.recordingProxy("better-sqli
 const { ledger, record } = tripwire;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;
-const originals = new Map<string, AnyFn>();
 
 /** Record every call of the module's functions, then run the real one. */
 function spyAll(mod: object, label: string) {
@@ -161,7 +159,6 @@ function stubAll(mod: typeof cp, label: string) {
     "spawn",
     "fork",
   ]) {
-    originals.set(key, (mod as unknown as Record<string, AnyFn>)[key]);
     vi.spyOn(mod as unknown as Record<string, AnyFn>, key).mockImplementation((...a: unknown[]) => {
       record(label, key);
       const answer = answers[key];
@@ -456,14 +453,13 @@ const INFORMATIONAL = /^(os|zlib|crypto)\./;
 // pi's own runtime and TUI, the sandbox, and the tus client's file reader.
 const EDGE_ASSERTED =
   /^(node:)?(fs|fs\/promises|child_process|zlib)$|^(chokidar|better-sqlite3|@earendil-works\/pi-coding-agent|@earendil-works\/pi-tui|@anthropic-ai\/sandbox-runtime|tus-js-client)(\/|$)/;
-const EDGE_INFORMATIONAL = /^(node:)?(os|crypto|url)$/;
 
 const unique = (items: string[]) => [...new Set(items)].sort();
 
 /**
  * Every reach as `api @ file`, without phase or line: the phase of Orbit's un-awaited work (the
  * poller's first tick, reconcile's follow-through) is a race against the test's own progress,
- * and lines move on every Orbit edit. Both stay in the markdown report.
+ * and lines move on every Orbit edit.
  */
 const reaches = (filter: RegExp) =>
   unique(
@@ -478,15 +474,12 @@ function edges() {
     ...sources(LESSONS, [], /\.(ts|js|mjs)$/),
   ].filter((file) => !/\.test\.ts$/.test(file));
   const asserted: string[] = [];
-  const informational: string[] = [];
   for (const file of files) {
     for (const spec of specifiers(withoutTypeImports(fs.readFileSync(file, "utf8")))) {
-      const edge = `${relative(REPO, file)} -> ${spec}`;
-      if (EDGE_ASSERTED.test(spec)) asserted.push(edge);
-      else if (EDGE_INFORMATIONAL.test(spec)) informational.push(edge);
+      if (EDGE_ASSERTED.test(spec)) asserted.push(`${relative(REPO, file)} -> ${spec}`);
     }
   }
-  return { asserted: unique(asserted), informational: unique(informational) };
+  return unique(asserted);
 }
 
 function noteKey(n: HostNote): string {
@@ -507,134 +500,9 @@ function noteKey(n: HostNote): string {
 const golden = () => ({
   reaches: reaches(ASSERTED),
   informational: reaches(INFORMATIONAL),
-  edges: edges().asserted,
+  edges: edges(),
   notes: unique(notes.map(noteKey)),
 });
-
-/** The markdown report: the golden with file:line detail and counts, and a decision table to fill in. */
-function report(): string {
-  const byPhase = (filter: RegExp) => {
-    const groups = new Map<string, string[]>();
-    for (const [key, hit] of [...ledger.hits].sort(([a], [b]) => a.localeCompare(b))) {
-      const [phase, rest] = key.split(" | ");
-      const [api, file] = rest.split(" @ ");
-      if (!filter.test(api)) continue;
-      const lines = [...hit.lines]
-        .map(Number)
-        .sort((a, b) => a - b)
-        .join(",");
-      const list = groups.get(phase) ?? [];
-      list.push(`- ${api} @ ${file}${lines ? `:${lines}` : ""} (${hit.count})`);
-      groups.set(phase, list);
-    }
-    return (
-      [...groups].map(([phase, list]) => `### ${phase}\n${list.join("\n")}`).join("\n\n") ||
-      "(none)"
-    );
-  };
-  const noteCounts = new Map<string, number>();
-  for (const n of notes) noteCounts.set(noteKey(n), (noteCounts.get(noteKey(n)) ?? 0) + 1);
-  const files = unique(
-    [...ledger.hits.keys()]
-      .filter((k) => ASSERTED.test(k.split(" | ")[1]))
-      .map((k) => k.split(" @ ")[1]),
-  );
-  const perFile = files.map((file) => {
-    const apis = new Map<string, number>();
-    for (const [key, hit] of ledger.hits) {
-      if (!key.endsWith(` @ ${file}`)) continue;
-      const api = key.split(" | ")[1].split(" @ ")[0];
-      if (!ASSERTED.test(api)) continue;
-      const module = api.split(".")[0];
-      apis.set(module, (apis.get(module) ?? 0) + hit.count);
-    }
-    const summary = [...apis].map(([m, c]) => `${m} x${c}`).join(", ");
-    return `| ${file} | ${summary} |  |  |`;
-  });
-  const rev = (() => {
-    try {
-      return String(
-        originals.get("execFileSync")!("git", ["rev-parse", "--short", "HEAD"], {
-          cwd: REPO,
-          encoding: "utf8",
-        }),
-      ).trim();
-    } catch {
-      return "unknown";
-    }
-  })();
-  const vitest = JSON.parse(
-    fs.readFileSync(join(REPO, "browser", "node_modules", "vitest", "package.json"), "utf8"),
-  ).version;
-  const registration = `on ${[...host.handlers.values()].reduce((a, b) => a + b, 0)}, registerTool ${host.tools.length}, registerCommand ${host.commands.size}`;
-  const refusedAtRegister = notes
-    .flatMap((n) =>
-      n.kind === "refused" && n.phase === "register"
-        ? [`${n.member}${n.detail ? ` ${n.detail}` : ""}`]
-        : [],
-    )
-    .join(", ");
-  const e = edges();
-  return [
-    `run: ${new Date().toISOString()}, ${rev}, vitest ${vitest}`,
-    `profile: ${JSON.stringify(PROFILE)}; config source: ${JSON.stringify(CONFIG)} (no ORBIT_*/LOOM_* env; GALAXY_URL/GALAXY_API_KEY unset, HOME/PI_CODING_AGENT_DIR in a temp dir, cwd = that dir)`,
-    `registration: ${registration}; refused at register: ${refusedAtRegister || "(none)"}`,
-    "",
-    "## Reaches by phase (asserted: fs, fs/promises, child_process, chokidar, better-sqlite3)",
-    "",
-    byPhase(ASSERTED),
-    "",
-    "## Informational (os, zlib, crypto)",
-    "",
-    byPhase(INFORMATIONAL),
-    "",
-    "## Static edges (file -> specifier; Node built-ins and Node-only packages, type imports excluded)",
-    "",
-    ...e.asserted.map((edge) => `- ${edge}`),
-    "",
-    "Informational edges (os, crypto, url):",
-    "",
-    ...e.informational.map((edge) => `- ${edge}`),
-    "",
-    "## Refused / silent / dropped / busy (by phase)",
-    "",
-    ...[...noteCounts]
-      .filter(([k]) => !k.includes("| handler-error"))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, c]) => `- ${k} (${c})`),
-    "",
-    "## Handler errors",
-    "",
-    ...([...noteCounts]
-      .filter(([k]) => k.includes("| handler-error"))
-      .map(([k, c]) => `- ${k} (${c})`) || []),
-    ...(notes.some((n) => n.kind === "handler-error") ? [] : ["(none)"]),
-    "",
-    '## Per-module decision (fill in; feeds TASKS.md "port, gate, or replace")',
-    "",
-    "| module | reaches | decision | slice |",
-    "| --- | --- | --- | --- |",
-    ...perFile,
-    "",
-  ].join("\n");
-}
-
-const TITLE = "# Slice 0 conformance: Orbit on pi-host";
-const RAW_MARKER = "Raw run output (written by the test)";
-
-/** Rewrite the report's data section, keeping whatever narrative a person wrote above the marker. */
-function writeReport(path: string) {
-  const existing = fs.existsSync(path) ? fs.readFileSync(path, "utf8") : "";
-  const at = existing.indexOf(RAW_MARKER);
-  if (at < 0) {
-    fs.writeFileSync(path, `${TITLE}\n\n${report()}`);
-    return;
-  }
-  // One title per note: under a person's narrative the run's sections sit one level down.
-  const line = existing.lastIndexOf("\n", at) + 1;
-  const demoted = report().replace(/^(#+ )/gm, "#$1");
-  fs.writeFileSync(path, `${existing.slice(0, line)}## ${RAW_MARKER}\n\n${demoted}`);
-}
 
 // ── assertions ───────────────────────────────────────────────────────────────────────────────────
 
@@ -700,33 +568,6 @@ describe("Orbit on pi-host", () => {
     }
     expect(seen.size).toBeGreaterThan(1);
     expect([...named].sort()).toEqual(["openapi-fetch", "zod"]);
-  });
-
-  it("keeps the in-process Galaxy path free of Node-only tokens", () => {
-    // The modules every Galaxy call runs through in the worker. Type-only imports are erased, and
-    // a value import of pi would be an asserted Node edge.
-    const HOT_PATH = [
-      "shared/truncate-middle.js",
-      "shared/markdown-sections.js",
-      "shared/malformed-object-ids.js",
-      "extensions/loom/galaxy-output.ts",
-      "extensions/loom/galaxy-output-store.ts",
-      "extensions/loom/galaxy-ops-tools.ts",
-      "extensions/loom/galaxy-tool-wrap.ts",
-      "extensions/loom/galaxy-failure.ts",
-      "extensions/loom/galaxy-op-policy.ts",
-      "extensions/loom/galaxy-page-ops.ts",
-      "extensions/loom/galaxy-job-ops.ts",
-    ];
-    for (const file of HOT_PATH) {
-      const source = withoutTypeImports(fs.readFileSync(join(REPO, file), "utf8"));
-      expect(source, file).not.toMatch(/node:|\bBuffer\b|\btmpdir\b|process\.env/);
-      for (const spec of specifiers(source)) {
-        expect(spec, `${file} -> ${spec}`).not.toMatch(
-          /^(fs|fs\/promises|path|os|crypto|tus-js-client)$|^@earendil-works\/pi-coding-agent/,
-        );
-      }
-    }
   });
 
   it("names the handlers no seam fires", () => {
@@ -977,7 +818,6 @@ describe("Orbit on pi-host", () => {
   });
 
   it("matches the pinned reach list", async () => {
-    if (process.env.ONE_BRAIN_REPORT) writeReport(process.env.ONE_BRAIN_REPORT);
     await expect(JSON.stringify(golden(), null, 2) + "\n").toMatchFileSnapshot(
       "./pi-host.orbit.golden.json",
     );

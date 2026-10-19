@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The browser's prompt.ts copied its blocks from context.ts, one `loom:` comment
 // per copy, and they have drifted since. This is a report of that drift, not an
-// equality check: each pair's diff and word overlap are pinned, so converging a
-// block (or drifting it further) shows up as a change to the golden.
+// equality check: whether each pair matches and its word overlap are pinned, so
+// converging a block (or drifting it further) shows up as a change to the golden.
+// The text itself is pinned by the loom prompt golden and the browser request
+// snapshots.
 const { loadConfigMock } = vi.hoisted(() => ({ loadConfigMock: vi.fn() }));
 vi.mock("../extensions/loom/config", () => ({ loadConfig: loadConfigMock }));
 
@@ -173,7 +175,7 @@ function pairs(prompt: string): Record<string, { browser: string; loom: string }
 /**
  * Differences nobody needs to read about: dashes, the MCP tool prefix, edge whitespace, and
  * where a paragraph happens to wrap. Each paragraph or list item becomes one line, so the
- * diff shows what a block says rather than how it was filled.
+ * comparison is of what a block says rather than how it was filled.
  */
 function normalize(text: string): string[] {
   const out: string[] = [];
@@ -193,44 +195,6 @@ function normalize(text: string): string[] {
   }
   while (out.length && out[0] === "") out.shift();
   while (out.length && out.at(-1) === "") out.pop();
-  return out;
-}
-
-/** A unified line diff with two lines of context, as its lines. */
-function unifiedDiff(a: string[], b: string[], context = 2): string[] {
-  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
-  for (let i = a.length - 1; i >= 0; i--) {
-    for (let j = b.length - 1; j >= 0; j--) {
-      lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
-    }
-  }
-  const ops: Array<{ op: " " | "-" | "+"; line: string; ai: number; bi: number }> = [];
-  let i = 0;
-  let j = 0;
-  while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === b[j]) {
-      ops.push({ op: " ", line: a[i], ai: i++, bi: j++ });
-    } else if (i < a.length && (j === b.length || lcs[i + 1][j] >= lcs[i][j + 1])) {
-      ops.push({ op: "-", line: a[i], ai: i++, bi: j });
-    } else {
-      ops.push({ op: "+", line: b[j], ai: i, bi: j++ });
-    }
-  }
-  const changed = ops.map((o, k) => (o.op === " " ? -1 : k)).filter((k) => k >= 0);
-  const out: string[] = [];
-  let k = 0;
-  while (k < changed.length) {
-    const from = Math.max(0, changed[k] - context);
-    let to = changed[k];
-    while (k + 1 < changed.length && changed[k + 1] - to <= 2 * context + 1) to = changed[++k];
-    to = Math.min(ops.length - 1, to + context);
-    k++;
-    const hunk = ops.slice(from, to + 1);
-    const aLen = hunk.filter((o) => o.op !== "+").length;
-    const bLen = hunk.filter((o) => o.op !== "-").length;
-    out.push(`@@ -${hunk[0].ai + 1},${aLen} +${hunk[0].bi + 1},${bLen} @@`);
-    for (const o of hunk) out.push(`${o.op}${o.line}`);
-  }
   return out;
 }
 
@@ -266,7 +230,7 @@ describe("browser prompt blocks against the loom blocks they were copied from", 
         "browser = prompt.ts, loom = the block its loom: comment names. Both sides normalized " +
         "first: em dashes as --, mcp__galaxy__ dropped, each paragraph or list item unwrapped " +
         "onto one line, trailing and edge blank lines trimmed. " +
-        "The diff runs browser -> loom; similarity is the Jaccard overlap of lowercased words.",
+        "Similarity is the Jaccard overlap of lowercased words.",
       pairs: markedCopies().map(({ name, source }) => {
         const b = normalize(table[name].browser);
         const l = normalize(table[name].loom);
@@ -275,7 +239,6 @@ describe("browser prompt blocks against the loom blocks they were copied from", 
           loom: source,
           identical: b.join("\n") === l.join("\n"),
           similarity: wordSimilarity(b, l),
-          diff: unifiedDiff(b, l),
         };
       }),
     };
