@@ -14,7 +14,11 @@ import {
   type ProposalDeps,
   type ProposeParams,
 } from "../extensions/loom/proposal-commands";
-import { findProposalBlocks, renderProposalBlock } from "../extensions/loom/notebook-writer";
+import {
+  findProposalBlocks,
+  renderProposalBlock,
+  withNotebookLock,
+} from "../extensions/loom/notebook-writer";
 import { liveApproval } from "../extensions/loom/registry-proposal";
 import {
   closeSessionRegistry,
@@ -100,10 +104,12 @@ beforeEach(() => {
     heartbeatMs: null,
   }).session;
 });
-afterEach(() => {
+afterEach(async () => {
   closeSessionRegistry();
-  // A registry write can still be landing when the session closes; retry the rmdir race.
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  // /revoke clears the notebook's echo without awaiting it; queue behind it on the
+  // record lock so it has finished writing before the directory goes.
+  await withNotebookLock(nb, async () => {});
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 describe("loom_propose", () => {
