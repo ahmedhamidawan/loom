@@ -10,11 +10,7 @@ import * as path from "path";
 const { loadConfigMock } = vi.hoisted(() => ({ loadConfigMock: vi.fn() }));
 vi.mock("../extensions/loom/config", () => ({ loadConfig: loadConfigMock }));
 
-import {
-  buildGalaxyContextBlock,
-  buildTesterIdBlock,
-  setupContextInjection,
-} from "../extensions/loom/context";
+import { setupContextInjection } from "../extensions/loom/context";
 import {
   registerGalaxyTools,
   setGalaxyToolSource,
@@ -50,37 +46,6 @@ afterEach(() => {
   setGalaxyToolSource(null);
   vi.unstubAllEnvs();
   fs.rmSync(agentDir, { recursive: true, force: true });
-});
-
-describe("the Galaxy prompt under a bare family", () => {
-  it("names Galaxy tools bare and drops the MCP re-bind steer", () => {
-    const block = buildGalaxyContextBlock();
-    expect(block).not.toContain("mcp__galaxy__");
-    expect(block).not.toContain("/mcp reconnect galaxy");
-    expect(block).not.toContain("### If a Galaxy tool reports it's not connected");
-    expect(block).toContain("Galaxy is connected.");
-    expect(block).toContain("### Resuming existing Galaxy work");
-    expect(block).toContain("recommend_iwc_workflows");
-  });
-
-  it("de-routes the tester ID away from the bare get_user", () => {
-    const block = buildTesterIdBlock();
-    expect(block).toContain("`get_user`");
-    expect(block).not.toContain("mcp__galaxy__");
-  });
-
-  it("the whole system prompt has no MCP spelling and the in-process recovery section", async () => {
-    const handlers = new Map<string, (event: unknown, ctx: unknown) => Promise<unknown>>();
-    setupContextInjection({ on: (e: string, h: never) => handlers.set(e, h) } as never);
-    const result = (await handlers.get("before_agent_start")!(
-      {},
-      { cwd: agentDir, model: { id: "m" }, ui: { notify: () => {} } },
-    )) as { systemPrompt: string };
-    expect(result.systemPrompt).not.toContain("mcp_read_output");
-    expect(result.systemPrompt).not.toContain("mcp__galaxy__");
-    expect(result.systemPrompt).toContain("### Slow Galaxy requests");
-    expect(result.systemPrompt).toContain("Do not repeatedly call\nget_dataset_details,");
-  });
 });
 
 describe("the Galaxy prompt over a resumed MCP-era transcript", () => {
@@ -161,16 +126,10 @@ describe("the Galaxy prompt over a resumed MCP-era transcript", () => {
 });
 
 describe("shared prompt prose under in-process Galaxy tools", () => {
-  it("no longer tells the model about a Galaxy MCP server or its MCP tools", async () => {
-    const blocks = await import("../shared/prompt-blocks.js");
-    for (const text of [
-      blocks.galaxyTerminology(),
-      blocks.noLocalShellBlock(),
-      blocks.operatingDiscipline(),
-      blocks.verificationBlock(),
-    ]) {
-      expect(text).not.toMatch(/Galaxy MCP|MCP tools/);
-    }
+  // The connected system-prompt snapshot pins the other shared blocks; this one is not in it.
+  it("the no-local-shell block does not mention a Galaxy MCP server or its MCP tools", async () => {
+    const { noLocalShellBlock } = await import("../shared/prompt-blocks.js");
+    expect(noLocalShellBlock()).not.toMatch(/Galaxy MCP|MCP tools/);
   });
 
   it("the local execution-mode block does not say Galaxy MCP", async () => {

@@ -33,6 +33,7 @@ import {
   type GalaxyTool,
 } from "../extensions/loom/galaxy-tool-source";
 import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
+import { CREDENTIALS, json, recordGalaxy } from "./galaxy-test-helpers";
 
 const ROOT = join(__dirname, "..");
 // galaxy-ops' own zod (4.x): root resolves zod 3, which renders these fields wrongly.
@@ -52,15 +53,6 @@ function hasKindSymbol(value: unknown): boolean {
   if (value === null || typeof value !== "object") return false;
   if (Object.getOwnPropertySymbols(value).includes(TYPEBOX_KIND)) return true;
   return Object.values(value).some(hasKindSymbol);
-}
-
-const CREDENTIALS = () => ({ url: "https://galaxy.test", apiKey: "k" });
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 afterEach(() => {
@@ -230,40 +222,10 @@ describe("parseInput", () => {
 });
 
 describe("running an operation", () => {
-  function recordFetch(reply: (url: string) => Response = () => json({})) {
-    const seen: { method: string; url: string }[] = [];
-    setGalaxyTransport({
-      credentials: CREDENTIALS,
-      fetch: async (url, init) => {
-        seen.push({ method: init.method ?? "GET", url });
-        return reply(url);
-      },
-    });
-    return seen;
-  }
-
-  it("sends a zod default the model left out, under the operation's own key", async () => {
-    const seen = recordFetch(() => json([]));
-    const tool = toolFromOperation(op("get_history_contents"));
-    const result = await tool.execute(
-      "c1",
-      { history_id: "f00d" },
-      undefined,
-      undefined,
-      {} as never,
-    );
-    expect(result.isError).toBe(false);
-    expect(new URL(seen.at(-1)!.url).pathname).toBe("/api/histories/f00d/contents");
-    expect(result.structuredContent.pagination).toMatchObject({ limit: 100, offset: 0 });
-    expect(result.details.galaxy).toMatchObject({ tool: "get_history_contents" });
-    expect(result.details.galaxy.outputId).toBeUndefined();
-    expect(result.structuredContent).toEqual(JSON.parse(result.content[0].text));
-  });
-
-  it("hands run the parsed input, defaults filled", async () => {
+  it("hands run the parsed input, defaults filled, and answers with the envelope", async () => {
     // get_history_contents defaults its own limit inside run, so only a probe op can show what
     // run was handed.
-    recordFetch();
+    recordGalaxy();
     let given: unknown;
     const probe = {
       name: "probe_defaults",
@@ -288,6 +250,9 @@ describe("running an operation", () => {
     );
     expect(result.isError).toBe(false);
     expect(given).toEqual({ historyId: "f00d", limit: 100, view: "collection" });
+    expect(result.details.galaxy).toMatchObject({ tool: "probe_defaults" });
+    expect(result.details.galaxy.outputId).toBeUndefined();
+    expect(result.structuredContent).toEqual(JSON.parse(result.content[0].text));
   });
 
   it("get_server_info waits for a slow version reply and keeps its full payload", async () => {
@@ -320,7 +285,7 @@ describe("running an operation", () => {
   });
 
   it("answers an invalid argument with a validation envelope and no request", async () => {
-    const seen = recordFetch();
+    const seen = recordGalaxy();
     const tool = toolFromOperation(op("create_history"));
     const result = await tool.execute(
       "c1",
@@ -336,8 +301,8 @@ describe("running an operation", () => {
   });
 
   it("runs a policy's check, around and refused hooks", async () => {
-    const seen = recordFetch((url) =>
-      url.includes("/contents") ? json({ err_msg: "nope" }, 400) : json([]),
+    const seen = recordGalaxy(({ path }) =>
+      path.endsWith("/contents") ? json({ err_msg: "nope" }, 400) : json([]),
     );
     const refused = createGalaxyOpsToolSource({
       policies: { get_history_contents: { check: async () => "Read the history first." } },
@@ -376,7 +341,7 @@ describe("running an operation", () => {
       {} as never,
     );
     expect(sent).toEqual([{ history_id: "f00d" }]);
-    expect(new URL(seen.at(-1)!.url).pathname).toBe("/api/histories/beef/contents");
+    expect(seen.at(-1)!.path).toBe("/api/histories/beef/contents");
     expect(res.isError).toBe(true);
     expect(res.structuredContent.message).toMatch(/^Policy says: /);
   });

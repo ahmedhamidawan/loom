@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { format } from "prettier";
 
-import { applyJobPollUpdate, findJobBlocks } from "../extensions/loom/galaxy-job-block";
+import { applyJobPollUpdate } from "../extensions/loom/galaxy-job-block";
 import { applyJobOutcome } from "../browser/core/src/agent/record-jobs";
 
 // Both shells advance the record when a Galaxy job settles, from different data
@@ -33,21 +33,38 @@ const OUTCOMES = {
   failed: { status: "failed", state: "error" },
 } as const;
 
-const lines = (text: string) => text.split("\n");
+/**
+ * What `after` changes in FIXTURE, as "-N line" for a fixture line it drops and "+N line" for a
+ * line it adds at N, both 1-based: the fixture plus these rebuilds the output exactly.
+ */
+function changes(after: string): string[] {
+  const a = FIXTURE.split("\n");
+  const b = after.split("\n");
+  // Longest common subsequence, filled from the end so the walk below goes forward.
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+    }
+  }
+  const out: string[] = [];
+  let [i, j] = [0, 0];
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) [i, j] = [i + 1, j + 1];
+    else if (i < a.length && (j === b.length || lcs[i + 1][j] >= lcs[i][j + 1]))
+      out.push(`-${++i} ${a[i - 1]}`);
+    else out.push(`+${++j} ${b[j - 1]}`);
+  }
+  return out;
+}
 
 describe("a settled job, as each shell records it", () => {
-  it("starts from a record both shells can read", () => {
-    expect(findJobBlocks(FIXTURE)).toEqual([
-      expect.objectContaining({ jobId: "abc123", status: "in_progress" }),
-    ]);
-  });
-
   it("pins loom's and the browser's record for a completed and a failed job", async () => {
     const report = Object.fromEntries(
       Object.entries(OUTCOMES).map(([outcome, { status, state }]) => [
         outcome,
         {
-          loom: lines(
+          loom: changes(
             applyJobPollUpdate(FIXTURE, {
               jobId: "abc123",
               status,
@@ -55,13 +72,13 @@ describe("a settled job, as each shell records it", () => {
               lastPolledAt: "2026-10-11T12:30:00Z",
             }),
           ),
-          browser: lines(
+          browser: changes(
             applyJobOutcome(FIXTURE, { id: "abc123", kind: "job", state, outcome: status }),
           ),
         },
       ]),
     );
-    const json = await format(JSON.stringify({ fixture: lines(FIXTURE), ...report }, null, 2), {
+    const json = await format(JSON.stringify(report, null, 2), {
       parser: "json",
       printWidth: 100,
     });

@@ -66,34 +66,35 @@ const GALAXY_TOOLS = [
   "galaxy_read_output",
 ];
 
-describe("the desktop", () => {
+describe.each([
+  // The local uploader needs a file surface.
+  ["the desktop", CREDENTIALS, true],
+  [
+    "the remote container (no local exec surface)",
+    { ...CREDENTIALS, LOOM_LOCAL_EXEC: "off" },
+    false,
+  ],
+])("%s", (_name, env, uploader) => {
   it("registers the in-process Galaxy tools and brc-analytics, and no galaxy server", async () => {
-    const { servers, tools } = await load(CREDENTIALS);
+    const { servers, tools } = await load(env);
     expect(servers).toEqual(["brc-analytics"]);
     expect(installedCapabilityProfile()).toBeNull();
     for (const name of GALAXY_TOOLS) expect(tools, name).toContain(name);
+    expect(tools.includes("galaxy_upload_local_file")).toBe(uploader);
     // brc-analytics is still on pi's MCP layer, so its oversized results keep their recovery.
     expect(tools).toContain("mcp_read_output");
     expect(tools.filter((t) => t.startsWith("mcp__galaxy__"))).toEqual([]);
     expect(galaxyToolFamily().tool("run_tool")).toBe("run_tool");
     expect(registerGalaxyVersionCapture).toHaveBeenCalledTimes(1);
   });
+});
 
+describe("the desktop", () => {
   it("ignores a leftover LOOM_GALAXY_TOOLS=mcp", async () => {
     const unset = await load(CREDENTIALS);
     setGalaxyToolSource(null);
     const mcp = await load({ ...CREDENTIALS, LOOM_GALAXY_TOOLS: "mcp" });
     expect(mcp.servers).toEqual(unset.servers);
     expect(mcp.tools).toEqual(unset.tools);
-  });
-});
-
-describe("the remote container (no local exec surface)", () => {
-  it("registers the same Galaxy tools, which web-mode-gate now admits by name", async () => {
-    const { servers, tools } = await load({ ...CREDENTIALS, LOOM_LOCAL_EXEC: "off" });
-    expect(servers).toEqual(["brc-analytics"]);
-    for (const name of GALAXY_TOOLS) expect(tools, name).toContain(name);
-    // The local uploader needs a file surface.
-    expect(tools).not.toContain("galaxy_upload_local_file");
   });
 });

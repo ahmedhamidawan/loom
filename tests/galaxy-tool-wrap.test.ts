@@ -16,19 +16,12 @@ import {
 } from "../extensions/loom/galaxy-tool-wrap";
 import { isUlid } from "../extensions/loom/ulid";
 import { utf8ByteLength } from "../shared/truncate-middle.js";
+import { CREDENTIALS, json } from "./galaxy-test-helpers";
 
 const op = (name: string) => [...allOperations].find((o) => o.name === name)!;
-const CREDENTIALS = () => ({ url: "https://galaxy.test", apiKey: "k" });
 const NO_CREDENTIALS = () => ({ url: undefined, apiKey: undefined });
 const run = (tool: GalaxyTool, params: object = {}, signal?: AbortSignal) =>
   tool.execute("call-1", params, signal, undefined, {} as never);
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -153,54 +146,38 @@ describe("the deadline", () => {
 });
 
 describe("failure kinds from galaxy-ops' error kinds", () => {
-  it("a fetch that throws before the deadline is a dropped connection", async () => {
+  it.each([
+    // No code to add, so galaxy-ops' own wording stands.
+    ["no cause", new TypeError("fetch failed"), /fetch failed(?! \()/],
+    [
+      "undici's cause code",
+      Object.assign(new TypeError("fetch failed"), {
+        cause: Object.assign(new Error("Connect Timeout Error"), {
+          code: "UND_ERR_CONNECT_TIMEOUT",
+        }),
+      }),
+      /fetch failed \(UND_ERR_CONNECT_TIMEOUT\)/,
+    ],
+    [
+      "an AggregateError's code",
+      new TypeError("fetch failed", {
+        cause: new AggregateError([Object.assign(new Error("refused"), { code: "ECONNREFUSED" })]),
+      }),
+      /fetch failed \(ECONNREFUSED\)/,
+    ],
+  ])("a fetch that throws (%s) is a dropped connection", async (_name, err, said) => {
     setGalaxyTransport({
       credentials: CREDENTIALS,
       fetch: async () => {
-        throw new TypeError("fetch failed");
+        throw err;
       },
     });
     const result = await run(toolFromOperation(op("get_user")));
     expect(result.isError).toBe(true);
     expect(result.structuredContent.errorKind).toBe("connection");
     expect(result.details.galaxy.kind).toBe("dropped");
-  });
-
-  it("a dropped connection names undici's cause code", async () => {
-    const timeout = Object.assign(new TypeError("fetch failed"), {
-      cause: Object.assign(new Error("Connect Timeout Error"), { code: "UND_ERR_CONNECT_TIMEOUT" }),
-    });
-    const refused = new TypeError("fetch failed", {
-      cause: new AggregateError([Object.assign(new Error("refused"), { code: "ECONNREFUSED" })]),
-    });
-    for (const [err, code] of [
-      [timeout, "UND_ERR_CONNECT_TIMEOUT"],
-      [refused, "ECONNREFUSED"],
-    ] as const) {
-      setGalaxyTransport({
-        credentials: CREDENTIALS,
-        fetch: async () => {
-          throw err;
-        },
-      });
-      const result = await run(toolFromOperation(op("get_user")));
-      expect(result.structuredContent.message).toContain(`fetch failed (${code})`);
-      expect(result.content[0].text).toContain(`fetch failed (${code})`);
-      expect(result.structuredContent.errorKind).toBe("connection");
-      expect(result.details.galaxy.kind).toBe("dropped");
-    }
-  });
-
-  it("a code-less fetch failure keeps galaxy-ops' wording", async () => {
-    setGalaxyTransport({
-      credentials: CREDENTIALS,
-      fetch: async () => {
-        throw new TypeError("fetch failed");
-      },
-    });
-    const result = await run(toolFromOperation(op("get_user")));
-    expect(result.structuredContent.message).toContain("fetch failed");
-    expect(result.structuredContent.message).not.toContain("fetch failed (");
+    expect(result.structuredContent.message).toMatch(said);
+    expect(result.content[0].text).toMatch(said);
   });
 
   it("an abort carrying a cause code is not rewritten", async () => {
@@ -217,14 +194,18 @@ describe("failure kinds from galaxy-ops' error kinds", () => {
     expect(result.structuredContent.message).not.toContain("UND_ERR_ABORTED");
   });
 
-  it("a 401 is auth", async () => {
+  it.each([
+    [401, "Provided API key is not valid.", "auth", "auth"],
+    [404, "No such history", "not_found", null],
+  ])("a %i is errorKind %s, recovery kind %s", async (status, errMsg, errorKind, kind) => {
     setGalaxyTransport({
       credentials: CREDENTIALS,
-      fetch: async () => json({ err_msg: "Provided API key is not valid." }, 401),
+      fetch: async () => json({ err_msg: errMsg }, status),
     });
-    const result = await run(toolFromOperation(op("get_user")));
-    expect(result.structuredContent.errorKind).toBe("auth");
-    expect(result.details.galaxy.kind).toBe("auth");
+    const result = await run(toolFromOperation(op("get_history_details")), { history_id: "f00d" });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent.errorKind).toBe(errorKind);
+    expect(result.details.galaxy.kind).toBe(kind);
   });
 
   it("no credentials is auth, and the text names /connect", async () => {
@@ -236,16 +217,6 @@ describe("failure kinds from galaxy-ops' error kinds", () => {
     expect(result.details.galaxy.kind).toBe("auth");
     expect(result.content[0].text).toContain("/connect");
     expect(result.structuredContent).toMatchObject({ success: false, errorKind: "auth" });
-  });
-
-  it("a not-found carries no recovery kind", async () => {
-    setGalaxyTransport({
-      credentials: CREDENTIALS,
-      fetch: async () => json({ err_msg: "No such history" }, 404),
-    });
-    const result = await run(toolFromOperation(op("get_history_details")), { history_id: "f00d" });
-    expect(result.isError).toBe(true);
-    expect(result.details.galaxy.kind).toBeNull();
   });
 });
 

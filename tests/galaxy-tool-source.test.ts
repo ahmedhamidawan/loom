@@ -9,7 +9,6 @@ import {
   setGalaxyToolSource,
   type GalaxyTool,
 } from "../extensions/loom/galaxy-tool-source";
-import { createGalaxyOpsToolSource } from "../extensions/loom/galaxy-ops-tools";
 import { GALAXY_TOOL_NAMES } from "./galaxy-family-fixture";
 
 const stub = (name: string): GalaxyTool => ({
@@ -61,24 +60,14 @@ describe("galaxy tool source", () => {
     const { pi, registerTool } = fakePi();
     const family = registerGalaxyTools(pi);
     const names = registerTool.mock.calls.map(([t]) => t.name);
-    // The Node entry's 45 operations and Loom's two job bridges, then the saved-output reader
-    // outside the family.
-    expect(names).toHaveLength(48);
-    expect(names.slice(-3)).toEqual(["list_jobs", "get_job_logs", "galaxy_read_output"]);
+    // The tests' fixture family, then the saved-output reader outside it.
+    expect(names).toEqual([...GALAXY_TOOL_NAMES, "galaxy_read_output"]);
     expect(family.toolName("run_tool")).toBe("run_tool");
     expect(family.toolName("list_jobs")).toBe("list_jobs");
     expect(family.toolName("get_job_logs")).toBe("get_job_logs");
     expect(family.toolName("galaxy_read_output")).toBeUndefined();
     expect(galaxyToolFamily().toolName("run_tool")).toBe("run_tool");
     expect(registeredGalaxyTools()).toHaveLength(48);
-  });
-
-  it("the tests' fixture family names exactly the default source's tools", () => {
-    expect(
-      createGalaxyOpsToolSource()
-        .tools()
-        .map((t) => t.name),
-    ).toEqual([...GALAXY_TOOL_NAMES]);
   });
 
   it("registers a source's companions after its tools, outside the family", () => {

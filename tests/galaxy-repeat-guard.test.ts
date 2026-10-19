@@ -1,29 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
-import { GALAXY } from "./galaxy-family-fixture";
-
-type Handler = (event: unknown, ctx?: unknown) => unknown;
+import { guardHooks } from "./galaxy-test-helpers";
 
 function guard() {
-  const on = new Map<string, Handler>();
-  registerGalaxyRepeatGuard(
-    { on: (event: string, h: Handler) => on.set(event, h) } as never,
-    GALAXY,
-  );
+  const fire = guardHooks(registerGalaxyRepeatGuard);
   let n = 0;
   const call = (toolName: string, input: Record<string, unknown>) => {
     const toolCallId = `c${++n}`;
-    return { toolCallId, refused: on.get("tool_call")!({ toolName, toolCallId, input }) };
+    return { toolCallId, refused: fire("tool_call", { toolName, toolCallId, input }) };
   };
   const result = (toolName: string, toolCallId: string, isError: boolean, signal?: AbortSignal) =>
-    on.get("tool_result")!({ toolName, toolCallId, input: {}, content: [], isError }, { signal });
+    fire("tool_result", { toolName, toolCallId, input: {}, content: [], isError }, { signal });
   const fail = (toolName: string, input: Record<string, unknown>) => {
     const { toolCallId, refused } = call(toolName, input);
     expect(refused).toBeFalsy();
     result(toolName, toolCallId, true);
   };
-  return { on, call, result, fail };
+  return { fire, call, result, fail };
 }
 
 const RUN = "run_tool";
@@ -85,7 +79,7 @@ describe("registerGalaxyRepeatGuard", () => {
   it("starts over with a new session", () => {
     const g = guard();
     for (let i = 0; i < 3; i++) g.fail(RUN, { a: 1 });
-    g.on.get("session_start")!({});
+    g.fire("session_start", {});
     expect(g.call(RUN, { a: 1 }).refused).toBeFalsy();
   });
 });

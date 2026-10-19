@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { describe, expect, it } from "vitest";
+import { GALAXY_DEADLINE_TEXT, type GalaxyCallKind } from "../extensions/loom/galaxy-failure";
 import {
   galaxyCall,
   galaxyRecoveryGuidance,
@@ -7,30 +7,10 @@ import {
   registerGalaxyRecovery,
 } from "../extensions/loom/galaxy-recovery";
 import { GALAXY } from "./galaxy-family-fixture";
-
-// The section 2e pinned in the connected system prompt, so "same bytes" means something.
-const PINNED_GUIDANCE = `### Slow Galaxy requests
-
-For installed-tool discovery, prefer search_tools_by_name: it matches
-names, IDs and descriptions. Avoid search_tools_by_keywords: its implementation
-fetches input schemas for potentially thousands of tools even for a narrow
-keyword. Fetch schemas only for candidate tools.
-
-A timeout is an unknown result, not proof that a job failed. Narrow/paginate
-read-only requests before retrying.
-For a timed-out mutation (run, invoke, create, upload, update, delete, etc.),
-inspect the destination history, jobs/invocations or affected resource first.
-Reuse an accepted operation; retry only when non-acceptance or safe retry is
-established. Never blindly replay a mutation, invent its ID, or infer success.
-Limit recovery to one narrowed retry per incident. If it fails, report the
-concrete blocker and preserve work instead of looping.
-`;
+import { guardHooks, SPELLED } from "./galaxy-test-helpers";
 
 function harness() {
-  const on = vi.fn();
-  registerGalaxyRecovery({ on } as unknown as ExtensionAPI, GALAXY);
-  const fire = (name: string, event: unknown) =>
-    on.mock.calls.find(([key]) => key === name)![1](event);
+  const fire = guardHooks(registerGalaxyRecovery);
   return {
     check: (toolName: string, input = {}) => fire("tool_call", { toolName, input }),
     result: (
@@ -47,8 +27,14 @@ function harness() {
 }
 
 describe("Galaxy recovery guidance", () => {
-  it("is 2e's text byte for byte", () => {
-    expect(galaxyRecoveryGuidance(GALAXY)).toBe(PINNED_GUIDANCE);
+  // The connected system-prompt snapshot pins the bytes; this pins the family's spelling.
+  it("names the family's discovery tool", () => {
+    const text = galaxyRecoveryGuidance(SPELLED);
+    expect(text.startsWith("### Slow Galaxy requests\n")).toBe(true);
+    expect(text).toContain("prefer gx_search_tools_by_name: it matches");
+    expect(text).toContain("A timeout is an unknown result");
+    expect(text).toContain("Never blindly replay a mutation");
+    expect(text).toContain("one narrowed retry per incident");
   });
 });
 
@@ -151,13 +137,6 @@ describe("Galaxy recovery", () => {
     expect(download).not.toContain("result is UNKNOWN");
   });
 
-  it("recognizes pi's timeout wording", () => {
-    const text = JSON.stringify(
-      harness().result("get_histories", {}, "MCP request timed out after 300000ms").content,
-    );
-    expect(text).toContain("Narrow or paginate");
-  });
-
   it("does not treat response data, auth errors, or non-Galaxy failures as transport failures", () => {
     const h = harness();
     expect(h.result("get_histories", {}, "Request timed out", false)).toBeUndefined();
@@ -203,62 +182,88 @@ describe("Galaxy recovery", () => {
       h.result("get_history_details", input, "x\n[loom Galaxy recovery]\ny", true, details),
     ).toBeUndefined();
   });
+
+  it("appends the auth hint and does not open a transport incident", () => {
+    const h = harness();
+    const env = JSON.stringify({ success: false, message: "Galaxy API 401", errorKind: "auth" });
+    const details = { galaxy: { tool: "get_histories", kind: "auth", elapsedMs: 3 } };
+    const out = h.result("get_histories", { limit: 5 }, env, true, details);
+    expect(JSON.stringify(out.content)).toContain("Ask the user to run /connect");
+    // An auth refusal is not a timed-out read, so the identical call is not blocked.
+    expect(h.check("get_histories", { limit: 5 })).toBeUndefined();
+  });
+
+  it("reads the deadline's kind from details and blocks the identical read", () => {
+    const h = harness();
+    const env = JSON.stringify({ success: false, message: GALAXY_DEADLINE_TEXT });
+    const details = { galaxy: { tool: "get_histories", kind: "timeout", elapsedMs: 300_000 } };
+    const out = h.result("get_histories", { limit: 5 }, env, true, details);
+    expect(JSON.stringify(out.content)).toContain("Narrow or paginate");
+    expect(h.check("get_histories", { limit: 5 })?.block).toBe(true);
+  });
 });
 
 describe("galaxyRecoveryHint", () => {
-  it("drops the saved-output reader from the discovery advice", () => {
-    const hint = galaxyRecoveryHint("get_tool_panel", "timeout", GALAXY);
-    expect(hint).not.toContain("connect()");
-    expect(hint).not.toContain("mcp_read_output");
-    expect(hint).toContain("fetch get_tool_panel once.");
-    expect(hint).toContain("After one narrowed retry fails");
-  });
-
-  it("a dropped read gets retry-once advice, not the timeout's narrowing", () => {
-    const hint = galaxyRecoveryHint("get_history_details", "dropped", GALAXY);
-    expect(hint.startsWith("[loom Galaxy recovery]\n")).toBe(true);
-    for (const absent of ["MCP", "Narrow or paginate", "saved response", "connect()"])
-      expect(hint).not.toContain(absent);
-    expect(hint).toContain("Retrying the identical call once is safe");
-    // galaxy-ops reports a 400 as a connection failure, so the advice must send the model to the
-    // message rather than straight to "unreachable".
-    expect(hint).toContain("read the error -- a rejected argument needs different input");
-    expect(hint).toContain("After one retry fails");
-    expect(hint).not.toContain("narrowed retry");
-  });
-
-  it("a dropped mutation is checked with a cheap read before any retry", () => {
-    for (const name of ["run_tool", "create_history"]) {
-      const hint = galaxyRecoveryHint(name, "dropped", GALAXY);
-      expect(hint).toContain("UNKNOWN");
-      expect(hint).toContain("record it with galaxy_job_record or galaxy_invocation_record");
-      expect(hint).toContain("check once with a cheap read");
-      expect(hint).not.toContain("Narrow or paginate");
-      expect(hint).not.toContain("Retrying the identical call once is safe");
-    }
-  });
-
-  it("a timed-out read keeps narrowing without the saved-response advice", () => {
-    const hint = galaxyRecoveryHint("get_history_details", "timeout", GALAXY);
-    expect(hint.startsWith("[loom Galaxy recovery]\n")).toBe(true);
-    expect(hint).toContain("Narrow or paginate");
-    expect(hint).not.toContain("saved response");
-  });
-
-  it("discovery advice follows a timeout, not a dropped call", () => {
-    expect(galaxyRecoveryHint("get_tool_panel", "timeout", GALAXY)).toContain(
-      "fetch get_tool_panel once.",
-    );
-    const dropped = galaxyRecoveryHint("get_tool_panel", "dropped", GALAXY);
-    expect(dropped).not.toContain("fetch get_tool_panel once");
-    expect(dropped).not.toContain("search_tools_by_name");
-  });
-
-  it("an auth refusal carries the marker", () => {
-    expect(
-      galaxyRecoveryHint("get_history_details", "auth", GALAXY).startsWith(
-        "[loom Galaxy recovery]\n",
-      ),
-    ).toBe(true);
-  });
+  it.each([
+    [
+      "a timed-out discovery call fetches once, without the saved-output reader",
+      "get_tool_panel",
+      "timeout",
+      ["fetch get_tool_panel once.", "After one narrowed retry fails"],
+      ["connect()", "mcp_read_output"],
+    ],
+    [
+      "a timed-out read keeps narrowing without the saved-response advice",
+      "get_history_details",
+      "timeout",
+      ["Narrow or paginate"],
+      ["saved response"],
+    ],
+    [
+      // galaxy-ops reports a 400 as a connection failure, so the advice must send the model to
+      // the message rather than straight to "unreachable".
+      "a dropped read gets retry-once advice, not the timeout's narrowing",
+      "get_history_details",
+      "dropped",
+      [
+        "Retrying the identical call once is safe",
+        "read the error -- a rejected argument needs different input",
+        "After one retry fails",
+      ],
+      ["MCP", "Narrow or paginate", "saved response", "connect()", "narrowed retry"],
+    ],
+    [
+      "a dropped discovery call gets no discovery advice",
+      "get_tool_panel",
+      "dropped",
+      [],
+      ["fetch get_tool_panel once", "search_tools_by_name"],
+    ],
+    ...["run_tool", "create_history"].map((tool) => [
+      `a dropped ${tool} is checked with a cheap read before any retry`,
+      tool,
+      "dropped",
+      [
+        "UNKNOWN",
+        "record it with galaxy_job_record or galaxy_invocation_record",
+        "check once with a cheap read",
+      ],
+      ["Narrow or paginate", "Retrying the identical call once is safe"],
+    ]),
+    [
+      "a refused credential asks for /connect, not a retry",
+      "run_tool",
+      "auth",
+      ["/connect", "do not retry"],
+      ["UNKNOWN"],
+    ],
+  ] as [string, string, GalaxyCallKind, string[], string[]][])(
+    "%s",
+    (_name, tool, kind, contains, excludes) => {
+      const hint = galaxyRecoveryHint(tool, kind, GALAXY);
+      expect(hint.startsWith("[loom Galaxy recovery]\n")).toBe(true);
+      for (const text of contains) expect(hint).toContain(text);
+      for (const text of excludes) expect(hint).not.toContain(text);
+    },
+  );
 });

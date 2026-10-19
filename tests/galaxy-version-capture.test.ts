@@ -7,18 +7,11 @@ import {
 } from "../extensions/loom/galaxy-api";
 import { registerGalaxyVersionCapture, versionOf } from "../extensions/loom/galaxy-version-capture";
 import { getGalaxyVersion, resetGalaxyVersion } from "../extensions/loom/observations";
+import { CREDENTIALS, json } from "./galaxy-test-helpers";
 
 type Handler = (event: unknown, ctx?: unknown) => Promise<unknown>;
 
-const CREDENTIALS = () => ({ url: "https://galaxy.test", apiKey: "k" });
 const VERSION = { version_major: "26.1", version_minor: "1", extra: { site: "x" } };
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
 
 function deferred<T>() {
   let resolve!: (v: T) => void;

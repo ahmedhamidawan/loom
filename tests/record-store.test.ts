@@ -22,6 +22,7 @@ import {
 import { createFileRecordStore } from "../extensions/loom/record-store-file";
 import { createPageRecordStore } from "../extensions/loom/record-store-page";
 import { setGalaxyTransport } from "../extensions/loom/galaxy-api";
+import { CREDENTIALS, json } from "./galaxy-test-helpers";
 
 // The contract every backend of the record store keeps. The file harness is the
 // desktop's notebook.md; the page harness is a Galaxy page behind a fake
@@ -69,13 +70,8 @@ function pageHarness(initial?: string): PageHarness {
   const page = { present: initial !== undefined, content: initial ?? "" };
   const calls: string[] = [];
   const puts: unknown[] = [];
-  const json = (body: unknown, status = 200) =>
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { "content-type": "application/json" },
-    });
   setGalaxyTransport({
-    credentials: () => ({ url: "https://galaxy.test", apiKey: "k" }),
+    credentials: CREDENTIALS,
     fetch: async (url, init) => {
       const method = init.method ?? "GET";
       calls.push(`${method} ${url}`);
@@ -320,7 +316,7 @@ describe("page record store", () => {
     const h = pageHarness("src");
     const outage = new Error("galaxy unreachable");
     setGalaxyTransport({
-      credentials: () => ({ url: "https://galaxy.test", apiKey: "k" }),
+      credentials: CREDENTIALS,
       fetch: async () => {
         throw outage;
       },

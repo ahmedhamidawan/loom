@@ -1,38 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerPlanTools } from "../extensions/loom/tools";
 import { resetState, setNotebookPath } from "../extensions/loom/state";
-import { bareFamily } from "../shared/galaxy-tool-family.js";
+import { SPELLED } from "./galaxy-test-helpers";
 
-/**
- * The record tools name the submission tool they follow. Those names reach the
- * model, so they go through the family. The strings below are tools.ts's text
- * from before the family was threaded through, with the tool names as the
- * family spells them, so they pin the exact bytes the model reads.
- */
-const HEAD_INVOCATION_DESCRIPTION = `Name the plan step a Galaxy workflow invocation belongs to. The harness
-records the run; you name the step it belongs to. Loom already wrote a \`loom-invocation\`
-block the moment invoke_workflow returned, so this normally just sets \`label\` and
-\`notebook_anchor\` on the block already carrying that id -- the run is pollable either way.
-If no block carries the id (a submission Loom could not see, such as one made from inside
-code mode), this creates one. Both arguments are checked before anything is written: the
-anchor must resolve in notebook.md, and the invocation id must exist on the Galaxy server.`;
-const HEAD_INVOCATION_ID = "Galaxy invocation ID returned from invoke_workflow";
-const HEAD_INVOCATION_ABSENT =
-  `Galaxy has no invocation "nothex!!" ("nothex!!" is not a Galaxy id (they are hex)). ` +
-  `Nothing was recorded -- re-read the id from the invoke_workflow result.`;
-
-const HEAD_JOB_DESCRIPTION = `Name the plan step a Galaxy TOOL run belongs to, the same way
-galaxy_invocation_record does for a workflow. The harness records the run; you name the step
-it belongs to. Loom already wrote a \`loom-job\` block the moment run_tool returned, so
-this normally just sets \`label\` and \`notebook_anchor\` on the block already carrying that
-job id -- the poller is watching it either way. If no block carries the id, this creates one.
-Both arguments are checked before anything is written: the anchor must resolve in notebook.md,
-and the job id must exist on the Galaxy server. \`toolId\` is used only when creating.`;
-const HEAD_JOB_ID = "Galaxy job ID returned from run_tool";
-const HEAD_JOB_ABSENT =
-  `Galaxy has no job "nothex!!" ("nothex!!" is not a Galaxy id (they are hex)). Nothing was recorded -- ` +
-  `re-read the id from the run_tool result. A tool run returns a job id, ` +
-  `not a dataset id.`;
+// The record tools name the submission tool they follow, and those names reach the model, so
+// they go through the family. Nothing else pins this text, so the parts the model acts on are
+// pinned here under a family that spells every name its own way.
+const notAnId = (kind: string, tool: string) =>
+  `Galaxy has no ${kind} "nothex!!" ("nothex!!" is not a Galaxy id (they are hex)). ` +
+  `Nothing was recorded -- re-read the id from the ${tool} result.`;
 
 interface Registered {
   name: string;
@@ -70,15 +46,30 @@ beforeEach(() => {
 afterEach(() => resetState());
 
 describe("plan tools: model-facing names go through the family", () => {
-  it("names the family's submission tools, byte for byte", async () => {
-    const tools = planTools(bareFamily(["run_tool", "invoke_workflow"]));
+  it("names the family's submission tools", async () => {
+    const tools = planTools(SPELLED);
     const inv = tools.get("galaxy_invocation_record")!;
     const job = tools.get("galaxy_job_record")!;
-    expect(inv.description).toBe(HEAD_INVOCATION_DESCRIPTION);
-    expect(inv.parameters.properties.invocationId.description).toBe(HEAD_INVOCATION_ID);
-    expect(await absentMessage(inv, "invocationId")).toBe(HEAD_INVOCATION_ABSENT);
-    expect(job.description).toBe(HEAD_JOB_DESCRIPTION);
-    expect(job.parameters.properties.jobId.description).toBe(HEAD_JOB_ID);
-    expect(await absentMessage(job, "jobId")).toBe(HEAD_JOB_ABSENT);
+    const bare = /(?<!gx_)\b(run_tool|invoke_workflow)\b/;
+
+    expect(inv.description).toContain("block the moment gx_invoke_workflow returned");
+    expect(inv.description).toContain("Both arguments are checked before anything is written");
+    expect(inv.description).not.toMatch(bare);
+    expect(inv.parameters.properties.invocationId.description).toBe(
+      "Galaxy invocation ID returned from gx_invoke_workflow",
+    );
+    expect(await absentMessage(inv, "invocationId")).toBe(
+      notAnId("invocation", "gx_invoke_workflow"),
+    );
+
+    expect(job.description).toContain("block the moment gx_run_tool returned");
+    expect(job.description).toContain("`toolId` is used only when creating.");
+    expect(job.description).not.toMatch(bare);
+    expect(job.parameters.properties.jobId.description).toBe(
+      "Galaxy job ID returned from gx_run_tool",
+    );
+    expect(await absentMessage(job, "jobId")).toBe(
+      notAnId("job", "gx_run_tool") + " A tool run returns a job id, not a dataset id.",
+    );
   });
 });

@@ -4,17 +4,18 @@ import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
 import { GALAXY } from "./galaxy-family-fixture";
+import { guardHooks } from "./galaxy-test-helpers";
 
-type Handler = (event: unknown, ctx?: unknown) => unknown;
-
-function check(toolName: string, input: Record<string, unknown>) {
-  const on = new Map<string, Handler>();
-  registerGalaxyHistoryGuard(
-    { on: (event: string, h: Handler) => on.set(event, h) } as never,
+const check = (toolName: string, input: Record<string, unknown>) =>
+  guardHooks(
+    registerGalaxyHistoryGuard,
     GALAXY,
-  );
-  return on.get("tool_call")!({ toolName, toolCallId: "c1", input }, {});
-}
+    {},
+  )("tool_call", {
+    toolName,
+    toolCallId: "c1",
+    input,
+  });
 
 type FixtureRoute = Parameters<typeof fixtureFetch>[0][number];
 

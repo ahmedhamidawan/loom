@@ -1,15 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { describe, expect, it } from "vitest";
 import {
   GALAXY_DEADLINE_TEXT,
   galaxyFailureKind,
   kindOfEnvelope,
   classifyGalaxyFailure,
   transportCode,
+  type GalaxyFailureKind,
 } from "../extensions/loom/galaxy-failure";
 import { runGalaxyCall, wrapGalaxyTool } from "../extensions/loom/galaxy-tool-wrap";
 import type { GalaxyTool } from "../extensions/loom/galaxy-tool-source";
-import { galaxyRecoveryHint, registerGalaxyRecovery } from "../extensions/loom/galaxy-recovery";
 import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { GALAXY } from "./galaxy-family-fixture";
 
@@ -124,86 +123,39 @@ describe("galaxyFailureKind", () => {
     const text = (result.content[0] as { text: string }).text;
     expect(galaxyFailureKind(result.details, text, "get_histories", BARE)).toBe("dropped");
   });
-
-  it("falls back to the text classifier without a recorded kind", () => {
-    expect(
-      galaxyFailureKind(
-        { galaxy: { tool: "get_histories" } },
-        GALAXY_DEADLINE_TEXT,
-        "get_histories",
-        BARE,
-      ),
-    ).toBe("timeout");
-    expect(
-      galaxyFailureKind(undefined, "Failed to call tool: Not connected", "get_histories", BARE),
-    ).toBe("dropped");
-    expect(galaxyFailureKind({}, "No such history", "get_histories", BARE)).toBeNull();
-  });
-
-  it("classifies a result with no Galaxy details exactly as the text classifier does", () => {
-    const cases: [string, string][] = [
-      ["get_dataset_details", "Failed to call tool: Request timed out"],
-      ["run_tool", "MCP error -32001"],
-      ["get_histories", "Connection closed (-32000)"],
-      ["get_histories", "Not connected to Galaxy. Authenticate via OAuth or run connect()..."],
-      ["get_histories", "Galaxy API 404: not found"],
-      ["bash", "Request timed out"],
-    ];
-    for (const [tool, text] of cases) {
-      const details = { fullOutputPath: "/tmp/x", truncation: { truncated: true } };
-      expect(galaxyFailureKind(details, text, tool, GALAXY)).toBe(
-        classifyGalaxyFailure(tool, text, GALAXY),
-      );
-      expect(galaxyFailureKind(undefined, text, tool, GALAXY)).toBe(
-        classifyGalaxyFailure(tool, text, GALAXY),
-      );
-    }
-  });
 });
 
-describe("recovery for a refused credential", () => {
-  function harness() {
-    const on = vi.fn();
-    registerGalaxyRecovery({ on } as unknown as ExtensionAPI, BARE);
-    const fire = (name: string, event: unknown) =>
-      on.mock.calls.find(([key]) => key === name)![1](event);
-    return {
-      check: (toolName: string, input = {}) => fire("tool_call", { toolName, input }),
-      result: (toolName: string, input: object, text: string, details: unknown) =>
-        fire("tool_result", {
-          toolName,
-          input,
-          content: [{ type: "text", text }],
-          isError: true,
-          details,
-        }),
-    };
-  }
-
-  it("tells the model to ask for /connect, not to retry", () => {
-    const hint = galaxyRecoveryHint("run_tool", "auth", BARE);
-    expect(hint).toContain("/connect");
-    expect(hint).toContain("do not retry");
-    expect(hint).not.toContain("UNKNOWN");
-  });
-
-  it("appends the auth hint and does not open a transport incident", () => {
-    const h = harness();
-    const env = JSON.stringify({ success: false, message: "Galaxy API 401", errorKind: "auth" });
-    const details = { galaxy: { tool: "get_histories", kind: "auth", elapsedMs: 3 } };
-    const out = h.result("get_histories", { limit: 5 }, env, details);
-    expect(JSON.stringify(out.content)).toContain("Ask the user to run /connect");
-    // An auth refusal is not a timed-out read, so the identical call is not blocked.
-    expect(h.check("get_histories", { limit: 5 })).toBeUndefined();
-  });
-
-  it("reads the deadline's kind from details and blocks the identical read", () => {
-    const h = harness();
-    const env = JSON.stringify({ success: false, message: GALAXY_DEADLINE_TEXT });
-    const details = { galaxy: { tool: "get_histories", kind: "timeout", elapsedMs: 300_000 } };
-    expect(JSON.stringify(h.result("get_histories", { limit: 5 }, env, details).content)).toContain(
-      "Narrow or paginate",
-    );
-    expect(h.check("get_histories", { limit: 5 })?.block).toBe(true);
-  });
+describe("classifyGalaxyFailure", () => {
+  // Every text-only reading, so galaxyFailureKind without a recorded kind must agree with it.
+  it.each([
+    // The exact text a slow usegalaxy.org call produces.
+    ["get_dataset_details", "Failed to call tool: Request timed out", "timeout"],
+    ["run_tool", "MCP error -32001", "timeout"],
+    // pi's own timeout wording.
+    ["get_histories", "MCP request timed out after 300000ms", "timeout"],
+    ["get_histories", GALAXY_DEADLINE_TEXT, "timeout"],
+    // A body mentioning both is a timeout -- the actionable one.
+    ["run_tool", "Request timed out; client not connected", "timeout"],
+    ["get_histories", "Connection closed (-32000)", "dropped"],
+    ["get_histories", "Failed to call tool: Not connected", "dropped"],
+    ["get_histories", "Not connected to Galaxy. Authenticate via OAuth or run connect()...", null],
+    ["get_histories", "Galaxy API 404: not found", null],
+    ["get_histories", "No such history", null],
+    ["bash", "Request timed out", null],
+    ["run_tool", undefined, null],
+    [undefined, "Request timed out", null],
+  ] as [string | undefined, string | undefined, GalaxyFailureKind][])(
+    "%s %j is %s",
+    (tool, text, kind) => {
+      expect(classifyGalaxyFailure(tool, text, GALAXY)).toBe(kind);
+      for (const details of [
+        undefined,
+        {},
+        { fullOutputPath: "/tmp/x", truncation: { truncated: true } },
+        { galaxy: { tool: "get_histories" } },
+      ]) {
+        expect(galaxyFailureKind(details, text, tool, GALAXY)).toBe(kind);
+      }
+    },
+  );
 });

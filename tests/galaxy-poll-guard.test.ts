@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   GALAXY_POLL_INTERVAL_MS,
   galaxyPollGuidance,
@@ -11,15 +11,13 @@ import {
 } from "../extensions/loom/galaxy-output-store";
 import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { GALAXY } from "./galaxy-family-fixture";
+import { guardHooks, SPELLED } from "./galaxy-test-helpers";
 
 function harness() {
-  const on = vi.fn();
-  registerGalaxyPollGuard({ on } as unknown as ExtensionAPI, GALAXY);
   const abort = new AbortController();
   const notify = vi.fn();
   const ctx = { hasUI: true, ui: { notify }, signal: abort.signal } as unknown as ExtensionContext;
-  const fire = (name: string, event: unknown) =>
-    on.mock.calls.find(([n]) => n === name)![1](event, ctx);
+  const fire = guardHooks(registerGalaxyPollGuard, GALAXY, ctx);
   return {
     abort,
     notify,
@@ -50,29 +48,16 @@ afterEach(() => {
   setGalaxyOutputStore(null);
 });
 
-// The poll guidance from before it took a family, with the family's name, pinned so "same
-// bytes" means something.
-const PINNED_POLL_GUIDANCE = `### Waiting for Galaxy and reporting progress
-
-Give a short progress update before starting a long sequence of tools, at each
-meaningful milestone, and about once a minute while actively working. Explain
-what you verified, what is running, and what comes next. Do not claim scientific
-success from a successful tool response alone.
-
-Loom records every Galaxy submission itself, so a queued/running run is already
-being watched: the background monitor checks every 15 seconds without model
-calls and queues completion verification. Bind the run to its plan step with
-galaxy_job_record or galaxy_invocation_record and a real notebook anchor; don't
-record a job that belongs to a workflow invocation that is already recorded. If no other authorized work is ready, report the wait
-and end the turn so the researcher can talk to you. Do not repeatedly call
-get_dataset_details, launch a shell polling loop, or use sleep to wait.
-A successful metadata request does not mean the dataset has finished.
-Repeated status reads of an unfinished resource have a two-minute cooldown.
-`;
-
 describe("galaxyPollGuidance", () => {
-  it("names the family's status tool, byte for byte", () => {
-    expect(galaxyPollGuidance(GALAXY)).toBe(PINNED_POLL_GUIDANCE);
+  // The connected system-prompt snapshot pins the bytes; this pins the family's spelling.
+  it("names the family's status tool", () => {
+    const text = galaxyPollGuidance(SPELLED);
+    expect(text.startsWith("### Waiting for Galaxy and reporting progress\n")).toBe(true);
+    expect(text).toContain(
+      "Do not repeatedly call\ngx_get_dataset_details, launch a shell polling loop",
+    );
+    expect(text).toContain("galaxy_job_record or galaxy_invocation_record");
+    expect(text).toContain("two-minute cooldown");
   });
 });
 
@@ -145,18 +130,16 @@ describe("Galaxy polling cooldown", () => {
 
 describe("invocation reads", () => {
   function invocationHarness() {
-    const on = vi.fn();
-    registerGalaxyPollGuard(
-      { on } as unknown as ExtensionAPI,
-      bareFamily(["get_invocations", "get_dataset_details"]),
-    );
     const ctx = {
       hasUI: false,
       ui: { notify: vi.fn() },
       signal: new AbortController().signal,
     } as unknown as ExtensionContext;
-    const fire = (name: string, event: unknown) =>
-      on.mock.calls.find(([n]) => n === name)![1](event, ctx);
+    const fire = guardHooks(
+      registerGalaxyPollGuard,
+      bareFamily(["get_invocations", "get_dataset_details"]),
+      ctx,
+    );
     const input = { invocation_id: "inv1" };
     return {
       fire,
@@ -226,19 +209,16 @@ describe("invocation reads", () => {
       return early === false && released;
     }
 
-    it("holds a repeated read when structuredContent was dropped, reading the saved output", async () => {
+    it.each([
+      ["was dropped, reading the saved output", "ready", false],
+      ["survived, reading it", "new", true],
+    ])("holds a repeated read when structuredContent %s", async (_name, state, structured) => {
       vi.useFakeTimers();
       const h = invocationHarness();
-      const annotated = spilled(h, "ready", false);
+      const annotated = spilled(h, state, structured);
       expect(annotated.content[0].text).toBe(PREVIEW);
       expect(annotated.content[1].text).toContain("[Loom background monitoring]");
-      expect(await held(h)).toBe(true);
-    });
-
-    it("holds it from structuredContent when that survived", async () => {
-      vi.useFakeTimers();
-      const h = invocationHarness();
-      expect(spilled(h, "new", true).content[1].text).toContain("still new");
+      expect(annotated.content[1].text).toContain(`still ${state}`);
       expect(await held(h)).toBe(true);
     });
 

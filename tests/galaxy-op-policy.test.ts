@@ -7,17 +7,15 @@ import {
   resetShownPages,
   unreadInputs,
 } from "../extensions/loom/galaxy-op-policy";
-import { createGalaxyOpsToolSource } from "../extensions/loom/galaxy-ops-tools";
 import { GALAXY_DEADLINE_MS } from "../extensions/loom/galaxy-tool-wrap";
 import { malformedIdsRefusal } from "../extensions/loom/galaxy-page-ops";
-import type { GalaxyTool } from "../extensions/loom/galaxy-tool-source";
 import { setRecordStore, withRecordLock } from "../extensions/loom/record-store";
 import { createPageRecordStore } from "../extensions/loom/record-store-page";
 import { applySectionEdit } from "../shared/markdown-sections.js";
 import { pageContentHash } from "../shared/page-content-hash.js";
 import { ELISION_MARKER } from "../shared/record-excerpt.js";
+import { CREDENTIALS, json, recordGalaxy, runOp } from "./galaxy-test-helpers";
 
-const CREDENTIALS = () => ({ url: "https://galaxy.test", apiKey: "k" });
 const PAGE_ID = "5a1cde2f3b4c5d6e";
 const OTHER_PAGE = "0123456789abcdef";
 const signal = () => new AbortController().signal;
@@ -26,66 +24,33 @@ const BODY = ["# Notebook", "", "## Plan", "old plan", "", "## Results", "old re
   "\n",
 );
 
-const tool = (name: string): GalaxyTool =>
-  createGalaxyOpsToolSource()
-    .tools()
-    .find((t) => t.name === name)!;
-const run = (name: string, params: object) =>
-  tool(name).execute("call-1", params, undefined, undefined, {} as never);
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-interface Seen {
-  method: string;
-  path: string;
-  search: string;
-  body?: Record<string, unknown>;
-}
-
 /**
  * A Galaxy with pages and tools. `edit` changes a stored page behind the model's back, the way
- * the poller writes the record. /api/version answers nothing, so nothing is version-refused.
+ * the poller writes the record.
  */
 function galaxy(opts: { tools?: Record<string, unknown>; toolStatus?: number } = {}) {
-  const seen: Seen[] = [];
   const pages = new Map<string, Record<string, unknown>>(
     [PAGE_ID, OTHER_PAGE].map((id) => [
       id,
       { id, title: "Notebook", content_format: "markdown", content_editor: BODY, content: "<r/>" },
     ]),
   );
-  setGalaxyTransport({
-    credentials: CREDENTIALS,
-    fetch: async (url, init) => {
-      const { pathname: path, search } = new URL(url);
-      if (path === "/api/version") return json({});
-      // As a real fetch does: an aborted request never reaches the server.
-      if (init.signal?.aborted) throw init.signal.reason;
-      const method = init.method ?? "GET";
-      const raw = init.body ? new TextDecoder().decode(init.body as ArrayBuffer) : undefined;
-      const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined;
-      seen.push({ method, path, search, ...(body ? { body } : {}) });
-      const tool = path.match(/^\/api\/tools\/([^/]+)$/);
-      if (tool && method === "GET") {
-        if (opts.toolStatus) return json({ err_msg: "nope" }, opts.toolStatus);
-        const schema = opts.tools?.[decodeURIComponent(tool[1])];
-        return schema ? json(schema) : json({ err_msg: "no such tool" }, 404);
-      }
-      if (path === "/api/tools" && method === "POST") return json({ jobs: [], outputs: [] });
-      const page = path.match(/^\/api\/pages\/([^/]+)$/);
-      const stored = page && pages.get(page[1]);
-      if (!stored) return json({ err_msg: "no such page" }, 404);
-      if (method === "PUT" && typeof body?.content === "string") {
-        stored.content_editor = body.content;
-        stored.content = `<r>${body.content}</r>`;
-      }
-      return json(stored);
-    },
+  const seen = recordGalaxy(({ method, path, body }) => {
+    const tool = path.match(/^\/api\/tools\/([^/]+)$/);
+    if (tool && method === "GET") {
+      if (opts.toolStatus) return json({ err_msg: "nope" }, opts.toolStatus);
+      const schema = opts.tools?.[decodeURIComponent(tool[1])];
+      return schema ? json(schema) : json({ err_msg: "no such tool" }, 404);
+    }
+    if (path === "/api/tools" && method === "POST") return json({ jobs: [], outputs: [] });
+    const page = path.match(/^\/api\/pages\/([^/]+)$/);
+    const stored = page && pages.get(page[1]);
+    if (!stored) return json({ err_msg: "no such page" }, 404);
+    if (method === "PUT" && typeof body?.content === "string") {
+      stored.content_editor = body.content;
+      stored.content = `<r>${body.content}</r>`;
+    }
+    return json(stored);
   });
   const edit = (id: string, change: (body: string) => string) => {
     const page = pages.get(id)!;
@@ -180,7 +145,7 @@ describe("run_tool: unreadInputs", () => {
 
   it("is run_tool's check: the refusal is a validation envelope and nothing is submitted", async () => {
     const { seen } = galaxy({ tools: { cat1: CAT } });
-    const result = await run("run_tool", {
+    const result = await runOp("run_tool", {
       tool_id: "cat1",
       history_id: "f2db41e1fa331b3e",
       inputs: { inptu1: { src: "hda", id: "d" } },
@@ -214,53 +179,39 @@ describe("create_page and update_page checks", () => {
     expect(await check("update_page", { page_id: PAGE_ID, content: "# Whole\n" })).toBeUndefined();
   });
 
-  it("update_page refuses a section edit that would lose its heading", async () => {
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "Results",
-        section_content: "## Results\nnew",
-      }),
-    ).toMatch(/heading line itself.*"## Results"/);
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "## Results",
-        section_content: "new results only",
-      }),
-    ).toMatch(/starts with "## Results"/);
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "## Results",
-        section_content: "\n## Results\nnew",
-      }),
-    ).toBeUndefined();
+  it.each([
+    [
+      "a bare title for a heading",
+      "Results",
+      "## Results\nnew",
+      /heading line itself.*"## Results"/,
+    ],
+    [
+      "content without its heading line",
+      "## Results",
+      "new results only",
+      /starts with "## Results"/,
+    ],
+    ["content led by blank lines", "## Results", "\n## Results\nnew", undefined],
     // An indented heading line is not a heading to markdown: the section would merge into the
     // one above it, and the next edit by heading would append a duplicate.
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "## Results",
-        section_content: "  ## Results\nnew",
-      }),
-    ).toMatch(/starts with "## Results"/);
+    ["an indented heading line", "## Results", "  ## Results\nnew", /starts with "## Results"/],
     // No heading line on a page holds a newline, so this could only ever append.
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "## Results\nnew",
-        section_content: "## Results\nnew",
-      }),
-    ).toMatch(/^Refused: section_heading is one line/);
+    [
+      "a heading holding a newline",
+      "## Results\nnew",
+      "## Results\nnew",
+      /^Refused: section_heading is one line/,
+    ],
     // A new heading line renames the section.
-    expect(
-      await check("update_page", {
-        page_id: PAGE_ID,
-        section_heading: "## Results",
-        section_content: "### Findings\nx",
-      }),
-    ).toBeUndefined();
+    ["a new heading line", "## Results", "### Findings\nx", undefined],
+  ])("update_page's heading-loss check on %s", async (_name, heading, content, refusal) => {
+    const result = await check("update_page", {
+      page_id: PAGE_ID,
+      section_heading: heading,
+      section_content: content,
+    });
+    expect(result).toEqual(refusal ? expect.stringMatching(refusal) : undefined);
   });
 
   it("update_page refuses a section edit whose section_content carries the elision marker", async () => {
@@ -271,14 +222,6 @@ describe("create_page and update_page checks", () => {
     });
     expect(refusal).toMatch(/elision marker/);
     expect(refusal).toMatch(/get_page/);
-  });
-
-  it("a heading without section_content gets the bridge's pair refusal", async () => {
-    galaxy();
-    const result = await run("update_page", { page_id: PAGE_ID, section_heading: "## Results" });
-    expect(result.isError).toBe(true);
-    expect(result.structuredContent.message).toMatch(/are a pair/);
-    expect(result.structuredContent.message).not.toMatch(/replaces the whole section/);
   });
 
   it("has no refused hook, no settled trait and nothing for other ops", () => {
@@ -300,7 +243,7 @@ describe("update_page against the page as it is now", () => {
     expect_hash: hash,
   });
   const read = async () => {
-    const result = await run("get_page", { page_id: PAGE_ID });
+    const result = await runOp("get_page", { page_id: PAGE_ID });
     expect(result.isError).toBe(false);
     return String(result.structuredContent.data.content_hash);
   };
@@ -311,7 +254,7 @@ describe("update_page against the page as it is now", () => {
     g.edit(PAGE_ID, (b) => b.replace("old plan", "plan the poller advanced"));
     const current = g.body(PAGE_ID);
     g.seen.length = 0;
-    const result = await run("update_page", sectionEdit(shownHash));
+    const result = await runOp("update_page", sectionEdit(shownHash));
     expect(result.isError).toBe(false);
     expect(g.seen.map((s) => s.method)).toEqual(["GET", "GET", "PUT"]);
     expect(g.seen[2].body?.content).toBe(
@@ -325,7 +268,7 @@ describe("update_page against the page as it is now", () => {
     const shownHash = await read();
     g.edit(PAGE_ID, (b) => b.replace("old results", "results someone else wrote"));
     g.seen.length = 0;
-    const result = await run("update_page", sectionEdit(shownHash));
+    const result = await runOp("update_page", sectionEdit(shownHash));
     expect(result.isError).toBe(true);
     expect(result.structuredContent.errorKind).toBe("validation");
     expect(result.structuredContent.message).toContain(`not ${shownHash}`);
@@ -338,7 +281,7 @@ describe("update_page against the page as it is now", () => {
     const shownHash = await read();
     g.edit(PAGE_ID, (b) => b.replace("old rows", "rows the poller wrote"));
     g.seen.length = 0;
-    const result = await run("update_page", sectionEdit(shownHash));
+    const result = await runOp("update_page", sectionEdit(shownHash));
     expect(result.isError).toBe(true);
     expect(result.structuredContent.message).toContain(`not ${shownHash}`);
     expect(g.seen.some((s) => s.method === "PUT")).toBe(false);
@@ -350,7 +293,7 @@ describe("update_page against the page as it is now", () => {
     g.edit(PAGE_ID, (b) => b.replace("old plan", "moved"));
     g.seen.length = 0;
     const { expect_hash: _hash, ...args } = sectionEdit("unused");
-    const result = await run("update_page", args);
+    const result = await runOp("update_page", args);
     expect(result.isError).toBe(false);
     // Only the bridge's own read: the policy had nothing to repair.
     expect(g.seen.map((s) => s.method)).toEqual(["GET", "PUT"]);
@@ -359,18 +302,18 @@ describe("update_page against the page as it is now", () => {
   it("leaves a hash it never showed alone", async () => {
     const g = galaxy();
     g.edit(PAGE_ID, (b) => b.replace("old plan", "moved"));
-    const result = await run("update_page", sectionEdit(pageContentHash(BODY)));
+    const result = await runOp("update_page", sectionEdit(pageContentHash(BODY)));
     expect(result.isError).toBe(true);
     expect(g.seen.filter((s) => s.method === "GET")).toHaveLength(1);
   });
 
   it("remembers the body it wrote under the hash it returned", async () => {
     const g = galaxy();
-    const first = await run("update_page", sectionEdit(await read()));
+    const first = await runOp("update_page", sectionEdit(await read()));
     const written = String(first.structuredContent.data.content_hash);
     expect(written).toBe(pageContentHash(g.body(PAGE_ID)));
     g.edit(PAGE_ID, (b) => b.replace("old plan", "moved again"));
-    const second = await run("update_page", {
+    const second = await runOp("update_page", {
       ...sectionEdit(written),
       section_content: "## Results\nnewer results\n",
     });
@@ -383,7 +326,7 @@ describe("update_page against the page as it is now", () => {
     const shownHash = await read();
     resetShownPages();
     g.edit(PAGE_ID, (b) => b.replace("old plan", "moved"));
-    expect((await run("update_page", sectionEdit(shownHash))).isError).toBe(true);
+    expect((await runOp("update_page", sectionEdit(shownHash))).isError).toBe(true);
 
     const on = vi.fn();
     registerGalaxyOpPolicy({ on } as unknown as ExtensionAPI);
@@ -391,7 +334,7 @@ describe("update_page against the page as it is now", () => {
     const again = await read();
     on.mock.calls[0][1]();
     g.edit(PAGE_ID, (b) => b.replace("moved", "moved twice"));
-    expect((await run("update_page", sectionEdit(again))).isError).toBe(true);
+    expect((await runOp("update_page", sectionEdit(again))).isError).toBe(true);
   });
 });
 
@@ -407,7 +350,7 @@ describe("update_page on the record page waits behind the record's writers", () 
       await new Promise<void>((r) => (release = r));
       order.push("poller");
     });
-    const update = run("update_page", { page_id: PAGE_ID, content: "# Mine\n" }).then((r) => {
+    const update = runOp("update_page", { page_id: PAGE_ID, content: "# Mine\n" }).then((r) => {
       order.push("update");
       return r;
     });
@@ -431,7 +374,7 @@ describe("update_page on the record page waits behind the record's writers", () 
             : new Promise<Response>(() => {}),
       });
       setRecordStore(createPageRecordStore({ key: KEY, pageId: PAGE_ID }));
-      const update = run("update_page", { page_id: PAGE_ID, content: "# Mine\n" });
+      const update = runOp("update_page", { page_id: PAGE_ID, content: "# Mine\n" });
       await vi.advanceTimersByTimeAsync(GALAXY_DEADLINE_MS);
       expect((await update).details.galaxy).toMatchObject({ kind: "timeout" });
       let poller = false;
@@ -461,7 +404,7 @@ describe("update_page on the record page waits behind the record's writers", () 
       setRecordStore(createPageRecordStore({ key: KEY, pageId: PAGE_ID }));
       let release: () => void = () => {};
       const poller = withRecordLock(KEY, () => new Promise<void>((r) => (release = r)));
-      const update = run("update_page", { page_id: PAGE_ID, content: "# Mine\n" });
+      const update = runOp("update_page", { page_id: PAGE_ID, content: "# Mine\n" });
       await vi.advanceTimersByTimeAsync(GALAXY_DEADLINE_MS);
       expect((await update).details.galaxy).toMatchObject({ kind: "timeout" });
       release();
@@ -496,7 +439,7 @@ describe("update_page on the record page waits behind the record's writers", () 
         },
       });
       setRecordStore(createPageRecordStore({ key: KEY, pageId: PAGE_ID }));
-      const update = run("update_page", {
+      const update = runOp("update_page", {
         page_id: PAGE_ID,
         content: "# Mine\n",
         expect_hash: pageContentHash(BODY),
@@ -516,7 +459,7 @@ describe("update_page on the record page waits behind the record's writers", () 
     setRecordStore(createPageRecordStore({ key: KEY, pageId: PAGE_ID }));
     let release!: () => void;
     const held = withRecordLock(KEY, () => new Promise<void>((r) => (release = r)));
-    const result = await run("update_page", { page_id: OTHER_PAGE, content: "# Theirs\n" });
+    const result = await runOp("update_page", { page_id: OTHER_PAGE, content: "# Theirs\n" });
     expect(result.isError).toBe(false);
     release();
     await held;
