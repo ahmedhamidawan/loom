@@ -32,7 +32,7 @@ const browserNames = [...browserTools.keys(), ...olitOnly];
 // Orbit's Galaxy tools: one per galaxy-ops operation on the Node entry. The
 // array is shared with the browser entry, so it is copied once, here.
 const operations = [...allOperations];
-const mcpNames = operations.map((op) => op.name);
+const opNames = operations.map((op) => op.name);
 const opsVersion = (
   JSON.parse(
     readFileSync(join(ROOT, "node_modules/@galaxyproject/galaxy-ops/package.json"), "utf-8"),
@@ -94,10 +94,10 @@ describe("the Galaxy tool contract between the browser and Orbit", () => {
         orbit: `@galaxyproject/galaxy-ops ${opsVersion} allOperations (Node entry)`,
         parameters: "createGalaxyOpsToolSource().tools() (root galaxy-ops + Loom bridges)",
       },
-      intersection: browserNames.filter((n) => mcpNames.includes(n)).sort(),
-      browserOnly: browserNames.filter((n) => !mcpNames.includes(n)).sort(),
+      intersection: browserNames.filter((n) => opNames.includes(n)).sort(),
+      browserOnly: browserNames.filter((n) => !opNames.includes(n)).sort(),
       olitFlavorOnly: [...olitOnly].sort(),
-      orbitOnly: mcpNames.filter((n) => !browserNames.includes(n)).sort(),
+      orbitOnly: opNames.filter((n) => !browserNames.includes(n)).sort(),
       loomBridging: LOOM_BRIDGING,
       upstreamPending: UPSTREAM_PENDING,
       knownDifferences: { parameters: paramDifferences(), forkOnly: FORK_ONLY },
@@ -105,6 +105,11 @@ describe("the Galaxy tool contract between the browser and Orbit", () => {
     // Written as prettier would, so `prettier --check .` passes on the golden.
     const json = await format(JSON.stringify(contract), { parser: "json", printWidth: 100 });
     await expect(json).toMatchFileSnapshot("__surface__/galaxy-tool-contract.json");
+  });
+
+  it("leaves Orbit no Galaxy operation the browser lacks", () => {
+    // Computed from galaxy-ops itself, so this holds by source, not by the golden alone.
+    expect(opNames.filter((n) => !browserNames.includes(n))).toEqual([]);
   });
 
   it("finds each fork-only field in the browser and not upstream", () => {
