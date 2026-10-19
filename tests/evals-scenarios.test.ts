@@ -181,7 +181,7 @@ import {
 } from "../extensions/loom/observations";
 import { factsForToolResult } from "../extensions/loom/observation-triggers";
 import { scanObservationForLeaks, validateObservation } from "../shared/observation-contract.js";
-import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import type { ObservationEnvelope } from "../extensions/loom/observations";
 
 describe("observation-redaction-hostile-result: the fixture against the real pipeline", () => {

@@ -16,7 +16,7 @@ import { appendActivityEvent } from "./activity";
 import { deliverAutoFollowUp } from "./auto-resume";
 import { activeGalaxyStatus } from "./profiles";
 import { getNotebookPath } from "./state";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 export const iwcTools = (family: GalaxyToolFamily): ReadonlySet<string> =>
   new Set(
@@ -27,7 +27,6 @@ export const iwcTools = (family: GalaxyToolFamily): ReadonlySet<string> =>
       "get_iwc_workflows",
     ].map((tool) => family.tool(tool)),
   );
-export const IWC_TOOLS = iwcTools(MCP_FAMILY);
 
 export const iwcPlanNudge = (family: GalaxyToolFamily): string =>
   "[Loom check] That plan was drafted without checking the IWC workflow registry. Call " +
@@ -35,7 +34,6 @@ export const iwcPlanNudge = (family: GalaxyToolFamily): string =>
   "chain of them) covers it and fits the user's data, revise the draft to run it on Galaxy; " +
   "if nothing fits, or the user asked for something else, keep the draft and say you " +
   "checked. It is still a draft: don't write it to the notebook or run anything.";
-export const IWC_PLAN_NUDGE = iwcPlanNudge(MCP_FAMILY);
 
 // A ```plan fence or a bare plan heading, the two shapes the plan gate accepts.
 const PLAN_DRAFT_RE = /^\s*(?:```plan\b|##\s+Plan\s+[A-Za-z0-9]+\s*[:-])/m;
@@ -55,14 +53,11 @@ export function draftsPlan(messages: readonly Message[]): boolean {
   );
 }
 
-export function isIwcLookup(toolName: string, family: GalaxyToolFamily = MCP_FAMILY): boolean {
+export function isIwcLookup(toolName: string, family: GalaxyToolFamily): boolean {
   return iwcTools(family).has(toolName);
 }
 
-export function registerIwcPlanCheck(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerIwcPlanCheck(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   let consulted = false;
   let nudged = false;
 

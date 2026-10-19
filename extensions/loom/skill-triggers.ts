@@ -19,7 +19,7 @@ import { appendActivityEvent } from "./activity";
 import { findConfusablesMatch } from "./confusables";
 import { hasFailedTransition, INVOCATION_FAILED_HINT } from "./invocation-failure-hint";
 import { getNotebookPath } from "./state";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 export interface HintContext {
   toolName: string;
@@ -52,8 +52,6 @@ export const iwcCandidatesHint = (family: GalaxyToolFamily) =>
   "A workflow that needs another's outputs first is half of a chain, not a match. If none " +
   "fit, say so. If nothing came back, retry once with just the assay; if the query had no " +
   "searchable terms, ask the user what they want to find out.";
-
-export const IWC_CANDIDATES_HINT = iwcCandidatesHint(MCP_FAMILY);
 
 export const skillTriggers = (family: GalaxyToolFamily): readonly SkillTrigger[] => [
   {
@@ -89,8 +87,6 @@ export const skillTriggers = (family: GalaxyToolFamily): readonly SkillTrigger[]
   },
 ];
 
-export const SKILL_TRIGGERS = skillTriggers(MCP_FAMILY);
-
 type ContentBlock = { type: string; text?: string };
 
 export interface FiredHint {
@@ -105,7 +101,7 @@ export interface FiredHint {
 export function applySkillTriggers<T extends ContentBlock>(
   msg: { toolName: string; isError: boolean; content: T[] },
   activeTools: () => string[],
-  triggers: readonly SkillTrigger[] = SKILL_TRIGGERS,
+  triggers: readonly SkillTrigger[],
 ): { content: T[]; fired: FiredHint[] } | null {
   let content = msg.content;
   const fired: FiredHint[] = [];
@@ -133,10 +129,7 @@ export function applySkillTriggers<T extends ContentBlock>(
   return fired.length > 0 ? { content, fired } : null;
 }
 
-export function registerSkillTriggers(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerSkillTriggers(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   const triggers = skillTriggers(family);
   pi.on("message_end", (event) => {
     const msg = event.message;

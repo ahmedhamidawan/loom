@@ -383,7 +383,7 @@ describe("running an operation", () => {
 });
 
 describe("the default source", () => {
-  const bare = () => setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+  const bare = () => setCapabilityProfile(profileFromEnv({}));
   const stub = (name: string): GalaxyTool => ({
     name,
     label: name,

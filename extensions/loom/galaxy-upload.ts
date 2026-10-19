@@ -8,7 +8,7 @@ import { getGalaxyConfig, galaxyGet, galaxyPost } from "./galaxy-api";
 import { getCurrentHistoryId } from "./state";
 import { isSensitivePath } from "./exec-guard/sensitive-read";
 import { resolveStateDir } from "../../shared/state-dir.js";
-import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import {
   tusUpload,
   buildFetchPayload,

@@ -17,10 +17,10 @@ import {
 } from "./galaxy-pages-sync";
 import { listRecentPages } from "./galaxy-pages-api";
 import { galaxyPageMarkdownGuidance } from "./galaxy-page-markdown-guidance";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 export const notebookPushToGalaxyDescription = (
-  family: GalaxyToolFamily = MCP_FAMILY,
+  family: GalaxyToolFamily,
 ): string => `Push the local notebook.md to a Galaxy page. If the notebook already
 has a loom-galaxy-page binding block, updates that page in place (creates a
 new revision). If there's no binding yet, pass history_id (and optionally title,
@@ -30,7 +30,6 @@ loom-invocation blocks (they're analysis content). Unconditional local-wins:
 any concurrent Galaxy-UI edits since the last sync are overwritten.
 
 ${galaxyPageMarkdownGuidance(family)}`;
-export const NOTEBOOK_PUSH_TO_GALAXY_DESCRIPTION = notebookPushToGalaxyDescription();
 
 function errorContent(e: unknown) {
   return {
@@ -44,10 +43,7 @@ function errorContent(e: unknown) {
   };
 }
 
-export function registerNotebookSyncTools(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerNotebookSyncTools(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   pi.registerTool({
     name: "notebook_list_galaxy_pages",
     label: "List recent Galaxy pages",

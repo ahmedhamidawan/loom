@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import {
   galaxyOpsContext,
   resetGalaxyOpsVersion,
@@ -214,7 +214,7 @@ describe("get_server_info", () => {
     await fire("tool_result", result(envelope(VERSION), { toolName: "get_user" }));
     await fire(
       "tool_result",
-      result(envelope(VERSION), { toolName: "mcp__galaxy__get_server_info" }),
+      result(envelope(VERSION), { toolName: "mcp__brc_analytics__get_server_info" }),
     );
     await fire("tool_result", {
       toolName: "get_server_info",

@@ -208,7 +208,6 @@ const PROFILE: CapabilityProfile = {
   files: false,
   notebook: "page",
   network: true,
-  galaxyTools: "bare",
   mcpServers: false,
   ui: "worker",
 };
@@ -901,7 +900,7 @@ describe("Orbit on pi-host", () => {
     await second!.wait(ctx);
     await until(() => runs.settled >= 5);
     last = await results();
-    // mcp-recovery's keywords refusal, worded for in-process tools.
+    // galaxy-recovery's keywords refusal.
     const keywords = last.find((m) => m.toolName === "search_tools_by_keywords")!;
     expect(keywords.isError).toBe(true);
     expect(textOf(keywords.content)).toContain("Use search_tools_by_name with a specific name");

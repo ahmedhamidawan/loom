@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI, MessageEndEvent, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 import { registerSraImportGate } from "../extensions/loom/sra-import-gate";
+import { GALAXY } from "./galaxy-family-fixture";
 
 vi.mock("../extensions/loom/state", () => ({ getNotebookPath: () => null }));
 const TOOL = "toolshed.g2.bx.psu.edu/repos/iuc/sra_tools/fasterq_dump/3.1.1+galaxy1";
@@ -8,7 +9,7 @@ function call(id: string, accession: string, overrides = {}) {
   return {
     type: "toolCall" as const,
     id,
-    name: "mcp__galaxy__run_tool",
+    name: "run_tool",
     arguments: {
       history_id: "history-1",
       tool_id: TOOL,
@@ -27,7 +28,7 @@ function call(id: string, accession: string, overrides = {}) {
 
 function harness() {
   const on = vi.fn();
-  registerSraImportGate({ on } as unknown as ExtensionAPI);
+  registerSraImportGate({ on } as unknown as ExtensionAPI, GALAXY);
   const handler = (name: string) => on.mock.calls.find(([event]) => event === name)![1];
   return {
     assistant: (calls: ReturnType<typeof call>[]) =>
@@ -161,19 +162,6 @@ describe("SRA import gate", () => {
     expect(h.check(b)?.block).toBe(true);
   });
 
-  it("recognizes the generic MCP proxy with JSON-string arguments", () => {
-    const calls = [call("a", "SRR1"), call("b", "SRR2")].map((c) => ({
-      ...c,
-      name: "mcp",
-      arguments: {
-        tool: "mcp__galaxy__run_tool",
-        args: JSON.stringify(c.arguments),
-      },
-    })) as unknown as ReturnType<typeof call>[];
-    h.assistant(calls);
-    expect(calls.every((c) => h.check(c)?.block)).toBe(true);
-  });
-
   it("gates run_tool under pi's galaxy_ prefix too", () => {
     const calls = [call("a", "SRR1"), call("b", "SRR2")].map((c) => ({
       ...c,
@@ -183,27 +171,14 @@ describe("SRA import gate", () => {
     expect(calls.every((c) => h.check(c)?.block)).toBe(true);
   });
 
-  it("leaves an MCP proxy call to another server alone", () => {
-    const calls = [call("a", "SRR1"), call("b", "SRR2")].map((c) => ({
-      ...c,
-      name: "mcp",
-      arguments: { server: "other", tool: "run_tool", args: c.arguments },
-    })) as unknown as ReturnType<typeof call>[];
+  it.each(["fastq_dump", "fasterq_dump"])("handles bare %s tool IDs", (toolId) => {
+    const calls = [
+      call("a", "ERR1", { tool_id: toolId }),
+      call("b", "DRR2", { tool_id: toolId }),
+    ].map((c) => ({ ...c, name: "run_tool" }));
     h.assistant(calls);
-    for (const c of calls) expect(h.check(c)).toBeUndefined();
+    expect(calls.every((c) => h.check(c)?.block)).toBe(true);
   });
-
-  it.each(["fastq_dump", "fasterq_dump"])(
-    "handles bare %s tool IDs and namespaced MCP calls",
-    (toolId) => {
-      const calls = [
-        call("a", "ERR1", { tool_id: toolId }),
-        call("b", "DRR2", { tool_id: toolId }),
-      ].map((c) => ({ ...c, name: "mcp__galaxy__run_tool" }));
-      h.assistant(calls);
-      expect(calls.every((c) => h.check(c)?.block)).toBe(true);
-    },
-  );
 
   it("allows one list-file HDA as the correction for a rejected batch", () => {
     h.assistant([call("a", "SRR1"), call("b", "SRR2")]);
@@ -259,8 +234,6 @@ describe("SRA import gate", () => {
     ];
     h.assistant(calls);
     for (const c of calls) expect(h.check(c)).toBeUndefined();
-    expect(
-      h.check({ ...call("read", "SRR1"), name: "mcp__galaxy__get_tool_input_template" }),
-    ).toBeUndefined();
+    expect(h.check({ ...call("read", "SRR1"), name: "get_tool_input_template" })).toBeUndefined();
   });
 });

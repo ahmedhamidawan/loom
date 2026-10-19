@@ -137,18 +137,9 @@ describe("submission replay: containment", () => {
 describe("submission replay: parsing", () => {
   it("skips blank and malformed lines rather than aborting", () => {
     const entries = parseReplayFile(
-      [
-        '{"tool":"mcp__galaxy__run_tool"}',
-        "",
-        "not json",
-        "{}",
-        '{"tool":"mcp__galaxy__upload_file"}',
-      ].join("\n"),
+      ['{"tool":"run_tool"}', "", "not json", "{}", '{"tool":"upload_file"}'].join("\n"),
     );
-    expect(entries.map((e) => e.tool)).toEqual([
-      "mcp__galaxy__run_tool",
-      "mcp__galaxy__upload_file",
-    ]);
+    expect(entries.map((e) => e.tool)).toEqual(["run_tool", "upload_file"]);
   });
 });
 

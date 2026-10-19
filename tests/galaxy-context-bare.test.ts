@@ -37,7 +37,7 @@ beforeEach(() => {
   loadConfigMock.mockReturnValue({ executionMode: "hybrid", testerId: "orbit-007" });
   vi.stubEnv("GALAXY_URL", "https://galaxy.test");
   vi.stubEnv("GALAXY_API_KEY", "k");
-  setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+  setCapabilityProfile(profileFromEnv({}));
   setGalaxyToolSource({
     tools: () => [stub("recommend_iwc_workflows"), stub("get_user"), stub("upload_file_from_url")],
   });

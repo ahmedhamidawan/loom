@@ -10,7 +10,7 @@ import type {
 import { registerMcpOutputRecovery } from "../extensions/loom/mcp-output";
 import { inspectOutput } from "../extensions/loom/galaxy-output";
 import { registerSecretRedaction } from "../extensions/loom/secret-redaction";
-import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { convertMcpResult } from "../node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/tools.js";
 
 /** Truncate the way pi's built-in MCP does, saving the full text to $TMPDIR/pi-mcp-*.txt. */
@@ -66,7 +66,7 @@ function harness(inProcess?: Parameters<typeof registerMcpOutputRecovery>[1]) {
 }
 function event(path: string, overrides = {}): Partial<ToolResultEvent> {
   return {
-    toolName: "mcp__galaxy__get_tool_panel",
+    toolName: "mcp__brc_analytics__get_assemblies",
     toolCallId: "catalog",
     input: {},
     isError: false,
@@ -109,7 +109,7 @@ describe("bounded MCP output recovery", () => {
     const { path, content, details } = await piMcpResult("list_user_tools", raw);
     const h = harness();
     const recovered = await h.result(
-      event(path, { toolName: "mcp__galaxy__list_user_tools", content, details }),
+      event(path, { toolName: "mcp__brc_analytics__list_organisms", content, details }),
     );
     const text = recovered.content![0].type === "text" ? recovered.content![0].text : "";
     expect(recovered.isError).toBe(false);

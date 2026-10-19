@@ -1,21 +1,18 @@
 /**
- * Refuse a Galaxy MCP call the model has already sent, unchanged, three times
+ * Refuse a Galaxy call the model has already sent, unchanged, three times
  * and seen fail each time. Resending it cannot succeed, and each retry spends
  * a turn. Ported from the browser shell's repeated-failure guard, refusal text
  * and all.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { stable } from "../../shared/sra-import.js";
 
 const FAILED_REPEAT_LIMIT = 3;
 
 const key = (name: string, args: unknown) => `${name} ${stable(args)}`;
 
-export function registerGalaxyRepeatGuard(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerGalaxyRepeatGuard(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   const failures = new Map<string, number>();
   // A call's key as it was checked, so its result is counted against the
   // arguments that ran even if a later handler rewrites the input.

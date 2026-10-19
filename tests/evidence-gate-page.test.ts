@@ -16,7 +16,7 @@ import {
 import { renderInvocationYaml } from "../extensions/loom/notebook-writer";
 import { setRecordStore, type RecordStore } from "../extensions/loom/record-store";
 import { GalaxyApiError } from "../extensions/loom/galaxy-api";
-import { bareFamily, MCP_FAMILY } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { sectionsHeaded } from "../shared/markdown-sections.js";
 
 vi.mock("../extensions/loom/state", async (actual) => ({
@@ -134,14 +134,14 @@ describe("update_page under a page record", () => {
     expect(verdict?.block).toBe(true);
   });
 
-  it("records the name the model called, MCP spelling included", async () => {
+  it("records the name the model called", async () => {
     setRecordStore(pageStore());
-    const verdict = await gate(MCP_FAMILY)("mcp__galaxy__update_page", {
+    const verdict = await gate()("update_page", {
       page_id: PAGE_ID,
       content: BODY.replace(`- [ ] ${STEP2}`, `- [x] ${STEP2}`),
     });
     expect(verdict?.block).toBe(true);
-    expect(decisions()[0].toolName).toBe("mcp__galaxy__update_page");
+    expect(decisions()[0].toolName).toBe("update_page");
   });
 
   it("ignores a write to some other page", async () => {

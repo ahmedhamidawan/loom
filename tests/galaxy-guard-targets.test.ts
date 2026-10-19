@@ -5,6 +5,7 @@ import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
+import { GALAXY } from "./galaxy-family-fixture";
 
 // Orbit's own refusal texts for its repeated-failure and cross-history guards,
 // pinned as Orbit's code writes them. Both guards began as ports of the
@@ -16,13 +17,15 @@ vi.mock("../extensions/loom/state", () => ({ getNotebookPath: () => null }));
 
 type Handler = (event: unknown, ctx?: unknown) => unknown;
 
-function handlersOf(register: (pi: ExtensionAPI) => void): Map<string, Handler> {
+function handlersOf(
+  register: (pi: ExtensionAPI, family: typeof GALAXY) => void,
+): Map<string, Handler> {
   const handlers = new Map<string, Handler>();
-  register({ on: (event: string, h: Handler) => handlers.set(event, h) } as never);
+  register({ on: (event: string, h: Handler) => handlers.set(event, h) } as never, GALAXY);
   return handlers;
 }
 
-const RUN_TOOL = "mcp__galaxy__run_tool";
+const RUN_TOOL = "run_tool";
 const ARGS = { history_id: "here", tool_id: "cat1", inputs: { input1: { src: "hda", id: "d1" } } };
 
 beforeEach(() => {

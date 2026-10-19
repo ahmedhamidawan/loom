@@ -1,14 +1,12 @@
 /**
- * The Galaxy version observations carry, for the in-process Galaxy tools.
+ * The Galaxy version observations carry.
  *
- * galaxy-mcp reported it in its connect result; the in-process tools have no
- * connect, so the version comes from galaxy-ops' own /api/version lookup once
- * per session, and is refreshed whenever the model reads get_server_info.
- * Registered only under bare: under mcp the connect result still supplies it,
- * and a probe there would add a request to every desktop session.
+ * The Galaxy tools have no connect step to report it, so the version comes
+ * from galaxy-ops' own /api/version lookup once per session, and is refreshed
+ * whenever the model reads get_server_info.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { galaxyOpsContext, resetGalaxyOpsVersion } from "./galaxy-api";
 import { recordGalaxyVersion } from "./observations";
 

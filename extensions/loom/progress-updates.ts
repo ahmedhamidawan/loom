@@ -1,7 +1,7 @@
 /** User-visible heartbeats from observed events; never invoke the model. */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { galaxyCall } from "./mcp-recovery";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { galaxyCall } from "./galaxy-recovery";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 export const PROGRESS_INTERVAL_MS = 60_000;
 
@@ -28,10 +28,7 @@ function describeTool(
   return "executing an analysis tool";
 }
 
-export function registerProgressUpdates(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerProgressUpdates(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   let ctx: ExtensionContext | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let startedAt = 0;

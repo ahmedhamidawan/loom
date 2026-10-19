@@ -6,7 +6,7 @@
  * that first. A shell's extras record no kind, so their failures are read by their wording.
  */
 import type { GalaxyErrorKind } from "@galaxyproject/galaxy-ops";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { record } from "./galaxy-output";
 
 // A dropped transport: the server is gone and a new connection fixes it.
@@ -34,7 +34,7 @@ export type GalaxyFailureKind = "dropped" | "timeout" | "auth" | null;
 export function classifyGalaxyFailure(
   toolName: string | undefined,
   text: string | undefined,
-  family: GalaxyToolFamily = MCP_FAMILY,
+  family: GalaxyToolFamily,
 ): Exclude<GalaxyFailureKind, "auth"> {
   if (family.toolName(toolName) === undefined || !text) return null;
   // Timeout first: a -32001 body can also mention "not connected" downstream,
@@ -74,7 +74,7 @@ export function galaxyFailureKind(
   details: unknown,
   text: string | undefined,
   toolName: string | undefined,
-  family: GalaxyToolFamily = MCP_FAMILY,
+  family: GalaxyToolFamily,
 ): GalaxyFailureKind {
   const galaxy = record(record(details)?.galaxy);
   if (galaxy && "kind" in galaxy) {

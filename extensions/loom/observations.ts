@@ -67,7 +67,7 @@ import { readLoomVersion } from "./feedback.js";
 import { loadProfiles } from "./profiles.js";
 import { galaxyCredentials } from "./galaxy-api.js";
 import { isWsl } from "../../shared/wsl.js";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import {
   GALAXY_BUILTIN_TOOL_IDS,
   GALAXY_DATATYPES,
@@ -110,7 +110,7 @@ export function stageForTool(mcpTool: string | undefined): ObservationStage {
 // Every structured field is admitted against a list, not a shape: a shape lets
 // any identifier-shaped word through, and a patient code or a person's name is
 // as datatype- or tool-id-shaped as `fastqsanger` or `Filter1`. The lists are
-// generated from pinned Galaxy and galaxy-mcp releases (see
+// generated from pinned Galaxy and galaxy-ops releases (see
 // observation-allowlists.ts); a name missing from one is dropped, which costs
 // signal, never privacy.
 //
@@ -167,17 +167,16 @@ export function isAdmissibleDatatype(v: string): boolean {
 }
 
 /**
- * galaxy-mcp's real tool names, in wire spelling (`galaxy_run_tool`). Takes a
- * name already through observationToolName; a pi spelling is refused here.
+ * galaxy-ops' real operation names, in wire spelling (`galaxy_run_tool`). Takes a
+ * name already through observationToolName; a bare name is refused here.
  */
 export function isAdmissibleMcpTool(v: string | undefined): v is string {
   return typeof v === "string" && GALAXY_MCP_TOOLS.has(v);
 }
 
 /**
- * Loom's bridging job ops, which no Galaxy tool server names yet, so the generated list cannot
- * hold them. The builder admits them only from an in-process call, which keeps the mcp default's
- * observations as they were; 2e folds them into the generated list.
+ * Loom's bridging job ops, which galaxy-ops does not name yet, so the generated list cannot hold
+ * them. The builder admits them only from an in-process call, which every Galaxy call is now.
  */
 const BRIDGING_GALAXY_TOOLS: ReadonlySet<string> = new Set([
   "galaxy_list_jobs",
@@ -186,33 +185,26 @@ const BRIDGING_GALAXY_TOOLS: ReadonlySet<string> = new Set([
 
 /**
  * The name the collector knows a Galaxy tool call by, or undefined when the
- * call isn't one. pi registers galaxy-mcp's tools as `mcp__galaxy__<tool>`;
- * the wire contract and the allowlist predate that and say `galaxy_<tool>`, and
- * the deployed intake validates that spelling, so the rename stops here rather
- * than reaching the payload. Loom's own `galaxy_*` tools pass through as-is.
+ * call isn't one. The Galaxy tools reach the model by their bare names
+ * (`run_tool`); the wire contract and the allowlist predate that and say
+ * `galaxy_<tool>`, and the deployed intake validates that spelling, so the
+ * rename stops here rather than reaching the payload. Loom's own `galaxy_*`
+ * tools pass through as-is.
  */
 export function observationToolName(
   toolName: string | undefined,
-  family: GalaxyToolFamily = MCP_FAMILY,
+  family: GalaxyToolFamily,
 ): string | undefined {
   const bare = family.toolName(toolName);
   if (bare !== undefined) {
-    // The prefix alone doesn't prove galaxy-mcp: pi joins server and tool with
-    // `__` and turns `-`/`.` into `_`, so servers named `galaxy__x`, `galaxy-`
-    // or `galaxy_` land here too, and a name over pi's limit is cut and
-    // hash-suffixed. galaxy-mcp's own names are plain snake_case, well short of
-    // the limit, so anything else is another server's. (A bare family's names
-    // are short, so the hash check never fires there.)
-    if (!GALAXY_MCP_TOOL_SHAPE.test(bare)) return undefined;
-    if (toolName!.length >= PI_TOOL_NAME_MAX && /_[0-9a-f]{8}$/.test(bare)) return undefined;
-    return `galaxy_${bare}`;
+    // The family's names come from a tool source, so hold them to the plain snake_case the
+    // allowlist and the intake expect before they reach a payload.
+    return GALAXY_TOOL_SHAPE.test(bare) ? `galaxy_${bare}` : undefined;
   }
   return toolName?.startsWith("galaxy_") ? toolName : undefined;
 }
 
-const GALAXY_MCP_TOOL_SHAPE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-// pi's MAX_TOOL_NAME_LENGTH (extensions/mcp/tools.js), not exported.
-const PI_TOOL_NAME_MAX = 64;
+const GALAXY_TOOL_SHAPE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 const TOOL_ID_KEYS = ["tool_id", "tool_ids"] as const;
 const DATATYPE_KEYS = ["file_type", "ext", "extension", "datatype"] as const;
@@ -450,8 +442,8 @@ function admissionProblems(obs: Observation): string[] {
             : undefined;
     if (joined === undefined || !isAdmissibleToolId(joined)) out.push(`tools[${i}]:not-allowed`);
   });
-  // A stored row no longer says how its call ran; under the mcp default the builder never
-  // writes a bridging name, so admitting one here changes nothing there.
+  // A stored row no longer says how its call ran; every Galaxy call runs in-process, so a
+  // bridging name here is one the builder admitted.
   if (
     obs.mcpTool !== undefined &&
     !isAdmissibleMcpTool(obs.mcpTool) &&

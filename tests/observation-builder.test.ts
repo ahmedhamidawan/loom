@@ -15,7 +15,7 @@ import {
   buildObservation,
   isAdmissibleMcpTool,
 } from "../extensions/loom/observations.js";
-import { MCP_FAMILY, bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { factsForToolResult } from "../extensions/loom/observation-triggers.js";
 import { validateObservation, scanObservationForLeaks } from "../shared/observation-contract.js";
 import type { ObservationEnvelope } from "../extensions/loom/observations.js";
@@ -137,9 +137,10 @@ describe("structured fields are admitted from allowlists, not shapes", () => {
 
   it("sends none of the reviewer's identifying words as structure", () => {
     const facts = factsForToolResult(
-      "mcp__galaxy__alice_smith",
+      "alice_smith",
       { tool_id: "Alice_Smith", file_type: "patient_17.fastq" },
       "Unknown tool",
+      bareFamily(["alice_smith"]),
     )!;
     expect(facts.mcpTool).toBe("galaxy_alice_smith");
     const obs = buildObservation(facts, envelope, "structured");
@@ -176,8 +177,7 @@ describe("structured fields are admitted from allowlists, not shapes", () => {
     expect(isAdmissibleMcpTool("galaxy_get_job_details")).toBe(true);
     expect(isAdmissibleMcpTool("galaxy_alice_smith")).toBe(false);
     // Admission takes the wire spelling only; the pi spelling is normalised first.
-    expect(isAdmissibleMcpTool("mcp__galaxy__run_tool")).toBe(false);
-    expect(isAdmissibleMcpTool("mcp__galaxy__alice_smith")).toBe(false);
+    expect(isAdmissibleMcpTool("run_tool")).toBe(false);
     expect(extractDatatypes({ file_type: "BAM" })).toEqual(["bam"]);
     expect(extractDatatypes({ file_type: "fastqsanger.bz2" })).toEqual(["fastqsanger.bz2"]);
     expect(extractToolIds({ tool_id: "__MERGE_COLLECTION__" })).toEqual(["__MERGE_COLLECTION__"]);
@@ -680,9 +680,7 @@ describe("Loom's bridging job ops under in-process Galaxy tools", () => {
     expect(observationProblems(obs).errors).toEqual([]);
   });
 
-  it("leaves the MCP family's observations as they were", () => {
-    const facts = factsForToolResult("mcp__galaxy__list_jobs", {}, "HTTP 500", MCP_FAMILY);
-    expect(buildObservation(facts!, envelope, "structured").mcpTool).toBeUndefined();
+  it("admits them only from an in-process call, not from the allowlist alone", () => {
     expect(isAdmissibleMcpTool("galaxy_list_jobs")).toBe(false);
     expect(isAdmissibleMcpTool("galaxy_get_job_logs")).toBe(false);
   });

@@ -9,7 +9,7 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { inspectOutput, record } from "./galaxy-output";
-import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 const MAX_FILE_BYTES = 32 * 1024 * 1024;
 const MARKER = "[loom MCP output recovery]";

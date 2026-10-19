@@ -3,15 +3,15 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import * as state from "../extensions/loom/state";
-import {
-  GALAXY_PAGE_MARKDOWN_GUIDANCE,
-  galaxyPageMarkdownGuidance,
-} from "../extensions/loom/galaxy-page-markdown-guidance";
+import { galaxyPageMarkdownGuidance } from "../extensions/loom/galaxy-page-markdown-guidance";
 import { galaxyToolFamily } from "../extensions/loom/galaxy-tool-source";
-import { NOTEBOOK_PUSH_TO_GALAXY_DESCRIPTION } from "../extensions/loom/tools-sync";
+import { notebookPushToGalaxyDescription } from "../extensions/loom/tools-sync";
 import { buildGalaxyPageBindingBlock } from "../extensions/loom/context";
+import { GALAXY } from "./galaxy-family-fixture";
 
 vi.mock("../extensions/loom/state");
+
+const GALAXY_PAGE_MARKDOWN_GUIDANCE = galaxyPageMarkdownGuidance(GALAXY);
 
 let dir: string;
 
@@ -24,7 +24,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("GALAXY_PAGE_MARKDOWN_GUIDANCE", () => {
+describe("galaxyPageMarkdownGuidance", () => {
   it("steers toward plain Markdown plus ```galaxy directive blocks", () => {
     expect(GALAXY_PAGE_MARKDOWN_GUIDANCE).toContain("```galaxy");
     expect(GALAXY_PAGE_MARKDOWN_GUIDANCE.toLowerCase()).toContain("plain markdown");
@@ -44,7 +44,7 @@ describe("notebook_push_to_galaxy tool description", () => {
   // yet -- so the always-present tool description is where the guidance has to
   // live to take effect at create time.
   it("carries the Galaxy-Flavored-Markdown authoring guidance", () => {
-    expect(NOTEBOOK_PUSH_TO_GALAXY_DESCRIPTION).toContain(GALAXY_PAGE_MARKDOWN_GUIDANCE);
+    expect(notebookPushToGalaxyDescription(GALAXY)).toContain(GALAXY_PAGE_MARKDOWN_GUIDANCE);
   });
 });
 

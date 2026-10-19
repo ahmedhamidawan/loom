@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
 import { GALAXY_ARGS_CLASSIFIED_OPS } from "../shared/galaxy-destructive.js";
-import type { GalaxyToolFamily } from "../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../shared/galaxy-tool-family.js";
 import { appendActivityEvent } from "../extensions/loom/activity";
 import { registerGalaxyDestructiveGate } from "../extensions/loom/galaxy-destructive-gate";
 import { registerGalaxyOpPolicy } from "../extensions/loom/galaxy-op-policy";
@@ -38,7 +38,7 @@ let family: GalaxyToolFamily;
 
 beforeEach(() => {
   // A shell with no files surface: exec-guard is not registered, so nothing else asks.
-  setCapabilityProfile({ ...profileFromEnv({}), files: false, galaxyTools: "bare" });
+  setCapabilityProfile({ ...profileFromEnv({}), files: false });
   family = registerGalaxyTools({ registerTool: () => {} } as unknown as ExtensionAPI);
   vi.mocked(appendActivityEvent).mockClear();
 });

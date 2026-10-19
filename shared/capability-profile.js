@@ -23,8 +23,6 @@ import { isDesktopShell, readEnv } from "./orbit-env.js";
  * @property {boolean} files a local file surface, which exec-guard jails
  * @property {"file" | "page"} notebook where the notebook lives
  * @property {boolean} network direct outbound network from the brain
- * @property {"mcp" | "bare"} galaxyTools how Galaxy tools are named to the model;
- *   every shell runs the in-process tools under their bare names now
  * @property {boolean} mcpServers pi's MCP layer, for the servers Loom brings
  *   (brc-analytics)
  * @property {"desktop" | "terminal" | "worker"} ui the surface a human answers prompts on
@@ -40,7 +38,6 @@ export function profileFromEnv(env = process.env) {
     files: readEnv("LOCAL_EXEC", env) !== "off",
     notebook: "file",
     network: true,
-    galaxyTools: "bare",
     mcpServers: true,
     ui: isDesktopShell(env) ? "desktop" : "terminal",
   };

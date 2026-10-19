@@ -20,8 +20,9 @@ import {
   setupContextInjection,
 } from "../extensions/loom/context";
 import { SRA_IMPORT_GUIDANCE } from "../extensions/loom/sra-import-gate";
-import { GALAXY_PAGE_MARKDOWN_GUIDANCE } from "../extensions/loom/galaxy-page-markdown-guidance";
+import { galaxyPageMarkdownGuidance } from "../extensions/loom/galaxy-page-markdown-guidance";
 import { GALAXY_ARTIFACT_LINK_GUIDANCE } from "../extensions/loom/galaxy-artifact-link-guidance";
+import { GALAXY } from "./galaxy-family-fixture";
 
 const PROMPT_TS = path.join(__dirname, "..", "browser", "core", "src", "agent", "prompt.ts");
 const TODAY = new Date(2026, 9, 11, 12, 0, 0);
@@ -156,7 +157,7 @@ function pairs(prompt: string): Record<string, { browser: string; loom: string }
     RECORD_WRITES: { browser: browser.RECORD_WRITES, loom: s("## Notebook writes") },
     GALAXY_PAGE_MARKDOWN: {
       browser: browser.GALAXY_PAGE_MARKDOWN,
-      loom: GALAXY_PAGE_MARKDOWN_GUIDANCE,
+      loom: galaxyPageMarkdownGuidance(GALAXY),
     },
     currentDateBlock: {
       browser: browser.currentDateBlock(TODAY),

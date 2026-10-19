@@ -10,11 +10,7 @@ vi.mock("../extensions/loom/galaxy-version-capture", async (importOriginal) => {
 });
 
 import { allOperations } from "@galaxyproject/galaxy-ops";
-import {
-  installedCapabilityProfile,
-  profileFromEnv,
-  setCapabilityProfile,
-} from "../shared/capability-profile.js";
+import { installedCapabilityProfile, setCapabilityProfile } from "../shared/capability-profile.js";
 import { registerGalaxyVersionCapture } from "../extensions/loom/galaxy-version-capture";
 import { galaxyToolFamily, setGalaxyToolSource } from "../extensions/loom/galaxy-tool-source";
 
@@ -71,10 +67,6 @@ const GALAXY_TOOLS = [
 ];
 
 describe("the desktop", () => {
-  it("answers bare from env alone", () => {
-    expect(profileFromEnv({}).galaxyTools).toBe("bare");
-  });
-
   it("registers the in-process Galaxy tools and brc-analytics, and no galaxy server", async () => {
     const { servers, tools } = await load(CREDENTIALS);
     expect(servers).toEqual(["brc-analytics"]);

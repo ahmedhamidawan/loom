@@ -15,7 +15,7 @@ import {
   describeGalaxyDestructive,
   GALAXY_ARGS_CLASSIFIED_OPS,
 } from "../../shared/galaxy-destructive.js";
-import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { appendActivityEvent } from "./activity";
 import { redactArgs } from "./activity-hooks";
 import { registeredGalaxyTools } from "./galaxy-tool-source";

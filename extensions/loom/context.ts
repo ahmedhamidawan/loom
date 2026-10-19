@@ -26,7 +26,7 @@ import { isLocalExecDisabled, isLocalShellDisabled } from "./local-exec.js";
 import { galaxyCredentials } from "./galaxy-api.js";
 import { resolveWorkspaceStateDirName, type WorkspaceStateDirName } from "./workspace-state-dir";
 import { SRA_IMPORT_GUIDANCE } from "./sra-import-gate";
-import { galaxyRecoveryGuidance } from "./mcp-recovery";
+import { galaxyRecoveryGuidance } from "./galaxy-recovery";
 import { galaxyPollGuidance } from "./galaxy-poll-guard";
 import { galaxyPageMarkdownGuidance } from "./galaxy-page-markdown-guidance";
 import { GALAXY_ARTIFACT_LINK_GUIDANCE } from "./galaxy-artifact-link-guidance";
@@ -256,9 +256,9 @@ interactive tool, where there is no user machine to read from -- use the URL upl
 `;
 }
 
-// A session started before the Galaxy tools moved in-process carries mcp__galaxy__* calls and a
-// greeting that asks for mcp__galaxy__connect(); a model following its own history calls a tool
-// that no longer exists and can conclude Galaxy is down.
+// A session started before the Galaxy tools moved in-process carries calls under the retired MCP
+// prefix and a greeting that asks for its connect(); a model following its own history calls a
+// tool that no longer exists and can conclude Galaxy is down.
 const LEGACY_GALAXY_PREFIX = "mcp__galaxy__";
 
 function messageMentionsLegacyGalaxy(message: unknown): boolean {
@@ -296,10 +296,10 @@ export function transcriptUsesLegacyGalaxyNames(entries: readonly unknown[]): bo
 function legacyGalaxyNamesBlock(tool: (name: string) => string): string {
   return `### Galaxy tool names in earlier turns
 
-Earlier turns of this conversation call Galaxy tools as \`mcp__galaxy__<name>\` and may ask
-for \`mcp__galaxy__connect()\` first. Those names are retired: the same tools are now called by
+Earlier turns of this conversation call Galaxy tools as \`${LEGACY_GALAXY_PREFIX}<name>\` and may ask
+for \`${LEGACY_GALAXY_PREFIX}connect()\` first. Those names are retired: the same tools are now called by
 their own names (\`${tool("run_tool")}\`, \`${tool("get_histories")}\`, ...), there is no connect step,
-and they are ready to use. Don't call an \`mcp__galaxy__\` tool, and don't tell the user Galaxy is
+and they are ready to use. Don't call an \`${LEGACY_GALAXY_PREFIX}\` tool, and don't tell the user Galaxy is
 disconnected because one is missing.
 
 `;

@@ -3,18 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setGalaxyFetchOverride } from "../extensions/loom/galaxy-api";
 import { fixtureFetch } from "../extensions/loom/galaxy-fixture";
 import { registerGalaxyHistoryGuard } from "../extensions/loom/galaxy-history-guard";
+import { GALAXY } from "./galaxy-family-fixture";
 
 type Handler = (event: unknown, ctx?: unknown) => unknown;
 
 function check(toolName: string, input: Record<string, unknown>) {
   const on = new Map<string, Handler>();
-  registerGalaxyHistoryGuard({ on: (event: string, h: Handler) => on.set(event, h) } as never);
+  registerGalaxyHistoryGuard(
+    { on: (event: string, h: Handler) => on.set(event, h) } as never,
+    GALAXY,
+  );
   return on.get("tool_call")!({ toolName, toolCallId: "c1", input }, {});
 }
 
 type FixtureRoute = Parameters<typeof fixtureFetch>[0][number];
 
-const RUN = "mcp__galaxy__run_tool";
+const RUN = "run_tool";
 const dataset = (id: string, history_id: string): FixtureRoute => ({
   path: `/api/datasets/${id}`,
   responses: [{ status: 200, body: { id, name: `${id}.txt`, history_id } }],
@@ -87,7 +91,7 @@ describe("registerGalaxyHistoryGuard", () => {
     const fetch = vi.fn(fixtureFetch([dataset("d1", "elsewhere")]));
     setGalaxyFetchOverride(fetch);
     const input = { history_id: "here", inputs: { a: { src: "hda", id: "d1" } } };
-    expect(await check("mcp__galaxy__get_dataset_details", input)).toBeUndefined();
+    expect(await check("get_dataset_details", input)).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
 });

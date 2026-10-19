@@ -67,7 +67,7 @@ import {
 } from "./galaxy-provenance";
 import { getCurrentStepAnchor, getNotebookPath, setCurrentStepAnchor } from "./state";
 import { ulid } from "./ulid";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 /** What a block carries when nothing pointed the submission at a plan step. */
 export const UNATTRIBUTED = "unattributed";
@@ -489,9 +489,8 @@ async function rereadTruncated(resolved: ResolvedResult): Promise<ResolvedResult
  * Handle one finished submission tool. Exported so the Tier-1 scenarios can
  * replay a recorded result through exactly this path.
  *
- * `toolName` is the submission table's name, which picks the parser; `calledAs`
- * is the name the model actually called when that differs (a bare `run_tool`),
- * and it is what the activity rows record.
+ * `toolName` is the name the model called; it picks the parser and is what the
+ * activity rows record.
  */
 export async function handleSubmissionResult(
   toolCallId: string,
@@ -499,13 +498,11 @@ export async function handleSubmissionResult(
   result: unknown,
   isError: boolean,
   dispatchOverride?: DispatchOverride,
-  calledAs?: string,
 ): Promise<void> {
   const dispatch = takeDispatch(toolCallId, toolName, dispatchOverride);
-  const shownTool = calledAs ?? toolName;
 
-  // A failed submission is not a submission: galaxy-mcp raises rather than
-  // returning success=false, and nothing was created.
+  // A failed submission is not a submission: the Galaxy tools mark a
+  // success=false envelope as an error, and nothing was created.
   if (isError) return;
 
   const notebookPath = getNotebookPath();
@@ -530,7 +527,7 @@ export async function handleSubmissionResult(
 
   if (!outcome.ok) {
     record("submission.unparsed", {
-      tool: shownTool,
+      tool: toolName,
       attempt_id: dispatch.attemptId,
       step_anchor: dispatch.stepAnchor,
       reason: outcome.reason,
@@ -546,7 +543,7 @@ export async function handleSubmissionResult(
     // The run is real and running whether or not we managed to write it down;
     // say so rather than claiming a registration that did not land.
     record("submission.unparsed", {
-      tool: shownTool,
+      tool: toolName,
       attempt_id: dispatch.attemptId,
       step_anchor: dispatch.stepAnchor,
       reason: `could not write the record: ${err instanceof Error ? err.message : String(err)}`,
@@ -560,7 +557,7 @@ export async function handleSubmissionResult(
   // unparsed instead of claiming a registration.
   if (written.udtPending && !written.udtDefinition) {
     record("submission.unparsed", {
-      tool: shownTool,
+      tool: toolName,
       attempt_id: dispatch.attemptId,
       step_anchor: dispatch.stepAnchor,
       reason: "could not store the tool definition, so the creation is unrecorded",
@@ -570,7 +567,7 @@ export async function handleSubmissionResult(
 
   if (written.replayCollisions.length > 0) {
     record("submission.replay_skipped", {
-      tool: shownTool,
+      tool: toolName,
       attempt_id: dispatch.attemptId,
       step_anchor: dispatch.stepAnchor,
       ids: written.replayCollisions,
@@ -603,7 +600,7 @@ export async function handleSubmissionResult(
   const provenance = await recordAttempt(notebookPath, submission, dispatch, written);
 
   record("submission.registered", {
-    tool: shownTool,
+    tool: toolName,
     attempt_id: dispatch.attemptId,
     step_anchor: dispatch.stepAnchor,
     kind: submission.kind,
@@ -670,25 +667,18 @@ async function recordAttempt(
 }
 
 /**
- * The submission table's name for a tool the family names, or undefined when it
- * isn't a submission. The table is spelled in the MCP family, plus Loom's own
- * galaxy_upload_local_file, which no family renames. An MCP spelling the family
- * does not name is not this shell's tool, so it is not a submission either.
+ * The tool name when it is a submission this shell offers, else undefined: a
+ * Galaxy tool the family names, or Loom's own galaxy_upload_local_file, which is
+ * outside the family. A name the family does not claim is not this shell's tool,
+ * so it is not a submission either.
  */
-export function submissionToolName(
-  toolName: string,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): string | undefined {
+export function submissionToolName(toolName: string, family: GalaxyToolFamily): string | undefined {
   if (toolName === "galaxy_upload_local_file") return toolName;
   const tool = family.toolName(toolName);
-  const canonical = tool === undefined ? undefined : MCP_FAMILY.tool(tool);
-  return canonical !== undefined && isSubmissionTool(canonical) ? canonical : undefined;
+  return tool !== undefined && isSubmissionTool(tool) ? tool : undefined;
 }
 
-export function registerSubmissionCapture(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerSubmissionCapture(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   pi.on("tool_execution_start", async (event) => {
     const toolName = submissionToolName(event.toolName, family);
     if (!toolName) return;
@@ -708,8 +698,6 @@ export function registerSubmissionCapture(
         toolName,
         event.result,
         event.isError === true,
-        undefined,
-        event.toolName !== toolName ? event.toolName : undefined,
       );
     } catch (err) {
       // Never let capture take the turn down: the submission already happened.

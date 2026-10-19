@@ -9,8 +9,8 @@ import {
   setGalaxyToolSource,
   type GalaxyTool,
 } from "../extensions/loom/galaxy-tool-source";
-import { MCP_FAMILY } from "../shared/galaxy-mcp-tools.js";
-import { profileFromEnv, setCapabilityProfile } from "../shared/capability-profile.js";
+import { createGalaxyOpsToolSource } from "../extensions/loom/galaxy-ops-tools";
+import { GALAXY_TOOL_NAMES } from "./galaxy-family-fixture";
 
 const stub = (name: string): GalaxyTool => ({
   name,
@@ -26,22 +26,23 @@ function fakePi() {
 }
 
 afterEach(() => {
-  setCapabilityProfile(null);
   setGalaxyToolSource(null);
 });
 
 describe("galaxy tool source", () => {
-  it("with no profile installed the family is bare: the registered source's names", () => {
+  it("with no source registered yet the family claims nothing", () => {
+    expect(galaxyToolFamily().toolName("run_tool")).toBeUndefined();
+  });
+
+  it("the family is the registered source's names", () => {
     setGalaxyToolSource({ tools: () => [stub("run_tool")] });
     expect(installedGalaxyToolSource()).not.toBeNull();
     const family = registerGalaxyTools(fakePi().pi);
     expect(galaxyToolFamily()).toBe(family);
     expect(galaxyToolFamily().tool("run_tool")).toBe("run_tool");
-    expect(galaxyToolFamily()).not.toBe(MCP_FAMILY);
   });
 
-  it("under a bare profile registers the source's tools in order and names them as the family", () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+  it("registers the source's tools in order and names them as the family", () => {
     setGalaxyToolSource({ tools: () => [stub("run_tool"), stub("get_dataset_details")] });
     const { pi, registerTool } = fakePi();
     const family = registerGalaxyTools(pi);
@@ -56,8 +57,7 @@ describe("galaxy tool source", () => {
     expect(galaxyToolFamily()).toBe(family);
   });
 
-  it("under a bare profile with no source installed registers the default galaxy-ops source", () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
+  it("with no source installed registers the default galaxy-ops source", () => {
     const { pi, registerTool } = fakePi();
     const family = registerGalaxyTools(pi);
     const names = registerTool.mock.calls.map(([t]) => t.name);
@@ -73,8 +73,15 @@ describe("galaxy tool source", () => {
     expect(registeredGalaxyTools()).toHaveLength(48);
   });
 
+  it("the tests' fixture family names exactly the default source's tools", () => {
+    expect(
+      createGalaxyOpsToolSource()
+        .tools()
+        .map((t) => t.name),
+    ).toEqual([...GALAXY_TOOL_NAMES]);
+  });
+
   it("registers a source's companions after its tools, outside the family", () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
     setGalaxyToolSource({ tools: () => [stub("run_tool")], companions: () => [stub("reader")] });
     const { pi, registerTool } = fakePi();
     const family = registerGalaxyTools(pi);
@@ -83,7 +90,6 @@ describe("galaxy tool source", () => {
   });
 
   it("refuses two tools under one name before registering any", () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
     setGalaxyToolSource({ tools: () => [stub("run_tool")], companions: () => [stub("run_tool")] });
     const { pi, registerTool } = fakePi();
     expect(() => registerGalaxyTools(pi)).toThrow("two Galaxy tools are named run_tool");
@@ -91,7 +97,6 @@ describe("galaxy tool source", () => {
   });
 
   it("uninstalling the source forgets the registered family", () => {
-    setCapabilityProfile({ ...profileFromEnv({}), galaxyTools: "bare" });
     setGalaxyToolSource({ tools: () => [stub("run_tool")] });
     registerGalaxyTools(fakePi().pi);
     expect(galaxyToolFamily().toolName("run_tool")).toBe("run_tool");

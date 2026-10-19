@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { registerGalaxyRepeatGuard } from "../extensions/loom/galaxy-repeat-guard";
+import { GALAXY } from "./galaxy-family-fixture";
 
 type Handler = (event: unknown, ctx?: unknown) => unknown;
 
 function guard() {
   const on = new Map<string, Handler>();
-  registerGalaxyRepeatGuard({ on: (event: string, h: Handler) => on.set(event, h) } as never);
+  registerGalaxyRepeatGuard(
+    { on: (event: string, h: Handler) => on.set(event, h) } as never,
+    GALAXY,
+  );
   let n = 0;
   const call = (toolName: string, input: Record<string, unknown>) => {
     const toolCallId = `c${++n}`;
@@ -22,7 +26,7 @@ function guard() {
   return { on, call, result, fail };
 }
 
-const RUN = "mcp__galaxy__run_tool";
+const RUN = "run_tool";
 
 describe("registerGalaxyRepeatGuard", () => {
   it("keys on the arguments' content, not their key order", () => {

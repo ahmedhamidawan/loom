@@ -58,11 +58,11 @@ import { registerObservationsCommand } from "./observations-command";
 import { registerMcpOutputRecovery } from "./mcp-output";
 import { registerLoomMcpServers } from "./mcp-servers";
 import { registerGalaxyVersionCapture } from "./galaxy-version-capture";
-import type { GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { registerGalaxyTools } from "./galaxy-tool-source";
 import { registerGalaxyDestructiveGate } from "./galaxy-destructive-gate";
 import { registerGalaxyOpPolicy } from "./galaxy-op-policy";
-import { registerMcpRecovery } from "./mcp-recovery";
+import { registerGalaxyRecovery } from "./galaxy-recovery";
 import { registerGalaxyPollGuard } from "./galaxy-poll-guard";
 import { registerProgressUpdates } from "./progress-updates";
 import { recordStore } from "./record-store";
@@ -138,8 +138,8 @@ export default function galaxyAnalystExtension(pi: ExtensionAPI): void {
   // does: that is brc-analytics, and the Galaxy tools keep their own
   // galaxy_read_output.
   if (profile.mcpServers) registerMcpOutputRecovery(pi, family);
-  registerMcpRecovery(pi, family);
-  registerGalaxyPollGuard(pi, family, { invocations: true });
+  registerGalaxyRecovery(pi, family);
+  registerGalaxyPollGuard(pi, family);
   registerProgressUpdates(pi, family);
   registerSecretRedaction(pi);
   // AFTER redaction, deliberately. pi runs tool_result handlers in

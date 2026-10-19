@@ -3,7 +3,6 @@ export interface CapabilityProfile {
   files: boolean;
   notebook: "file" | "page";
   network: boolean;
-  galaxyTools: "mcp" | "bare";
   /** pi's MCP layer, for the servers Loom brings (brc-analytics). */
   mcpServers: boolean;
   ui: "desktop" | "terminal" | "worker";

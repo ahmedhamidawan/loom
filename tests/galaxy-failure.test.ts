@@ -9,8 +9,9 @@ import {
 } from "../extensions/loom/galaxy-failure";
 import { runGalaxyCall, wrapGalaxyTool } from "../extensions/loom/galaxy-tool-wrap";
 import type { GalaxyTool } from "../extensions/loom/galaxy-tool-source";
-import { galaxyRecoveryHint, registerMcpRecovery } from "../extensions/loom/mcp-recovery";
-import { MCP_FAMILY, bareFamily, hasConnectTool } from "../shared/galaxy-mcp-tools.js";
+import { galaxyRecoveryHint, registerGalaxyRecovery } from "../extensions/loom/galaxy-recovery";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
+import { GALAXY } from "./galaxy-family-fixture";
 
 const BARE = bareFamily(["get_histories", "run_tool"]);
 
@@ -139,40 +140,31 @@ describe("galaxyFailureKind", () => {
     expect(galaxyFailureKind({}, "No such history", "get_histories", BARE)).toBeNull();
   });
 
-  it("classifies MCP results exactly as the text classifier does", () => {
+  it("classifies a result with no Galaxy details exactly as the text classifier does", () => {
     const cases: [string, string][] = [
-      ["mcp__galaxy__get_dataset_details", "Failed to call tool: Request timed out"],
-      ["mcp__galaxy__run_tool", "MCP error -32001"],
-      ["mcp__galaxy__get_histories", "Connection closed (-32000)"],
-      [
-        "mcp__galaxy__get_histories",
-        "Not connected to Galaxy. Authenticate via OAuth or run connect()...",
-      ],
-      ["mcp__galaxy__get_histories", "Galaxy API 404: not found"],
+      ["get_dataset_details", "Failed to call tool: Request timed out"],
+      ["run_tool", "MCP error -32001"],
+      ["get_histories", "Connection closed (-32000)"],
+      ["get_histories", "Not connected to Galaxy. Authenticate via OAuth or run connect()..."],
+      ["get_histories", "Galaxy API 404: not found"],
       ["bash", "Request timed out"],
     ];
     for (const [tool, text] of cases) {
       const details = { fullOutputPath: "/tmp/x", truncation: { truncated: true } };
-      expect(galaxyFailureKind(details, text, tool)).toBe(classifyGalaxyFailure(tool, text));
-      expect(galaxyFailureKind(undefined, text, tool, MCP_FAMILY)).toBe(
-        classifyGalaxyFailure(tool, text, MCP_FAMILY),
+      expect(galaxyFailureKind(details, text, tool, GALAXY)).toBe(
+        classifyGalaxyFailure(tool, text, GALAXY),
+      );
+      expect(galaxyFailureKind(undefined, text, tool, GALAXY)).toBe(
+        classifyGalaxyFailure(tool, text, GALAXY),
       );
     }
-  });
-});
-
-describe("hasConnectTool", () => {
-  it("is true for the MCP family and false for a bare family without connect", () => {
-    expect(hasConnectTool(MCP_FAMILY)).toBe(true);
-    expect(hasConnectTool(BARE)).toBe(false);
-    expect(hasConnectTool(bareFamily(["connect"]))).toBe(true);
   });
 });
 
 describe("recovery for a refused credential", () => {
   function harness() {
     const on = vi.fn();
-    registerMcpRecovery({ on } as unknown as ExtensionAPI, BARE);
+    registerGalaxyRecovery({ on } as unknown as ExtensionAPI, BARE);
     const fire = (name: string, event: unknown) =>
       on.mock.calls.find(([key]) => key === name)![1](event);
     return {

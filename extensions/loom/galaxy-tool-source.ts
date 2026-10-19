@@ -1,15 +1,10 @@
 /**
- * Where the bare Galaxy tools come from when they run in-process rather than through an MCP
- * server.
- *
- * Under an `mcp` profile pi's MCP layer names galaxy-mcp's tools
- * (`mcp__galaxy__run_tool`) and nothing here registers anything. Under `bare`
- * the brain registers pi tool definitions carrying the bare names (`run_tool`,
- * `get_dataset_details`, ...) and hands those names to every guard as the tool family.
+ * Where the in-process Galaxy tools come from. The brain registers pi tool definitions
+ * carrying galaxy-ops' bare operation names (`run_tool`, `get_dataset_details`, ...) and hands
+ * those names to every guard as the tool family.
  */
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { capabilityProfile } from "../../shared/capability-profile.js";
-import { MCP_FAMILY, bareFamily, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { bareFamily, type GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { createGalaxyOpsToolSource } from "./galaxy-ops-tools";
 
 /** pi's own tool shape; the shim registers exactly this. */
@@ -48,7 +43,7 @@ export function installedGalaxyToolSource(): GalaxyToolSource | null {
 /**
  * Register the installed source's tools, or the default source's, then its
  * companions, and return the family over the tools' names. Called once, from
- * index.ts, under a `bare` profile.
+ * index.ts.
  */
 export function registerGalaxyTools(pi: ExtensionAPI): GalaxyToolFamily {
   const source = installed ?? createGalaxyOpsToolSource();
@@ -74,11 +69,10 @@ export function registeredGalaxyTools(): readonly GalaxyTool[] {
 }
 
 /**
- * How the brain names Galaxy tools to the model right now: MCP under an mcp
- * profile, else the registered source's names. For render-time readers
- * (context.ts, the greeting); registrars take the family as a parameter.
+ * How the brain names Galaxy tools to the model right now: the registered
+ * source's names. For render-time readers (context.ts, the greeting);
+ * registrars take the family as a parameter.
  */
 export function galaxyToolFamily(): GalaxyToolFamily {
-  if (capabilityProfile().galaxyTools === "mcp") return MCP_FAMILY;
   return registered ?? bareFamily([]);
 }

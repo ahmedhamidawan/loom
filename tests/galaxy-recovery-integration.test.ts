@@ -16,13 +16,15 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { convertMcpResult } from "../node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/tools.js";
 import { registerMcpOutputRecovery } from "../extensions/loom/mcp-output";
-import { registerMcpRecovery } from "../extensions/loom/mcp-recovery";
+import { registerGalaxyRecovery } from "../extensions/loom/galaxy-recovery";
+import { GALAXY } from "./galaxy-family-fixture";
 
-// pi's real MCP truncation + real Pi event dispatch and tool continuation.
-// Only the model and Galaxy responses are fixtures; no network or paid calls.
-describe("MCP recovery through the Pi runtime", () => {
+// pi's real MCP truncation for brc-analytics, Galaxy recovery for the in-process tools, real Pi
+// event dispatch and tool continuation. Only the model and the tools' responses are fixtures; no
+// network or paid calls.
+describe("tool recovery through the Pi runtime", () => {
   it("continues from a blocked expensive search, a huge result and a timeout in one user turn", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "loom-mcp-runtime-"));
+    const dir = mkdtempSync(join(tmpdir(), "loom-recovery-runtime-"));
     const artifacts: string[] = [];
     let dispose: (() => void) | undefined;
     try {
@@ -36,8 +38,11 @@ describe("MCP recovery through the Pi runtime", () => {
         noPromptTemplates: true,
         noThemes: true,
         noContextFiles: true,
-        extensionFactories: [registerMcpOutputRecovery, registerMcpRecovery],
-        systemPrompt: "MCP recovery test fixture.",
+        extensionFactories: [
+          (pi) => registerMcpOutputRecovery(pi, GALAXY),
+          (pi) => registerGalaxyRecovery(pi, GALAXY),
+        ],
+        systemPrompt: "Tool recovery test fixture.",
       });
       await loader.reload();
       const runtime = await ModelRuntime.create({
@@ -51,15 +56,15 @@ describe("MCP recovery through the Pi runtime", () => {
       const historyLimits: number[] = [];
       const observed: Record<string, unknown>[] = [];
       const script = [
-        { name: "mcp__galaxy__search_tools_by_keywords", arguments: { keywords: ["tissue"] } },
-        { name: "mcp__galaxy__get_tool_panel", arguments: {} },
+        { name: "search_tools_by_keywords", arguments: { keywords: ["tissue"] } },
+        { name: "mcp__brc_analytics__get_assemblies", arguments: {} },
         { name: "mcp_read_output", arguments: { outputId: "call-1", query: "TISSUE" } },
-        { name: "mcp__galaxy__get_histories", arguments: { limit: 100 } },
-        { name: "mcp__galaxy__get_histories", arguments: { limit: 5 } },
+        { name: "get_histories", arguments: { limit: 100 } },
+        { name: "get_histories", arguments: { limit: 5 } },
         { name: "mcp_read_output", arguments: { outputId: "unknown" } },
         { name: "mcp_read_output", arguments: { outputId: "call-1", pointer: "/data/1/id" } },
       ];
-      runtime.registerProvider("mcp-recovery-fixture", {
+      runtime.registerProvider("tool-recovery-fixture", {
         api: "openai-completions",
         apiKey: "fixture-key",
         baseUrl: "http://fixture.invalid",
@@ -118,17 +123,17 @@ describe("MCP recovery through the Pi runtime", () => {
         resourceLoader: loader,
         sessionManager: SessionManager.inMemory(dir),
         modelRuntime: runtime,
-        model: runtime.getModel("mcp-recovery-fixture", "fixture"),
+        model: runtime.getModel("tool-recovery-fixture", "fixture"),
         thinkingLevel: "off",
         tools: [
-          "mcp__galaxy__search_tools_by_keywords",
-          "mcp__galaxy__get_tool_panel",
-          "mcp__galaxy__get_histories",
+          "search_tools_by_keywords",
+          "mcp__brc_analytics__get_assemblies",
+          "get_histories",
           "mcp_read_output",
         ],
         customTools: [
           {
-            name: "mcp__galaxy__search_tools_by_keywords",
+            name: "search_tools_by_keywords",
             label: "Fixture slow discovery",
             description: "Fixture",
             parameters: Type.Object({ keywords: Type.Array(Type.String()) }),
@@ -138,8 +143,8 @@ describe("MCP recovery through the Pi runtime", () => {
             },
           },
           {
-            name: "mcp__galaxy__get_tool_panel",
-            label: "Fixture catalog",
+            name: "mcp__brc_analytics__get_assemblies",
+            label: "Fixture assemblies",
             description: "Fixture",
             parameters: Type.Object({}),
             async execute() {
@@ -150,7 +155,7 @@ describe("MCP recovery through the Pi runtime", () => {
                   { id: "fixture-tissue-id", name: "TISSUE" },
                 ],
               });
-              const result = await convertMcpResult("galaxy", "get_tool_panel", {
+              const result = await convertMcpResult("brc-analytics", "get_assemblies", {
                 content: [{ type: "text", text: raw }],
               });
               artifacts.push((result.details as { fullOutputPath: string }).fullOutputPath);
@@ -158,7 +163,7 @@ describe("MCP recovery through the Pi runtime", () => {
             },
           },
           {
-            name: "mcp__galaxy__get_histories",
+            name: "get_histories",
             label: "Fixture histories",
             description: "Fixture",
             parameters: Type.Object({ limit: Type.Number() }),
@@ -181,7 +186,7 @@ describe("MCP recovery through the Pi runtime", () => {
       expect(historyLimits).toEqual([100, 5]);
       expect(observed[0]).toMatchObject({
         isError: true,
-        text: expect.stringContaining("mcp__galaxy__search_tools_by_name"),
+        text: expect.stringContaining("Use search_tools_by_name"),
       });
       expect(observed[1]).toMatchObject({
         isError: false,

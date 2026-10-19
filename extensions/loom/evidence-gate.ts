@@ -127,7 +127,7 @@ import { NO_APPROVAL_REVISION } from "./registry-evaluation";
 import { getSessionRegistry, sessionView } from "./registry-runtime";
 import { readEnv } from "../../shared/orbit-env.js";
 import { applySectionEdit, repeatedHeadingRefusal } from "../../shared/markdown-sections.js";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 /** pi emits its built-in file tools lowercase; mirrors exec-guard's FILE_WRITE_TOOLS. */
 const WRITE_TOOLS = new Set(["write", "edit"]);
@@ -1155,10 +1155,7 @@ export function recordDecision(
   });
 }
 
-export function registerEvidenceGate(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerEvidenceGate(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   // A clearance the user granted and the gate never spent must not outlive the
   // session it was granted in. Registered here rather than in
   // session-lifecycle.ts so the gate owns the whole lifetime of its own state.

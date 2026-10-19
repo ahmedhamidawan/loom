@@ -1,4 +1,4 @@
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { galaxyPageMarkdown } from "../../shared/prompt-blocks.js";
 
 /**
@@ -11,6 +11,5 @@ import { galaxyPageMarkdown } from "../../shared/prompt-blocks.js";
  * Shared by the notebook_push_to_galaxy tool description (covers the first push, before any
  * binding block exists) and the live page-binding context block.
  */
-export const galaxyPageMarkdownGuidance = (family: GalaxyToolFamily = MCP_FAMILY): string =>
+export const galaxyPageMarkdownGuidance = (family: GalaxyToolFamily): string =>
   galaxyPageMarkdown({ tool: family.tool });
-export const GALAXY_PAGE_MARKDOWN_GUIDANCE = galaxyPageMarkdownGuidance();

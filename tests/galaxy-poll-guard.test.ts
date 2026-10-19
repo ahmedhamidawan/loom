@@ -2,17 +2,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
   GALAXY_POLL_INTERVAL_MS,
+  galaxyPollGuidance,
   registerGalaxyPollGuard,
 } from "../extensions/loom/galaxy-poll-guard";
 import {
   createMemoryOutputStore,
   setGalaxyOutputStore,
 } from "../extensions/loom/galaxy-output-store";
-import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
+import { GALAXY } from "./galaxy-family-fixture";
 
 function harness() {
   const on = vi.fn();
-  registerGalaxyPollGuard({ on } as unknown as ExtensionAPI);
+  registerGalaxyPollGuard({ on } as unknown as ExtensionAPI, GALAXY);
   const abort = new AbortController();
   const notify = vi.fn();
   const ctx = { hasUI: true, ui: { notify }, signal: abort.signal } as unknown as ExtensionContext;
@@ -22,11 +24,11 @@ function harness() {
     abort,
     notify,
     fire,
-    check: (name = "mcp__galaxy__get_dataset_details", args = { dataset_id: "data1" }) =>
+    check: (name = "get_dataset_details", args = { dataset_id: "data1" }) =>
       fire("tool_call", { toolName: name, input: args }),
     result: (state: string, extras = {}) =>
       fire("tool_result", {
-        toolName: "mcp__galaxy__get_dataset_details",
+        toolName: "get_dataset_details",
         input: { dataset_id: "data1" },
         isError: false,
         content: [
@@ -46,6 +48,32 @@ function harness() {
 afterEach(() => {
   vi.useRealTimers();
   setGalaxyOutputStore(null);
+});
+
+// The poll guidance from before it took a family, with the family's name, pinned so "same
+// bytes" means something.
+const PINNED_POLL_GUIDANCE = `### Waiting for Galaxy and reporting progress
+
+Give a short progress update before starting a long sequence of tools, at each
+meaningful milestone, and about once a minute while actively working. Explain
+what you verified, what is running, and what comes next. Do not claim scientific
+success from a successful tool response alone.
+
+Loom records every Galaxy submission itself, so a queued/running run is already
+being watched: the background monitor checks every 15 seconds without model
+calls and queues completion verification. Bind the run to its plan step with
+galaxy_job_record or galaxy_invocation_record and a real notebook anchor; don't
+record a job that belongs to a workflow invocation that is already recorded. If no other authorized work is ready, report the wait
+and end the turn so the researcher can talk to you. Do not repeatedly call
+get_dataset_details, launch a shell polling loop, or use sleep to wait.
+A successful metadata request does not mean the dataset has finished.
+Repeated status reads of an unfinished resource have a two-minute cooldown.
+`;
+
+describe("galaxyPollGuidance", () => {
+  it("names the family's status tool, byte for byte", () => {
+    expect(galaxyPollGuidance(GALAXY)).toBe(PINNED_POLL_GUIDANCE);
+  });
 });
 
 describe("Galaxy polling cooldown", () => {
@@ -86,10 +114,8 @@ describe("Galaxy polling cooldown", () => {
   it("does not throttle other datasets, terminal results, or mutations", async () => {
     const h = harness();
     h.result("running");
-    expect(
-      await h.check("mcp__galaxy__get_dataset_details", { dataset_id: "other" }),
-    ).toBeUndefined();
-    expect(await h.check("mcp__galaxy__run_tool")).toBeUndefined();
+    expect(await h.check("get_dataset_details", { dataset_id: "other" })).toBeUndefined();
+    expect(await h.check("run_tool")).toBeUndefined();
     h.result("ok");
     expect(await h.check()).toBeUndefined();
     h.result("error");
@@ -117,13 +143,12 @@ describe("Galaxy polling cooldown", () => {
   });
 });
 
-describe("invocation reads under in-process Galaxy tools", () => {
-  function invocationHarness(opts?: { invocations?: boolean }) {
+describe("invocation reads", () => {
+  function invocationHarness() {
     const on = vi.fn();
     registerGalaxyPollGuard(
       { on } as unknown as ExtensionAPI,
       bareFamily(["get_invocations", "get_dataset_details"]),
-      opts,
     );
     const ctx = {
       hasUI: false,
@@ -151,7 +176,7 @@ describe("invocation reads under in-process Galaxy tools", () => {
 
   it("holds a repeated read of an invocation that is still scheduling", async () => {
     vi.useFakeTimers();
-    const h = invocationHarness({ invocations: true });
+    const h = invocationHarness();
     const annotated = h.result("ready");
     expect(annotated.content[1].text).toContain("still ready");
     let released = false;
@@ -203,7 +228,7 @@ describe("invocation reads under in-process Galaxy tools", () => {
 
     it("holds a repeated read when structuredContent was dropped, reading the saved output", async () => {
       vi.useFakeTimers();
-      const h = invocationHarness({ invocations: true });
+      const h = invocationHarness();
       const annotated = spilled(h, "ready", false);
       expect(annotated.content[0].text).toBe(PREVIEW);
       expect(annotated.content[1].text).toContain("[Loom background monitoring]");
@@ -212,31 +237,25 @@ describe("invocation reads under in-process Galaxy tools", () => {
 
     it("holds it from structuredContent when that survived", async () => {
       vi.useFakeTimers();
-      const h = invocationHarness({ invocations: true });
+      const h = invocationHarness();
       expect(spilled(h, "new", true).content[1].text).toContain("still new");
       expect(await held(h)).toBe(true);
     });
 
     it("lets a spilled finished invocation through", async () => {
-      const h = invocationHarness({ invocations: true });
+      const h = invocationHarness();
       expect(spilled(h, "scheduled", false)).toBeUndefined();
       expect(await h.check()).toBeUndefined();
     });
   });
 
   it("lets reads through once Galaxy has scheduled every step", async () => {
-    const h = invocationHarness({ invocations: true });
+    const h = invocationHarness();
     h.result("new");
     expect(h.result("scheduled")).toBeUndefined();
     expect(await h.check()).toBeUndefined();
     // A listing names no single invocation, so there is nothing to hold.
     h.result("ready");
     expect(await h.check({ history_id: "h1" })).toBeUndefined();
-  });
-
-  it("never throttles get_invocations without the option, as on the MCP desktop", async () => {
-    const h = invocationHarness();
-    expect(h.result("ready")).toBeUndefined();
-    expect(await h.check()).toBeUndefined();
   });
 });

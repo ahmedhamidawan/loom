@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { bareFamily } from "../shared/galaxy-mcp-tools.js";
+import { bareFamily } from "../shared/galaxy-tool-family.js";
 import { createGalaxyOpsToolSource } from "../extensions/loom/galaxy-ops-tools";
 import {
   parseGalaxyResultEnvelope,
@@ -93,7 +93,7 @@ describe("real galaxy-ops envelopes through the submission parsers", () => {
   it("run_tool still parses from the text alone (pi dropped structuredContent)", () => {
     const { args, result } = load("run_tool");
     const { structuredContent: _dropped, ...rest } = result;
-    const out = parseSubmission("mcp__galaxy__run_tool", args, resolveResultPayload(rest));
+    const out = parseSubmission("run_tool", args, resolveResultPayload(rest));
     expect(out.ok && out.submission.jobs?.[0].jobId).toBe(CAT1_JOB);
   });
 
@@ -213,9 +213,9 @@ describe("a spilled real submission", () => {
     // pi drops structuredContent when a handler rewrites content: only text + details remain.
     const resolved = resolveResultPayload({ content: rendered.content, details: rendered.details });
     expect(resolved.outputId).toBe(outputId);
-    expect(parseSubmission("mcp__galaxy__run_tool", args, resolved).ok).toBe(false);
+    expect(parseSubmission("run_tool", args, resolved).ok).toBe(false);
     const reread = { ...resolved, text: galaxyOutputStore().get(outputId!), value: undefined };
-    const out = parseSubmission("mcp__galaxy__run_tool", args, reread);
+    const out = parseSubmission("run_tool", args, reread);
     expect(out.ok && out.submission.jobs?.map((j) => j.jobId)).toEqual([CAT1_JOB]);
   });
 });

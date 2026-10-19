@@ -2,8 +2,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { INVOCATION_SCHEDULING_DONE } from "./galaxy-api";
 import { galaxyOutputStore } from "./galaxy-output-store";
-import { galaxyCall } from "./mcp-recovery";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { galaxyCall } from "./galaxy-recovery";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 // How long a repeated model-facing status read waits. This throttles token
 // spend, not Galaxy load; the background poller runs on its own 15s timer.
@@ -30,7 +30,6 @@ ${family.tool("get_dataset_details")}, launch a shell polling loop, or use sleep
 A successful metadata request does not mean the dataset has finished.
 Repeated status reads of an unfinished resource have a two-minute cooldown.
 `;
-export const GALAXY_POLL_GUIDANCE = galaxyPollGuidance(MCP_FAMILY);
 
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -73,24 +72,15 @@ function envelopes(event: {
   });
 }
 
-export interface GalaxyPollGuardOptions {
-  /**
-   * Also watch `get_invocations(invocation_id)`. On only under in-process Galaxy tools: the
-   * desktop's MCP path never throttled invocation reads, and stays as it was.
-   */
-  invocations?: boolean;
-}
-
 const INVOCATION = "invocation:";
 
 function resource(
   name: string,
   args: Record<string, unknown>,
   family: GalaxyToolFamily,
-  opts: GalaxyPollGuardOptions,
 ): string | undefined {
   const tool = family.toolName(name);
-  if (tool === "get_invocations" && opts.invocations) {
+  if (tool === "get_invocations") {
     return typeof args.invocation_id === "string"
       ? `${INVOCATION}${args.invocation_id}`
       : undefined;
@@ -116,11 +106,7 @@ function waitForCheck(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function registerGalaxyPollGuard(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-  opts: GalaxyPollGuardOptions = {},
-): void {
+export function registerGalaxyPollGuard(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   const pending = new Map<string, { checkedAt: number; jobId?: string }>();
   let generation = 0;
   let sessionAbort = new AbortController();
@@ -140,7 +126,7 @@ export function registerGalaxyPollGuard(
 
   pi.on("tool_call", async (event, ctx) => {
     const call = galaxyCall(event.toolName, event.input, family);
-    const key = call && resource(call.name, call.args, family, opts);
+    const key = call && resource(call.name, call.args, family);
     if (!key) return;
     const observation = pending.get(key);
     if (!observation) return;
@@ -172,7 +158,7 @@ export function registerGalaxyPollGuard(
 
   pi.on("tool_result", (event) => {
     const call = galaxyCall(event.toolName, event.input, family);
-    const key = call && resource(call.name, call.args, family, opts);
+    const key = call && resource(call.name, call.args, family);
     if (!key || event.isError || object(event.details)?.error) return;
     for (const result of envelopes(event)) {
       if (result.success === false) continue;

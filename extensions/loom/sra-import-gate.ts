@@ -11,27 +11,19 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import path from "node:path";
 import { appendActivityEvent } from "./activity";
 import { getNotebookPath } from "./state";
-import { parseObject, SraImportGate, type NormalizeName } from "../../shared/sra-import.js";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import { SraImportGate, type NormalizeName } from "../../shared/sra-import.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 import { sraImportGuidance } from "../../shared/prompt-blocks.js";
 
 export const SRA_IMPORT_GUIDANCE = `${sraImportGuidance()}
 `;
 
-// Galaxy's run_tool as the family names it, as a loom-native galaxy_ tool (any
-// name the family doesn't claim), or wrapped in a generic `mcp({tool, args})`
-// proxy. Names match exactly; unlike the browser's sra-gate normalizer this
-// doesn't trim or lowercase.
+// Galaxy's run_tool as the family names it, or as a loom-native galaxy_ tool (any
+// name the family doesn't claim). Names match exactly; unlike the browser's
+// sra-gate normalizer this doesn't trim or lowercase.
 function sraNormalizer(family: GalaxyToolFamily): NormalizeName {
   const strip = (name: string) => family.toolName(name) ?? name.replace(/^galaxy_/, "");
-  return (name, args) => {
-    if (name === "mcp") {
-      if (args.server !== undefined && args.server !== "galaxy") return null;
-      const inner = parseObject(args.args);
-      return inner ? { name: strip(String(args.tool ?? "")), args: inner } : null;
-    }
-    return { name: strip(name), args };
-  };
+  return (name, args) => ({ name: strip(name), args });
 }
 
 function remediation(runs: string[]): string {
@@ -52,10 +44,7 @@ function remediation(runs: string[]): string {
   );
 }
 
-export function registerSraImportGate(
-  pi: ExtensionAPI,
-  family: GalaxyToolFamily = MCP_FAMILY,
-): void {
+export function registerSraImportGate(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   const gate = new SraImportGate({ remediation, normalizeName: sraNormalizer(family) });
   const clear = () => gate.clear();
   pi.on("session_start", clear);

@@ -59,7 +59,7 @@ import {
   readBundledRepoFile,
 } from "./vendor-skills";
 import { GTN_API, gtnPageText, gtnTopics, gtnTutorials, gtnUrl } from "../../shared/gtn.js";
-import { MCP_FAMILY, type GalaxyToolFamily } from "../../shared/galaxy-mcp-tools.js";
+import type { GalaxyToolFamily } from "../../shared/galaxy-tool-family.js";
 
 /**
  * A record call's label has to say something.
@@ -119,7 +119,7 @@ function recordFailure(message: string): {
   };
 }
 
-export function registerPlanTools(pi: ExtensionAPI, family: GalaxyToolFamily = MCP_FAMILY): void {
+export function registerPlanTools(pi: ExtensionAPI, family: GalaxyToolFamily): void {
   // ─────────────────────────────────────────────────────────────────────────────
   // Tool: Search/browse GTN topics and tutorials
   // ─────────────────────────────────────────────────────────────────────────────

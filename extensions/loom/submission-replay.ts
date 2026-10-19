@@ -23,7 +23,7 @@
  *
  * Each line: `{tool, args?, result, isError?, stepAnchor?}`. `tool` is the name the model would
  * have called, read through the shell's Galaxy tool family the way a live call is, so a name no
- * shell offers any more (galaxy-mcp's `mcp__galaxy__run_tool`) is refused rather than recorded.
+ * shell offers any more (the retired MCP spelling of run_tool) is refused rather than recorded.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -139,7 +139,6 @@ export function registerSubmissionReplay(pi: ExtensionAPI): void {
         // is what keeps the blocks from claiming a submission Loom watched and
         // a server that answered, neither of which happened here.
         { args: entry.args ?? {}, stepAnchor: entry.stepAnchor ?? null, replayed: true },
-        entry.tool !== toolName ? entry.tool : undefined,
       );
     }
 
