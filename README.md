@@ -20,6 +20,8 @@ Future shells — a Galaxy-embedded web UI, a hosted server mode, anything else 
 
 That web shell already has a working seed today: a browser-served build of the Orbit renderer, running the same brain over RPC, reachable from another device on your LAN -- handy for chatting from a phone, and a natural home for Galaxy interactive tools later on. It's an unauthenticated single-user dev tool for now, so keep it on a trusted network; setup and the security caveats are in [`web/README.md`](web/README.md).
 
+A second web shell lives in [`browser/`](browser/): Orbit's chat UI with the agent running in a browser worker, shipped as the Olit Galaxy visualization plugin. For now that worker carries its own copy of the agent; it is moving onto the same Loom brain, so new brain behavior belongs in `extensions/loom/`, not in `browser/` (see [`docs/architecture.md`](docs/architecture.md#browser-shell-browser)).
+
 ## How it works
 
 1. You open Orbit (or run `loom`) in an analysis directory. A `notebook.md` is created on first launch and committed to git.
@@ -265,7 +267,7 @@ Orbit ships as a native build that bundles its own Node runtime, `uv`, and Loom 
 
 ### Loom CLI from npm
 
-Run the brain on the command line without Orbit. Requires Node 22.19+ and (for Galaxy MCP) [uv](https://docs.astral.sh/uv/).
+Run the brain on the command line without Orbit. Requires Node 22.19+. The Galaxy tools run in-process, so Galaxy needs nothing else; [uv](https://docs.astral.sh/uv/) is optional: only the vendored planemo skills' `uvx` route uses it.
 
 ```bash
 npm install -g @galaxyproject/loom
@@ -285,7 +287,8 @@ close the CLI (Ctrl-D or `/exit`) once it's up so the two don't both write the
 same notebook. If Orbit isn't installed, `/orbit` will point you at the release
 page.
 
-Install `uv` if you don't already have it:
+If you'll use the vendored planemo skills, they can run planemo through `uv`
+(a pip-installed planemo works too); Galaxy itself needs nothing extra:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -304,7 +307,7 @@ cd app && npm install
 ```
 
 Then `npm start` from `app/` for Orbit, or `node bin/loom.js` from the repo root
-for the CLI. Needs Node 22.19+ (matching [`.nvmrc`](.nvmrc)) and `uv` on `PATH`.
+for the CLI. Needs Node 22.19+ (matching [`.nvmrc`](.nvmrc)); `uv` on `PATH` only for the planemo skills' `uvx` route.
 
 [**CONTRIBUTING.md**](CONTRIBUTING.md) has the rest: per-OS bootstrap, the
 browser dev shell with hot reload, the test/typecheck loop, repo layout, and how

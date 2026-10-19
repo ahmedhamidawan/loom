@@ -69,7 +69,7 @@ reference; Olit reuses Orbit's chat interface.
 | Agent runtime | Local or server (pi) | Browser worker (pi-durable) |
 | Computation | Local environment and Galaxy | Galaxy, plus Pyodide |
 | Shell | Yes | No |
-| Galaxy access | MCP | Your Galaxy session |
+| Galaxy access | In-process galaxy-ops, your API key | Your Galaxy session |
 | Delivered as | Desktop app or web service | Galaxy visualization plugin |
 
 For a shell, local software or unrestricted networking, use Orbit.

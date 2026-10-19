@@ -19,7 +19,8 @@ lives in `docs/superpowers/specs/2026-05-09-orbit-web-remote-only-design.md`.
 
 Same as the developer install in the root [`README.md`](../README.md):
 
-- Node 22.19+ and `uv` on `PATH` (uv is needed by galaxy-mcp, same as the CLI).
+- Node 22.19+. `uv` on `PATH` is optional, same as the CLI: only the vendored
+  planemo skills' `uvx` route uses it; the Galaxy tools run in-process.
 - A configured `~/.loom/config.json` with at least an LLM API key. The web
   server reads the exact same config as Orbit and the CLI, so if either of
   those already works, you're set. Otherwise you can fill it in from the

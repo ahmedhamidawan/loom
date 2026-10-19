@@ -5,7 +5,7 @@ This checklist matches the notebook-only Loom runtime: `notebook.md` is the dura
 ## Preconditions
 
 - Node.js and npm available
-- `uv` or `uvx` available for `galaxy-mcp`
+- `uv`/`uvx` only if testing the vendored planemo skills (the Galaxy tools run in-process)
 - A working `pi` CLI installed
 - Galaxy API key ready for the target server if testing Galaxy
 

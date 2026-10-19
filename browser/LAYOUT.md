@@ -10,6 +10,15 @@ It forwards `build`, `dev`, `preview`, `build:session`, `test:watch` and `test:u
 `build:pyodide` and `build:skills` to core, and `test:unit` and `typecheck` to all three; `test`
 chains all of the checks.
 
+The brain in `core/src/agent/` is interim. It is the browser's own agent, and Orbit's brain
+(`extensions/loom/` at the repo root) is replacing it: the worker is to boot that brain through
+`pi-host.ts`, and the duplicated brain modules here are then deleted, keeping the worker,
+`pi-host.ts`, storage and the other shell support. Until then, fix bugs here when you have to,
+but put new brain behavior (prompt text, guards, Galaxy tool handling, notebook and record
+semantics) in `extensions/loom/` and `shared/`, and keep what is browser-only layered on top of
+Orbit's. The repo's `CLAUDE.md` and
+`docs/architecture.md` ("Browser shell") have the rule and where the migration stands.
+
 ```
 package.json              private workspace root: shared dev tooling, scripts that forward
 tsconfig.base.json        compiler options both packages extend
@@ -31,7 +40,8 @@ core/                     @galaxyproject/orbit-browser, TypeScript source behind
   src/chat-markdown.ts      the chat's markdown: the model's raw HTML as text, images only from Galaxy
   src/artifacts/            artifact kinds (kinds.ts), the pane's renderers (index.ts), mermaid
   src/node.ts               the Node entry: Headless, describe, runNodeSession
-  src/agent/                the agent: pi-durable's harness, in a worker in the browser
+  src/agent/                the agent: pi-durable's harness, in a worker in the browser (its brain
+                            modules are interim; Orbit's brain replaces them, see above)
     index.ts                  the agent entry a flavor extends
     worker.ts client.ts       startAgentWorker, and the page's handle on it
     runtime.ts                the harness: conversations per history, model, Stop, save and open
