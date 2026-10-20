@@ -48,7 +48,14 @@ afterEach(() => {
   setCapabilityProfile(null);
 });
 
-function gate(classifyArgs: boolean, { hasUI = true, answer = true } = {}) {
+function gate(
+  classifyArgs: boolean,
+  {
+    hasUI = true,
+    answer = true,
+    signal,
+  }: { hasUI?: boolean; answer?: boolean; signal?: AbortSignal } = {},
+) {
   const handlers: Handler[] = [];
   registerGalaxyDestructiveGate(
     { on: (event: string, h: Handler) => event === "tool_call" && handlers.push(h) } as never,
@@ -56,8 +63,8 @@ function gate(classifyArgs: boolean, { hasUI = true, answer = true } = {}) {
     { classifyArgs },
   );
   expect(handlers).toHaveLength(1);
-  const confirm = vi.fn(async () => answer);
-  const ctx = { hasUI, ui: { confirm }, model: { id: "test-model" } };
+  const confirm = vi.fn(async (_title: string, _message: string, _opts?: object) => answer);
+  const ctx = { hasUI, signal, ui: { confirm }, model: { id: "test-model" } };
   const call = (toolName: string, input: Record<string, unknown>) =>
     handlers[0]({ toolName, input }, ctx) as Promise<{ block: true; reason: string } | undefined>;
   return { call, confirm };
@@ -75,7 +82,7 @@ describe("the bare-path destructive confirm", () => {
       expect.stringMatching(
         /^test-model wants to: Mark the entire history \(h1\) as deleted.*\n\nContinue\?$/s,
       ),
-      {},
+      { signal: undefined },
     );
     expect(audits()).toEqual([
       expect.objectContaining({
@@ -115,6 +122,31 @@ describe("the bare-path destructive confirm", () => {
       reason: "Destructive Galaxy operation cancelled by user.",
     });
     expect(audits()[0].payload).toMatchObject({ outcome: "blocked:destructive-user" });
+  });
+
+  it("hands the confirm the turn's signal, so an interrupt withdraws the ask", async () => {
+    const turn = new AbortController();
+    const { call, confirm } = gate(true, { signal: turn.signal });
+    await call("delete_user_tool", { uuid: "u-1" });
+    expect(confirm.mock.calls[0][2]).toEqual({ signal: turn.signal });
+  });
+
+  it("blocks without blaming the user when the turn is interrupted mid-confirm", async () => {
+    const turn = new AbortController();
+    const { call, confirm } = gate(true, { signal: turn.signal });
+    // pi resolves a withdrawn confirm as a no; even a late yes must not run the delete.
+    confirm.mockImplementationOnce(async () => {
+      turn.abort();
+      return true;
+    });
+    expect(await call("update_history", { history_id: "h1", deleted: true })).toEqual({
+      block: true,
+      reason: "Destructive Galaxy operation not run: the turn was interrupted.",
+    });
+    expect(audits()[0].payload).toMatchObject({
+      decision: "ask",
+      outcome: "blocked:destructive-aborted",
+    });
   });
 
   it("blocks with exec-guard's wording when no one is there to ask", async () => {

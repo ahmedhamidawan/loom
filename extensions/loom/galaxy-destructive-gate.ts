@@ -92,8 +92,14 @@ export function registerGalaxyDestructiveGate(
     const proceed = await ctx.ui.confirm(
       "Confirm destructive Galaxy operation",
       `${ctx.model?.id ?? "The model"} wants to: ${headline}\n\nContinue?`,
-      {},
+      // Without the turn's signal an interrupted turn leaves the ask open, and a durable host
+      // closing the harness waits on it forever instead of pausing to ask again on resume.
+      { signal: ctx.signal },
     );
+    if (ctx.signal?.aborted) {
+      audit(event.toolName, input, "ask", headline, "blocked:destructive-aborted");
+      return { block: true, reason: "Destructive Galaxy operation not run: the turn was interrupted." };
+    }
     if (proceed) {
       audit(event.toolName, input, "ask", headline, "allowed:destructive-confirm");
       return;
