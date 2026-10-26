@@ -3,7 +3,8 @@
 // --provider with a plain exit 1, which a shell reads as a crash and retries --
 // so the brain checks first and exits EX_CONFIG with a message instead.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Provider names declared in pi's models.json. pi resolves --provider against
@@ -20,6 +21,40 @@ export function modelsJsonProviders(modelsPath) {
   } catch {
     return [];
   }
+}
+
+const nonEmptyDir = (dir) => {
+  try {
+    return readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+};
+
+const settingsLoadsCode = (path) => {
+  try {
+    const s = JSON.parse(readFileSync(path, "utf-8"));
+    return [s?.packages, s?.extensions].some((v) => Array.isArray(v) && v.length > 0);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Could a pi extension register providers we can't see from here? pi loads
+ * extensions from these places after startup, and any of them can call
+ * registerProvider -- so with one present, an unrecognized name isn't proof.
+ * @param {string} agentDir
+ * @param {string} cwd
+ */
+export function userExtensionsMayRegisterProviders(agentDir, cwd) {
+  const projectDir = join(cwd, ".pi");
+  return (
+    nonEmptyDir(join(agentDir, "extensions")) ||
+    nonEmptyDir(join(projectDir, "extensions")) ||
+    settingsLoadsCode(join(agentDir, "settings.json")) ||
+    settingsLoadsCode(join(projectDir, "settings.json"))
+  );
 }
 
 /**
@@ -46,8 +81,8 @@ export function unknownProviderMessage(provider) {
   return `loom: provider "${provider}" isn't supported by this version of Loom, so the
 agent can't start with it.
 
-Open Preferences and pick another provider. A local server such as Ollama or
-llama.cpp still works as an "OpenAI-compatible endpoint" with its base URL
-(e.g. http://127.0.0.1:11434/v1).
+Open Preferences and pick another provider. If this was a local server
+(Ollama, llama.cpp), set it up as an "OpenAI-compatible endpoint" with its
+base URL instead (e.g. http://127.0.0.1:11434/v1).
 `;
 }

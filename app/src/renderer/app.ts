@@ -1414,6 +1414,7 @@ async function populateDynamicModelData(): Promise<void> {
   try {
     const res = await window.orbit.listAllModels();
     if (!res.ok) return;
+    if (res.available?.length) pruneProviderPickers(res.available);
     const newModels: Record<string, ModelChoice[]> = {};
     const newPricing: typeof PRICING = {};
     const newWindows: typeof CONTEXT_WINDOWS = {};
@@ -1443,7 +1444,6 @@ async function populateDynamicModelData(): Promise<void> {
       if (!list.length) delete newModels[provider];
     }
     if (Object.keys(newModels).length === 0) return;
-    pruneProviderPickers(Object.keys(newModels));
     // Merge rather than replace so hardcoded providers not returned by the
     // IPC (e.g. deepseek before main process restarts) survive.
     MODELS_BY_PROVIDER = { ...MODELS_BY_PROVIDER, ...newModels };

@@ -6,4 +6,6 @@ export function isKnownProvider(
   extra?: Iterable<string>,
 ): boolean;
 
+export function userExtensionsMayRegisterProviders(agentDir: string, cwd: string): boolean;
+
 export function unknownProviderMessage(provider: string): string;

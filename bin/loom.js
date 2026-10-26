@@ -21,6 +21,7 @@ import {
   isKnownProvider,
   modelsJsonProviders,
   unknownProviderMessage,
+  userExtensionsMayRegisterProviders,
 } from "../shared/known-provider.js";
 import { pickChannel } from "../shared/version-compare.js";
 import {
@@ -470,6 +471,7 @@ async function checkProviderKnown() {
   // Only the provider we inject is ours to vouch for.
   if (hasArg("--provider") || hasArg("--models")) return;
   if (!activeLlmProvider || isCustomProvider(activeLlmConfig)) return;
+  if (userExtensionsMayRegisterProviders(agentDir, process.cwd())) return;
   let builtIn;
   try {
     ({ getProviders: builtIn } = await import("@earendil-works/pi-ai/compat"));

@@ -57,5 +57,6 @@ export function pickOfferedProvider(
   offered: readonly string[],
   fallback: string,
 ): string {
-  return saved && offered.includes(saved) ? saved : fallback;
+  if (saved && offered.includes(saved)) return saved;
+  return offered.includes(fallback) || offered.length === 0 ? fallback : offered[0];
 }

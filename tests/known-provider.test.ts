@@ -7,6 +7,7 @@ import {
   isKnownProvider,
   modelsJsonProviders,
   unknownProviderMessage,
+  userExtensionsMayRegisterProviders,
 } from "../shared/known-provider.js";
 
 describe("isKnownProvider", () => {
@@ -36,6 +37,32 @@ describe("modelsJsonProviders", () => {
       expect(modelsJsonProviders(path)).toEqual(["a", "b"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("userExtensionsMayRegisterProviders", () => {
+  // Any of these can call registerProvider after pi starts, so the brain must
+  // not call a name it can't see unknown.
+  it("sees extension dirs and settings that load code, global or project", () => {
+    const root = mkdtempSync(join(tmpdir(), "loom-ext-providers-"));
+    try {
+      const agentDir = join(root, "agent");
+      const cwd = join(root, "project");
+      mkdirSync(join(agentDir, "extensions"), { recursive: true });
+      mkdirSync(join(cwd, ".pi"), { recursive: true });
+      // Empty dir, settings without code: nothing to load.
+      writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: [] }));
+      expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(false);
+
+      writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify({ packages: ["npm:x"] }));
+      expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(true);
+      rmSync(join(cwd, ".pi", "settings.json"));
+
+      writeFileSync(join(agentDir, "extensions", "mine.ts"), "export default () => {}");
+      expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

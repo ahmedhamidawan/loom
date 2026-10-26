@@ -71,5 +71,7 @@ describe("pickOfferedProvider (#598)", () => {
   it("falls back when the saved provider is gone", () => {
     expect(pickOfferedProvider("ollama", ["anthropic", "openai"], "anthropic")).toBe("anthropic");
     expect(pickOfferedProvider(undefined, ["anthropic"], "anthropic")).toBe("anthropic");
+    // Never a fallback the picker can't show either.
+    expect(pickOfferedProvider("ollama", ["openai", "google"], "anthropic")).toBe("openai");
   });
 });
