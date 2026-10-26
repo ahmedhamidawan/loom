@@ -829,7 +829,6 @@ export function registerIpcHandlers(agent: AgentManager): void {
       "openai",
       "openai-codex",
       "google",
-      "ollama",
       "openrouter",
       "groq",
       "mistral",

@@ -29,7 +29,12 @@ import {
 import { applyOrbitTheme } from "./theme.js";
 import { caretVisualLineFlags, shouldRecallOnArrow } from "./input-history-nav.js";
 import { shouldAcceptSlashCommandOnEnter } from "./slash-popup-nav.js";
-import { buildDiscoveredModelOptions, type ModelOption } from "./model-options.js";
+import {
+  buildDiscoveredModelOptions,
+  pickOfferedProvider,
+  unavailableProviders,
+  type ModelOption,
+} from "./model-options.js";
 import { planModelDiscovery } from "./model-discovery-gate.js";
 import { LoomWidgetKey, decodeMarkdownWidget } from "../../../shared/loom-shell-contract.js";
 import {
@@ -1369,7 +1374,11 @@ async function checkFirstRun(): Promise<void> {
     const hasKey = active ? Boolean(cfg.llm?.providers?.[active]?.hasApiKey) : false;
     if (!hasKey) {
       remoteKeyEntry = true;
-      if (active) welcomeProvider.value = active;
+      welcomeProvider.value = pickOfferedProvider(
+        active,
+        providerOptionValues(welcomeProvider),
+        welcomeProvider.value,
+      );
       selectWelcomeProvider(welcomeProvider.value);
       void updateWelcomeAuthUi();
       // Remote: cwd is fixed (/tmp/loom-session) and Galaxy creds are injected,
@@ -1434,6 +1443,7 @@ async function populateDynamicModelData(): Promise<void> {
       if (!list.length) delete newModels[provider];
     }
     if (Object.keys(newModels).length === 0) return;
+    pruneProviderPickers(Object.keys(newModels));
     // Merge rather than replace so hardcoded providers not returned by the
     // IPC (e.g. deepseek before main process restarts) survive.
     MODELS_BY_PROVIDER = { ...MODELS_BY_PROVIDER, ...newModels };
@@ -1452,6 +1462,22 @@ async function populateDynamicModelData(): Promise<void> {
   }
 }
 void populateDynamicModelData();
+
+function providerOptionValues(select: HTMLSelectElement): string[] {
+  return Array.from(select.options, (o) => o.value);
+}
+
+// Drop picker entries for providers pi no longer ships (#598).
+function pruneProviderPickers(available: readonly string[]): void {
+  for (const select of [prefsProvider, welcomeProvider]) {
+    const dead = unavailableProviders(providerOptionValues(select), available, [
+      CUSTOM_ENDPOINT_PROVIDER,
+    ]);
+    for (const opt of Array.from(select.options)) {
+      if (dead.includes(opt.value)) opt.remove();
+    }
+  }
+}
 
 function captureUsage(event: Record<string, unknown>): void {
   // message_start carries model info; message updates carry rolling usage
@@ -3490,10 +3516,6 @@ let MODELS_BY_PROVIDER: Record<string, ModelChoice[]> = {
     { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro" },
     { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash (fast)" },
   ],
-  ollama: [
-    { id: "qwen3-coder:30b", label: "Qwen3-Coder 30B (local, A5000) — free" },
-    { id: "qwen3:8b", label: "Qwen3 8B (local, fast) — free" },
-  ],
   "openai-compatible": [],
 };
 
@@ -3998,7 +4020,11 @@ async function openPreferences(): Promise<void> {
       savedBaseUrl: p.baseUrl ?? "",
     };
   }
-  prefsActiveProvider = config.llm?.active || "anthropic";
+  prefsActiveProvider = pickOfferedProvider(
+    config.llm?.active,
+    providerOptionValues(prefsProvider),
+    "anthropic",
+  );
   prefsProvider.value = prefsActiveProvider;
   loadProviderFields(prefsActiveProvider);
   await updatePrefsAuthUi();
