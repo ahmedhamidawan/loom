@@ -59,6 +59,8 @@ describe("userExtensionsMayRegisterProviders", () => {
       expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(true);
       rmSync(join(cwd, ".pi", "settings.json"));
 
+      writeFileSync(join(agentDir, "extensions", ".DS_Store"), "");
+      expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(false);
       writeFileSync(join(agentDir, "extensions", "mine.ts"), "export default () => {}");
       expect(userExtensionsMayRegisterProviders(agentDir, cwd)).toBe(true);
     } finally {
@@ -92,6 +94,8 @@ describe("brain startup with a provider pi doesn't ship", () => {
             USERPROFILE: home,
             PI_CODING_AGENT_DIR: agentDir,
           },
+          // A .pi/ in whatever directory runs the tests must not leak in.
+          cwd: home,
           input: "",
           encoding: "utf-8",
           timeout: 30_000,

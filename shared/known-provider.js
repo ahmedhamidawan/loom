@@ -25,7 +25,8 @@ export function modelsJsonProviders(modelsPath) {
 
 const nonEmptyDir = (dir) => {
   try {
-    return readdirSync(dir).length > 0;
+    // Dotfiles (.DS_Store, .gitkeep) aren't extensions.
+    return readdirSync(dir).some((f) => !f.startsWith("."));
   } catch {
     return false;
   }

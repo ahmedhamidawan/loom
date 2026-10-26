@@ -1473,9 +1473,13 @@ function pruneProviderPickers(available: readonly string[]): void {
     const dead = unavailableProviders(providerOptionValues(select), available, [
       CUSTOM_ENDPOINT_PROVIDER,
     ]);
+    const before = select.value;
     for (const opt of Array.from(select.options)) {
       if (dead.includes(opt.value)) opt.remove();
     }
+    // Removing the selected option moves the selection without a change event,
+    // which would leave the provider's fields showing the dead one.
+    if (select.value !== before) select.dispatchEvent(new Event("change"));
   }
 }
 

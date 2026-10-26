@@ -57,6 +57,8 @@ export function pickOfferedProvider(
   offered: readonly string[],
   fallback: string,
 ): string {
-  if (saved && offered.includes(saved)) return saved;
+  // pi matches provider names case-insensitively, so a hand-edited "OpenAI" is live.
+  const match = saved && offered.find((o) => o.toLowerCase() === saved.toLowerCase());
+  if (match) return match;
   return offered.includes(fallback) || offered.length === 0 ? fallback : offered[0];
 }

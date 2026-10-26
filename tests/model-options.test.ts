@@ -65,6 +65,7 @@ describe("unavailableProviders (#598)", () => {
 describe("pickOfferedProvider (#598)", () => {
   it("keeps a saved provider the picker offers", () => {
     expect(pickOfferedProvider("openai", ["anthropic", "openai"], "anthropic")).toBe("openai");
+    expect(pickOfferedProvider("OpenAI", ["anthropic", "openai"], "anthropic")).toBe("openai");
   });
 
   // Showing a blank picker and saving it would write the dead provider back.
