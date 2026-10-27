@@ -17,6 +17,12 @@ import { EX_CONFIG } from "../shared/brain-exit.js";
 import { resolvePiExtensionDir } from "./pi-extension-path.js";
 import { migrateLegacyMcpConfig } from "./legacy-mcp-config.js";
 import { loadPiDefaultModels, piDefaultModel } from "../shared/pi-default-model.js";
+import {
+  isKnownProvider,
+  modelsJsonProviders,
+  unknownProviderMessage,
+  userExtensionsMayRegisterProviders,
+} from "../shared/known-provider.js";
 import { pickChannel } from "../shared/version-compare.js";
 import {
   isCustomProvider,
@@ -455,6 +461,31 @@ or unset "llm.active" in ~/.loom/config.json.`;
 }
 
 /**
+ * A saved provider pi no longer ships (ollama after pi 1.1.0, #598) makes pi
+ * exit 1 on startup, which Orbit retries until its budget runs out. Catch it
+ * here so it exits EX_CONFIG with a message the shell can show.
+ */
+async function checkProviderKnown() {
+  const skipFlags = ["--version", "--help", "-h", "--list-models"];
+  if (userArgs.some((a) => skipFlags.some((f) => a.startsWith(f)))) return;
+  // Only the provider we inject is ours to vouch for.
+  if (hasArg("--provider") || hasArg("--models")) return;
+  if (!activeLlmProvider || isCustomProvider(activeLlmConfig)) return;
+  if (userExtensionsMayRegisterProviders(agentDir, process.cwd())) return;
+  let builtIn;
+  try {
+    ({ getProviders: builtIn } = await import("@earendil-works/pi-ai/compat"));
+  } catch {
+    // Can't see pi's registry -- leave the verdict to pi.
+    return;
+  }
+  const extra = modelsJsonProviders(join(agentDir, "models.json"));
+  if (isKnownProvider(activeLlmProvider, builtIn(), extra)) return;
+  console.error(unknownProviderMessage(activeLlmProvider));
+  process.exit(EX_CONFIG);
+}
+
+/**
  * Every exit below is EX_CONFIG, not 1: each one has already diagnosed the
  * problem and printed the fix for it, and none of them can come out differently
  * on a second attempt. A shell reads that code as "show this, don't retry"
@@ -668,6 +699,7 @@ if (userArgs[0] === "update") {
   });
   child.on("exit", (code) => process.exit(code ?? 0));
 } else {
+  await checkProviderKnown();
   checkLLMProvider();
 
   // Galaxy is configured but the uvx runner that launches galaxy-mcp is missing.
