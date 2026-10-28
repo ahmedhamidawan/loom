@@ -767,7 +767,7 @@ galaxyStatus.addEventListener("click", () => {
 // configured. Cloud (default) lets the agent decide per-plan whether each
 // step routes locally or to Galaxy. The gate is prompt-level guidance from
 // the brain (see extensions/loom/context.ts), not enforced by
-// unregistering Galaxy MCP — flipping the toggle restarts the agent so the
+// unregistering the Galaxy tools — flipping the toggle restarts the agent so the
 // new mode reaches the prompt.
 
 const execLocalBtn = document.getElementById("exec-mode-local") as HTMLButtonElement;
